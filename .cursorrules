@@ -1,0 +1,493 @@
+# KoraBuild Admin Dashboard - Cursor AI Rules
+
+## Project Context
+You are building KoraBuild Admin Dashboard, a comprehensive web-based admin interface for managing the KoraBuild construction project management system. This dashboard provides complete oversight and control over all mobile app users, projects, contractors, and system operations. The dashboard must be enterprise-grade, secure, and efficient for managing multiple construction projects simultaneously.
+
+## 🚨 CRITICAL RULES - NEVER VIOLATE
+
+### 1. NO HARDCODED DATA
+- **NEVER** use hardcoded text, numbers, or static data where dynamic content should be used
+- ALL user information, project data, statistics, and content MUST come from Supabase database
+- Use placeholder text only during initial UI development, then immediately replace with API calls
+- Example: Instead of `<div>5 Active Projects</div>`, use `<div>{projects.filter(p => p.status === 'in_progress').length} Active Projects</div>`
+
+### 2. TYPESCRIPT STRICT MODE
+- Use TypeScript for ALL files with strict type checking
+- Define interfaces for all props, state, and data structures
+- No `any` types - use proper typing or `unknown` with type guards
+- All components must have proper TypeScript interfaces
+- Share types with mobile app where applicable
+
+### 3. NEXT.JS BEST PRACTICES
+- Use Next.js 14+ with App Router
+- Implement Server-Side Rendering (SSR) for performance
+- Use Server Components by default, Client Components only when needed
+- Implement proper SEO and meta tags
+- Use Next.js optimized Image component
+
+## 🛠 Technical Stack Requirements
+
+### Framework & Libraries
+```typescript
+// Core Framework
+- Next.js 14+ with App Router and TypeScript
+- React 18+ with Server and Client Components
+- Tailwind CSS for styling with custom design system
+
+// State Management
+- Zustand for client-side state management
+- React Query (TanStack Query) for server state and caching
+- SWR for real-time data synchronization
+
+// Database & Auth
+- Supabase (PostgreSQL) with real-time subscriptions
+- Supabase Auth with Row Level Security (RLS)
+- Supabase Storage for file management
+
+// UI Components & Design
+- Radix UI primitives for accessible components
+- Lucide React for icons
+- React Hook Form with Zod validation
+- Framer Motion for animations
+
+// Data Visualization
+- Recharts for charts and analytics
+- React Table (TanStack Table) for complex data tables
+- Date-fns for date manipulation
+
+// File Handling & Communication
+- React Dropzone for file uploads
+- React PDF for document viewing
+- Socket.io for real-time communication
+- React Virtual for large list performance
+
+// Development & Testing
+- ESLint + Prettier for code quality
+- Jest + React Testing Library for testing
+- Storybook for component development
+- TypeScript strict mode
+```
+
+### File Structure Requirements
+```
+src/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/
+│   │   └── layout.tsx
+│   ├── (dashboard)/
+│   │   ├── dashboard/
+│   │   ├── projects/
+│   │   ├── users/
+│   │   ├── contractors/
+│   │   ├── communications/
+│   │   ├── finances/
+│   │   ├── quality/
+│   │   ├── schedule/
+│   │   ├── analytics/
+│   │   ├── documents/
+│   │   ├── safety/
+│   │   ├── orders/
+│   │   └── layout.tsx
+│   ├── api/
+│   │   ├── auth/
+│   │   ├── projects/
+│   │   ├── users/
+│   │   └── [...supabase]/
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/
+│   ├── ui/ (reusable UI components)
+│   ├── auth/ (authentication components)
+│   ├── dashboard/ (dashboard widgets)
+│   ├── tables/ (data table components)
+│   ├── forms/ (form components)
+│   ├── charts/ (chart components)
+│   ├── modals/ (modal components)
+│   └── layout/ (layout components)
+├── lib/
+│   ├── supabase/
+│   │   ├── client.ts
+│   │   ├── server.ts
+│   │   └── middleware.ts
+│   ├── auth/
+│   ├── utils/
+│   ├── validations/
+│   └── constants/
+├── hooks/
+│   ├── useAuth.ts
+│   ├── useProjects.ts
+│   ├── useUsers.ts
+│   └── useRealtime.ts
+├── stores/
+│   ├── authStore.ts
+│   ├── projectStore.ts
+│   └── uiStore.ts
+├── types/
+│   ├── database.ts (generated from Supabase)
+│   ├── auth.ts
+│   ├── projects.ts
+│   └── shared.ts (shared with mobile app)
+└── styles/
+    └── globals.css
+```
+
+## 🎨 Design System (Professional Admin Interface)
+
+### Color Palette (Admin Dashboard Theme)
+```typescript
+const colors = {
+  primary: {
+    50: '#fff7ed',
+    100: '#ffedd5', 
+    500: '#fe6700', // Construction Orange - primary actions
+    600: '#e55a00',
+    700: '#cc4e00',
+    900: '#7c2d00',
+  },
+  secondary: {
+    50: '#f8f9fa',
+    100: '#e9ecef',
+    500: '#6c757d', // Professional Gray
+    600: '#5a6268',
+    700: '#495057',
+    900: '#212529',
+  },
+  accent: {
+    50: '#fffbeb',
+    500: '#f59e0b', // Amber - warnings and highlights
+    600: '#d97706',
+  },
+  success: '#28a745', // Green - completion and approval
+  warning: '#ffc107', // Yellow - caution and pending
+  error: '#dc3545', // Red - issues and critical alerts
+  info: '#17a2b8', // Blue - information and links
+  background: {
+    primary: '#ffffff',
+    secondary: '#f8f9fa',
+    tertiary: '#e9ecef',
+  },
+  text: {
+    primary: '#212529',
+    secondary: '#6c757d',
+    muted: '#adb5bd',
+  }
+}
+```
+
+### Typography System
+```typescript
+const typography = {
+  // Display headers
+  display1: { fontFamily: 'Inter', fontSize: '48px', fontWeight: 800, lineHeight: '56px' },
+  display2: { fontFamily: 'Inter', fontSize: '40px', fontWeight: 700, lineHeight: '48px' },
+  
+  // Page headers
+  h1: { fontFamily: 'Inter', fontSize: '32px', fontWeight: 700, lineHeight: '40px' },
+  h2: { fontFamily: 'Inter', fontSize: '28px', fontWeight: 600, lineHeight: '36px' },
+  h3: { fontFamily: 'Inter', fontSize: '24px', fontWeight: 600, lineHeight: '32px' },
+  h4: { fontFamily: 'Inter', fontSize: '20px', fontWeight: 600, lineHeight: '28px' },
+  h5: { fontFamily: 'Inter', fontSize: '18px', fontWeight: 600, lineHeight: '24px' },
+  h6: { fontFamily: 'Inter', fontSize: '16px', fontWeight: 600, lineHeight: '24px' },
+  
+  // Body text
+  body1: { fontFamily: 'Inter', fontSize: '16px', fontWeight: 400, lineHeight: '24px' },
+  body2: { fontFamily: 'Inter', fontSize: '14px', fontWeight: 400, lineHeight: '20px' },
+  
+  // Interface text
+  caption: { fontFamily: 'Inter', fontSize: '12px', fontWeight: 500, lineHeight: '16px' },
+  overline: { fontFamily: 'Inter', fontSize: '10px', fontWeight: 600, lineHeight: '12px', textTransform: 'uppercase' },
+  
+  // Data display
+  mono: { fontFamily: 'JetBrains Mono', fontSize: '14px', fontWeight: 400, lineHeight: '20px' },
+  numbers: { fontFamily: 'Inter', fontSize: '16px', fontWeight: 500, fontVariant: ['tabular-nums'] },
+}
+```
+
+### Spacing & Layout System
+```typescript
+const spacing = {
+  px: '1px',
+  0: '0',
+  0.5: '2px',
+  1: '4px',
+  1.5: '6px',
+  2: '8px',
+  2.5: '10px',
+  3: '12px',
+  3.5: '14px',
+  4: '16px',
+  5: '20px',
+  6: '24px',
+  7: '28px',
+  8: '32px',
+  9: '36px',
+  10: '40px',
+  11: '44px',
+  12: '48px',
+  14: '56px',
+  16: '64px',
+  20: '80px',
+  24: '96px',
+  28: '112px',
+  32: '128px',
+}
+```
+
+## 🔧 Component Development Rules
+
+### UI Components
+- Create reusable components in `src/components/ui/`
+- Use Radix UI primitives as base for complex components
+- All components must have proper TypeScript interfaces
+- Include proper ARIA labels and accessibility features
+- Support dark/light theme switching
+- Use compound component patterns for complex UI elements
+
+### Component Architecture Template
+```typescript
+interface ComponentProps {
+  // Define all props with proper types
+  title: string;
+  variant?: 'primary' | 'secondary' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
+  disabled?: boolean;
+  loading?: boolean;
+  children?: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+}
+
+export function Component({
+  title,
+  variant = 'primary',
+  size = 'md',
+  disabled = false,
+  loading = false,
+  children,
+  className,
+  onClick,
+}: ComponentProps) {
+  return (
+    <button
+      className={cn(
+        // Base styles
+        "inline-flex items-center justify-center rounded-md font-medium transition-colors",
+        // Variant styles
+        variant === 'primary' && "bg-orange-500 text-white hover:bg-orange-600",
+        variant === 'secondary' && "bg-gray-100 text-gray-900 hover:bg-gray-200",
+        // Size styles
+        size === 'sm' && "h-8 px-3 text-sm",
+        size === 'md' && "h-10 px-4 text-base",
+        size === 'lg' && "h-12 px-6 text-lg",
+        // State styles
+        disabled && "opacity-50 cursor-not-allowed",
+        loading && "cursor-wait",
+        className
+      )}
+      disabled={disabled || loading}
+      onClick={onClick}
+    >
+      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {title}
+      {children}
+    </button>
+  );
+}
+```
+
+## 🗄 Database Integration Rules
+
+### Supabase Integration
+- Use Supabase client for all database operations
+- Implement Row Level Security (RLS) for admin access control
+- Use real-time subscriptions for live data updates
+- Handle offline scenarios gracefully
+- Implement proper error handling and retry logic
+
+### Admin Database Access Patterns
+```typescript
+// Admin users have elevated access to all data
+interface AdminDatabaseAccess {
+  // User management
+  getAllUsers: () => Promise<User[]>;
+  updateUserRole: (userId: string, role: UserRole) => Promise<void>;
+  deactivateUser: (userId: string) => Promise<void>;
+  
+  // Project oversight
+  getAllProjects: () => Promise<Project[]>;
+  updateProjectStatus: (projectId: string, status: ProjectStatus) => Promise<void>;
+  assignContractor: (projectId: string, contractorId: string) => Promise<void>;
+  
+  // Communication management
+  getAllMessages: () => Promise<Message[]>;
+  respondToMessage: (messageId: string, response: string) => Promise<void>;
+  broadcastAnnouncement: (message: string, targets: string[]) => Promise<void>;
+  
+  // Financial oversight
+  getFinancialSummary: () => Promise<FinancialSummary>;
+  approvePayment: (paymentId: string) => Promise<void>;
+  generateFinancialReport: (filters: ReportFilters) => Promise<Report>;
+}
+```
+
+## 🔐 Security Requirements (Enterprise-Grade)
+
+### Authentication & Authorization
+- Implement role-based access control (RBAC)
+- Support multi-factor authentication (MFA)
+- Use Supabase Auth with custom admin roles
+- Implement session management with secure tokens
+- Support admin impersonation for support purposes
+
+### Data Security
+- Encrypt sensitive data at rest and in transit
+- Implement audit logging for all admin actions
+- Use HTTPS for all communications
+- Implement rate limiting for API endpoints
+- Regular security scans and vulnerability assessments
+
+### Admin Access Levels
+```typescript
+type AdminRole = 'super_admin' | 'project_manager' | 'finance_admin' | 'support_admin';
+
+interface AdminPermissions {
+  users: {
+    view: boolean;
+    edit: boolean;
+    delete: boolean;
+    impersonate: boolean;
+  };
+  projects: {
+    view: boolean;
+    edit: boolean;
+    delete: boolean;
+    create: boolean;
+  };
+  finances: {
+    view: boolean;
+    approve_payments: boolean;
+    modify_budgets: boolean;
+    generate_reports: boolean;
+  };
+  system: {
+    view_logs: boolean;
+    manage_settings: boolean;
+    backup_restore: boolean;
+  };
+}
+```
+
+## 📱 Performance & UX Rules
+
+### Performance Standards
+- Page load time: <1 second for cached content
+- API response time: <500ms for most operations
+- Large dataset handling: Virtual scrolling for 1000+ items
+- Image optimization: WebP format with progressive loading
+- Bundle size: <300KB initial load
+
+### Admin UX Requirements
+- Responsive design (1024px minimum width)
+- Keyboard shortcuts for common actions
+- Bulk operations for managing multiple items
+- Advanced filtering and search capabilities
+- Export functionality for all data tables
+- Real-time notifications for critical events
+- Dark/light theme support
+- Accessibility compliance (WCAG 2.1 AA)
+
+## 🔄 Development Workflow
+
+### Code Quality Standards
+- ESLint and Prettier for consistent code formatting
+- TypeScript strict mode with no implicit any
+- Component testing with React Testing Library
+- E2E testing for critical admin workflows
+- Code reviews required for all changes
+
+### Data Management
+- Use React Query for server state management
+- Implement optimistic updates where appropriate
+- Cache frequently accessed data
+- Handle loading and error states consistently
+- Implement real-time data synchronization
+
+### Admin Operations Logging
+- Log all admin actions with timestamps
+- Track data modifications with before/after states
+- Monitor system performance and usage
+- Generate audit reports for compliance
+
+## 📊 Success Metrics
+
+### Technical Metrics
+- System uptime: >99.9%
+- Admin response time: <2 seconds average
+- Data accuracy: 100% (no data corruption)
+- Security incidents: 0
+- Performance score: >90 (Lighthouse)
+
+### Admin Efficiency Metrics
+- Time to complete common tasks
+- Admin user satisfaction scores
+- Error rate in admin operations
+- Data processing throughput
+- Support ticket resolution time
+
+## 🌐 Browser & Device Support
+
+### Supported Platforms
+- Chrome 90+ (primary)
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+- Minimum screen resolution: 1024x768
+- Tablet support for basic operations
+
+## 🎯 Admin-Specific Contexts
+
+### Construction Industry Administration
+- Understand construction project lifecycles
+- Manage complex contractor relationships
+- Handle regulatory compliance requirements
+- Oversee safety and quality standards
+- Manage financial flows and approvals
+
+### Multi-Project Management
+- Dashboard for overview of all active projects
+- Drill-down capabilities for detailed project views
+- Cross-project resource allocation
+- Consolidated reporting and analytics
+- Bulk operations for efficiency
+
+### Client Relationship Management
+- Communication history tracking
+- Issue escalation management
+- Service level agreement monitoring
+- Client satisfaction measurement
+- Billing and payment management
+
+## 🚨 Critical Admin Functions
+
+### Core Admin Capabilities
+1. **User Management**: Complete CRUD operations on all user accounts
+2. **Project Oversight**: Real-time monitoring and control of all projects
+3. **Financial Control**: Payment approvals, budget management, financial reporting
+4. **Communication Hub**: Respond to messages, send announcements, manage notifications
+5. **Quality Assurance**: Review inspections, manage quality standards
+6. **Schedule Management**: Oversee project timelines, resource allocation
+7. **Contractor Management**: Approve contractors, manage assignments, track performance
+8. **Document Control**: Upload, approve, and manage all project documents
+9. **Analytics & Reporting**: Generate insights and reports for business intelligence
+10. **System Administration**: Manage settings, users, and system configuration
+
+### Emergency Response Capabilities
+- System-wide announcement capabilities
+- Emergency contact management
+- Incident response workflows
+- Rapid project status updates
+- Crisis communication tools
+
+Remember: This is a mission-critical admin dashboard that controls all aspects of construction project management. Every feature must be robust, secure, and provide comprehensive oversight capabilities for construction industry professionals. 
