@@ -30,7 +30,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { generateInitials } from '@/lib/utils';
+import { getInitials } from '@/lib/utils';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -151,7 +151,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   };
 
-  const userInitials = auth.user ? generateInitials(auth.user.full_name) : 'AD';
+  const userInitials = auth.user ? getInitials(auth.user.full_name) : 'AD';
   const roleBadgeColor = {
     super_admin: 'bg-purple-100 text-purple-800',
     project_manager: 'bg-blue-100 text-blue-800',

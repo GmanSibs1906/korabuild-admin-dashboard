@@ -1,13 +1,19 @@
 import { Suspense } from "react";
-import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
+import AdminLayout from "@/components/layout/AdminLayout";
+import { AdminAuthProvider } from "@/components/auth/AdminAuthProvider";
+import { DashboardOverview } from "@/components/dashboard/dashboard-overview";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function AdminDashboardPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <Suspense fallback={<LoadingSpinner />}>
-        <AdminDashboard />
-      </Suspense>
-    </div>
+    <AdminAuthProvider>
+      <AdminLayout>
+        <div className="p-6">
+          <Suspense fallback={<LoadingSpinner />}>
+            <DashboardOverview />
+          </Suspense>
+        </div>
+      </AdminLayout>
+    </AdminAuthProvider>
   );
 }
