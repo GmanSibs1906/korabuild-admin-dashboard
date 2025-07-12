@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useProjects } from '@/hooks/useProjects';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ type StatusFilter = 'all' | 'planning' | 'in_progress' | 'completed' | 'on_hold'
 type HealthFilter = 'all' | 'excellent' | 'good' | 'warning' | 'critical';
 
 export function ProjectsTable({ className }: ProjectsTableProps) {
+  const router = useRouter();
   const { projects, summary, loading, error, refreshProjects } = useProjects();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
@@ -44,6 +46,10 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
       setSortField(field);
       setSortDirection('desc');
     }
+  };
+
+  const handleViewProject = (projectId: string) => {
+    router.push(`/projects/${projectId}`);
   };
 
   const getStatusIcon = (status: string) => {
@@ -470,6 +476,7 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
+                          onClick={() => handleViewProject(project.id)}
                           className="text-orange-600 hover:text-orange-900"
                           title="View project details"
                         >
