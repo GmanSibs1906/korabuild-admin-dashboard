@@ -3,6 +3,9 @@
 ## 🎯 Project Overview
 Build a comprehensive web-based admin dashboard for KoraBuild construction project management system. This enterprise-grade dashboard provides complete oversight and control over all mobile app users, projects, contractors, communications, finances, and system operations. The dashboard must handle multiple construction projects simultaneously with real-time data synchronization and advanced management capabilities.
 
+**🚨 CRITICAL REQUIREMENT: Complete Mobile App Data Control**
+The admin dashboard MUST provide full control over ALL data that users see in their mobile app, including real-time updates that immediately reflect in the user's mobile experience. This includes progress updates, financial data, schedules, communications, documents, contractor information, and material orders.
+
 ## 🛠 Technical Stack
 - **Framework**: Next.js 14+ with App Router and TypeScript
 - **Styling**: Tailwind CSS with custom admin design system
@@ -15,6 +18,238 @@ Build a comprehensive web-based admin dashboard for KoraBuild construction proje
 - **Real-time**: Supabase real-time subscriptions
 - **Testing**: Jest + React Testing Library + Playwright
 - **Deployment**: Vercel with automatic deployments
+
+## 📱 MOBILE APP DATA CONTROL REQUIREMENTS
+
+Based on the mobile app interface analysis, the admin dashboard MUST provide complete control over:
+
+### 🏗️ Building Progress & Timeline Management
+**Mobile App Shows**: Current stage, completion percentage, days left, milestone status, progress photos
+**Admin Dashboard Must Control**:
+```typescript
+interface BuildingProgressControl {
+  // Project Timeline Management
+  updateProjectPhase: (projectId: string, phase: ProjectPhase) => Promise<void>;
+  updateCompletionPercentage: (projectId: string, percentage: number) => Promise<void>;
+  updateDaysRemaining: (projectId: string, days: number) => Promise<void>;
+  updateProjectStartDate: (projectId: string, date: Date) => Promise<void>;
+  updateProjectEndDate: (projectId: string, date: Date) => Promise<void>;
+  
+  // Milestone Management
+  updateMilestoneStatus: (milestoneId: string, status: 'completed' | 'in_progress' | 'not_started') => Promise<void>;
+  updateMilestoneProgress: (milestoneId: string, percentage: number) => Promise<void>;
+  updateMilestoneTimeline: (milestoneId: string, startDate: Date, endDate: Date) => Promise<void>;
+  addMilestone: (projectId: string, milestone: MilestoneData) => Promise<void>;
+  
+  // Progress Photos Management
+  uploadProgressPhotos: (projectId: string, photos: File[], category: string, description: string) => Promise<void>;
+  updatePhotoDetails: (photoId: string, details: PhotoDetails) => Promise<void>;
+  approveProgressPhoto: (photoId: string) => Promise<void>;
+  deleteProgressPhoto: (photoId: string, reason: string) => Promise<void>;
+}
+```
+
+### 💰 Financial Management & Payment Control
+**Mobile App Shows**: Contract value, cash received, amount used, remaining, financial health, credit, payment history, next payment due
+**Admin Dashboard Must Control**:
+```typescript
+interface FinancialManagementControl {
+  // Contract & Budget Management
+  updateContractValue: (projectId: string, value: number) => Promise<void>;
+  updateCashReceived: (projectId: string, amount: number) => Promise<void>;
+  updateAmountUsed: (projectId: string, amount: number) => Promise<void>;
+  updateAmountRemaining: (projectId: string, amount: number) => Promise<void>;
+  updateFinancialHealth: (projectId: string, status: 'excellent' | 'good' | 'fair' | 'poor') => Promise<void>;
+  
+  // Payment Processing & History
+  addPaymentRecord: (projectId: string, payment: PaymentRecord) => Promise<void>;
+  updatePaymentStatus: (paymentId: string, status: PaymentStatus) => Promise<void>;
+  addDetailedExpense: (projectId: string, expense: DetailedExpense) => Promise<void>;
+  categorizPayment: (paymentId: string, category: PaymentCategory) => Promise<void>;
+  
+  // Credit & Next Payment Management
+  updateCreditLimit: (projectId: string, limit: number) => Promise<void>;
+  updateCreditUsed: (projectId: string, amount: number) => Promise<void>;
+  scheduleNextPayment: (projectId: string, payment: NextPayment) => Promise<void>;
+  updatePaymentDueDate: (paymentId: string, dueDate: Date) => Promise<void>;
+  
+  // Payment Categories from Mobile App
+  expenseCategories: {
+    materials: number;      // Construction materials
+    milestone: number;      // Milestone payments
+    labor: number;         // Labor costs
+    equipment: number;     // Equipment rental
+    permits: number;       // Permits and approvals
+    inspection: number;    // Inspection fees
+    other: number;         // Other expenses
+  };
+}
+```
+
+### 💬 Communication & Messaging Control
+**Mobile App Shows**: Conversation threads, message history, unread counts, message timestamps
+**Admin Dashboard Must Control**:
+```typescript
+interface CommunicationControl {
+  // Message Management
+  viewAllUserMessages: (userId?: string, projectId?: string) => Promise<Message[]>;
+  respondToMessage: (messageId: string, response: string, attachments?: File[]) => Promise<void>;
+  sendMessageToUser: (userId: string, message: string, projectId?: string) => Promise<void>;
+  markMessageAsRead: (messageId: string) => Promise<void>;
+  forwardMessage: (messageId: string, recipients: string[]) => Promise<void>;
+  
+  // Conversation Management
+  createConversation: (participants: string[], projectId: string, topic: string) => Promise<void>;
+  archiveConversation: (conversationId: string) => Promise<void>;
+  transferConversation: (conversationId: string, newAdmin: string) => Promise<void>;
+  
+  // Broadcast & Announcements
+  sendBroadcastMessage: (message: string, userIds: string[]) => Promise<void>;
+  sendProjectAnnouncement: (projectId: string, announcement: string) => Promise<void>;
+  scheduleMessage: (message: ScheduledMessage) => Promise<void>;
+}
+```
+
+### 📄 Document Management & Control
+**Mobile App Shows**: Document uploads, file details, upload history, document approval status
+**Admin Dashboard Must Control**:
+```typescript
+interface DocumentManagementControl {
+  // Document Access & Management
+  viewAllUserDocuments: (userId?: string, projectId?: string) => Promise<Document[]>;
+  downloadDocument: (documentId: string) => Promise<Blob>;
+  previewDocument: (documentId: string) => Promise<DocumentPreview>;
+  approveDocument: (documentId: string, approval: DocumentApproval) => Promise<void>;
+  rejectDocument: (documentId: string, reason: string, feedback: string) => Promise<void>;
+  
+  // Document Organization
+  categorizeDocument: (documentId: string, category: DocumentCategory) => Promise<void>;
+  addDocumentTags: (documentId: string, tags: string[]) => Promise<void>;
+  moveDocument: (documentId: string, newFolder: string) => Promise<void>;
+  
+  // Document Details Tracking
+  documentDetails: {
+    uploadedBy: string;     // User who uploaded
+    uploadDate: Date;       // When uploaded
+    fileSize: number;       // File size in bytes
+    fileType: string;       // File extension/type
+    projectPhase: string;   // Which project phase
+    documentType: string;   // Type of document
+    approvalStatus: string; // Approval status
+    lastModified: Date;     // Last modification
+  };
+}
+```
+
+### 📅 Project Schedule & Timeline Control
+**Mobile App Shows**: Project timeline, task schedules, work sessions, completion dates
+**Admin Dashboard Must Control**:
+```typescript
+interface ScheduleManagementControl {
+  // Timeline Management
+  updateProjectTimeline: (projectId: string, timeline: ProjectTimeline) => Promise<void>;
+  addSchedulePhase: (projectId: string, phase: SchedulePhase) => Promise<void>;
+  updatePhaseProgress: (phaseId: string, progress: number) => Promise<void>;
+  updatePhaseStatus: (phaseId: string, status: PhaseStatus) => Promise<void>;
+  
+  // Task Management
+  createTask: (phaseId: string, task: TaskData) => Promise<void>;
+  updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
+  assignTaskToContractor: (taskId: string, contractorId: string) => Promise<void>;
+  updateTaskProgress: (taskId: string, progress: number) => Promise<void>;
+  
+  // Work Session Tracking
+  logWorkSession: (projectId: string, session: WorkSession) => Promise<void>;
+  updateWorkHours: (sessionId: string, hours: number) => Promise<void>;
+  trackCrewWork: (sessionId: string, crewMembers: CrewMember[]) => Promise<void>;
+  
+  // Schedule Adjustments
+  adjustScheduleForWeather: (projectId: string, weatherImpact: WeatherImpact) => Promise<void>;
+  handleScheduleDelay: (projectId: string, delay: ScheduleDelay) => Promise<void>;
+  rescheduleTask: (taskId: string, newDates: TaskDates) => Promise<void>;
+}
+```
+
+### 👥 Team Coordination & Contractor Control
+**Mobile App Shows**: Total contractors, contractors on site, user-added contractors, ratings, progress tracking
+**Admin Dashboard Must Control**:
+```typescript
+interface TeamCoordinationControl {
+  // Contractor Overview Management
+  updateContractorCount: (projectId: string, total: number, onSite: number, userAdded: number) => Promise<void>;
+  updateContractorRating: (contractorId: string, rating: number) => Promise<void>;
+  updateContractorProgress: (contractorId: string, progress: number) => Promise<void>;
+  updateContractorStatus: (contractorId: string, status: 'on_site' | 'off_site' | 'scheduled' | 'completed') => Promise<void>;
+  
+  // Contractor Management
+  approveUserContractor: (contractorId: string, approval: ContractorApproval) => Promise<void>;
+  assignContractorToProject: (contractorId: string, projectId: string, role: string) => Promise<void>;
+  updateContractorContact: (contractorId: string, contact: ContactInfo) => Promise<void>;
+  updateContractorValue: (contractorId: string, contractValue: number) => Promise<void>;
+  
+  // Performance Tracking
+  trackContractorProgress: (contractorId: string, progress: ProgressUpdate) => Promise<void>;
+  updateContractorPerformance: (contractorId: string, performance: PerformanceMetrics) => Promise<void>;
+  logContractorActivity: (contractorId: string, activity: ActivityLog) => Promise<void>;
+  
+  // Contractor Details from Mobile App
+  contractorData: {
+    name: string;           // Contractor name
+    company: string;        // Company name
+    specialization: string; // Trade specialization
+    contactPerson: string;  // Primary contact
+    status: string;         // Current status
+    contractValue: number;  // Contract value
+    progress: number;       // Completion progress
+    rating: number;         // Performance rating
+    isUserAdded: boolean;   // Added by user vs suggested
+    startDate: Date;        // Work start date
+    estimatedCompletion: Date; // Estimated completion
+  };
+}
+```
+
+### 📦 Material Orders & Delivery Control
+**Mobile App Shows**: All orders count, materials needed, delivered orders, urgent requirements, supplier details, approval status
+**Admin Dashboard Must Control**:
+```typescript
+interface MaterialOrdersControl {
+  // Order Overview Management
+  updateOrderCounts: (projectId: string, counts: OrderCounts) => Promise<void>;
+  updateMaterialsNeeded: (projectId: string, materials: MaterialRequirement[]) => Promise<void>;
+  updateDeliveredOrders: (projectId: string, deliveries: DeliveryRecord[]) => Promise<void>;
+  markOrderAsUrgent: (orderId: string, urgency: UrgencyLevel, reason: string) => Promise<void>;
+  
+  // Purchase Order Management
+  createPurchaseOrder: (projectId: string, order: PurchaseOrder) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  approveOrder: (orderId: string, approval: OrderApproval) => Promise<void>;
+  updateOrderAmount: (orderId: string, amount: number) => Promise<void>;
+  
+  // Supplier Management
+  addSupplier: (supplier: SupplierData) => Promise<void>;
+  updateSupplierContact: (supplierId: string, contact: ContactInfo) => Promise<void>;
+  updateSupplierRating: (supplierId: string, rating: number) => Promise<void>;
+  
+  // Delivery Tracking
+  logDelivery: (orderId: string, delivery: DeliveryDetails) => Promise<void>;
+  updateDeliveryStatus: (deliveryId: string, status: DeliveryStatus) => Promise<void>;
+  confirmDeliveryReceived: (deliveryId: string, confirmation: DeliveryConfirmation) => Promise<void>;
+  
+  // Material Requirements from Mobile App
+  materialData: {
+    orderId: string;        // Order reference (PO-001, PO-002, etc.)
+    supplier: string;       // Supplier name
+    contact: string;        // Contact person and phone
+    amount: number;         // Order amount
+    description: string;    // What's required
+    neededBy: Date;         // Required date
+    priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    status: 'URGENT' | 'PENDING' | 'APPROVED' | 'DELIVERED';
+    daysRemaining: number;  // Days until needed
+  };
+}
+```
 
 ## 📋 Complete Database Schema Analysis
 Based on the Supabase schema, the admin dashboard must manage:
@@ -317,747 +552,13 @@ interface ProjectManagementFeatures {
 - ProjectDocumentsLibrary with version control
 - ProjectCommunicationHub with message threads
 
-### ✅ Phase 5: User Profile & Comprehensive Dashboard System (Week 10-12)
+### ✅ Phase 5: User Profile & Comprehensive Dashboard System (Week 10-12) - ✅ COMPLETED
 **Focus**: Individual user profile/dashboard with comprehensive data views and management capabilities
 
-**User Profile Dashboard Features:**
+**✅ COMPLETED FEATURES:**
+**Complete User Profile Implementation:**
 ```typescript
-// Complete user profile and dashboard system
-interface UserProfileDashboardFeatures {
-  // User Profile Overview
-  getUserProfile: (userId: string) => Promise<UserProfile>;
-  getUserDashboard: (userId: string) => Promise<UserDashboard>;
-  updateUserProfile: (userId: string, updates: UserProfileUpdates) => Promise<void>;
-  
-  // User-Centric Data Views
-  getUserProjects: (userId: string, filters?: ProjectFilters) => Promise<UserProject[]>;
-  getUserMessages: (userId: string, filters?: MessageFilters) => Promise<UserMessage[]>;
-  getUserPayments: (userId: string, filters?: PaymentFilters) => Promise<UserPayment[]>;
-  getUserDocuments: (userId: string, filters?: DocumentFilters) => Promise<UserDocument[]>;
-  getUserActivity: (userId: string, period?: TimePeriod) => Promise<UserActivity[]>;
-  
-  // User Analytics & Metrics
-  getUserEngagementMetrics: (userId: string) => Promise<UserEngagementMetrics>;
-  getUserProjectMetrics: (userId: string) => Promise<UserProjectMetrics>;
-  getUserFinancialSummary: (userId: string) => Promise<UserFinancialSummary>;
-  getUserCommunicationStats: (userId: string) => Promise<UserCommunicationStats>;
-  
-  // User Management Actions
-  updateUserRole: (userId: string, role: UserRole) => Promise<void>;
-  updateUserPermissions: (userId: string, permissions: UserPermissions) => Promise<void>;
-  suspendUser: (userId: string, reason: string, duration?: number) => Promise<void>;
-  impersonateUser: (userId: string, adminUserId: string) => Promise<ImpersonationSession>;
-  
-  // User Reports & Exports
-  generateUserReport: (userId: string, type: ReportType) => Promise<UserReport>;
-  exportUserData: (userId: string, dataTypes: DataType[]) => Promise<UserDataExport>;
-  getUserAuditLog: (userId: string, filters?: AuditFilters) => Promise<UserAuditLog[]>;
-  
-  // User Search & Discovery
-  searchUsers: (query: string, filters?: UserSearchFilters) => Promise<UserSearchResult[]>;
-  getUsersByProject: (projectId: string) => Promise<ProjectUser[]>;
-  getUsersByActivity: (activityType: ActivityType) => Promise<ActiveUser[]>;
-  
-  // User Relationship Management
-  getUserConnections: (userId: string) => Promise<UserConnection[]>;
-  getUserContractorRelationships: (userId: string) => Promise<ContractorRelationship[]>;
-  getUserProjectRoles: (userId: string) => Promise<ProjectRole[]>;
-}
-```
-
-**User Profile Dashboard Components:**
-```typescript
-// Comprehensive user profile interface
-interface UserProfileDashboard {
-  // Profile Header
-  userInfo: {
-    id: string;
-    name: string;
-    email: string;
-    avatar: string;
-    role: UserRole;
-    status: UserStatus;
-    lastLogin: Date;
-    joinDate: Date;
-    verificationStatus: VerificationStatus;
-  };
-  
-  // Quick Stats
-  quickStats: {
-    totalProjects: number;
-    activeProjects: number;
-    completedProjects: number;
-    totalSpent: number;
-    totalMessages: number;
-    lastActivity: Date;
-    engagementScore: number;
-  };
-  
-  // Activity Timeline
-  activityTimeline: UserActivity[];
-  
-  // Related Data Tabs
-  projects: UserProject[];
-  messages: UserMessage[];
-  payments: UserPayment[];
-  documents: UserDocument[];
-  contractors: UserContractor[];
-  inspections: UserInspection[];
-  
-  // Analytics Charts
-  projectProgressChart: ChartData;
-  spendingTrendsChart: ChartData;
-  activityHeatmap: HeatmapData;
-  engagementMetrics: EngagementData;
-}
-```
-
-**User Profile Management Screens:**
-- **UserProfileOverview**: Complete user profile with all key information and quick actions
-- **UserProjectsTab**: All projects associated with the user with management options
-- **UserMessagesHub**: Communication history and response capabilities
-- **UserFinancialView**: Payment history, credit accounts, and financial oversight
-- **UserDocumentsLibrary**: All documents related to the user with access controls
-- **UserActivityTimeline**: Comprehensive activity log with filtering and search
-- **UserAnalyticsDashboard**: Engagement metrics, usage patterns, and insights
-- **UserManagementActions**: Role changes, permissions, account actions
-- **UserReportGenerator**: Custom reports and data exports for the user
-- **UserSearchInterface**: Advanced search with filters and bulk operations
-- **UserRelationshipMap**: Visual representation of user connections and projects
-
-**Implementation Structure:**
-```typescript
-// Main user profile route
-/app/(dashboard)/users/[userId]/
-├── page.tsx                    // User profile overview
-├── projects/                   // User's projects
-│   ├── page.tsx
-│   └── [projectId]/
-├── messages/                   // User's communications
-│   ├── page.tsx
-│   └── [conversationId]/
-├── payments/                   // User's financial data
-│   ├── page.tsx
-│   └── [paymentId]/
-├── documents/                  // User's documents
-│   ├── page.tsx
-│   └── [documentId]/
-├── activity/                   // User's activity log
-│   └── page.tsx
-├── analytics/                  // User's metrics
-│   └── page.tsx
-└── reports/                    // User's reports
-    └── page.tsx
-
-// API routes for user profile
-/app/api/users/[userId]/
-├── route.ts                    // User profile CRUD
-├── projects/route.ts           // User's projects
-├── messages/route.ts           // User's messages
-├── payments/route.ts           // User's payments
-├── documents/route.ts          // User's documents
-├── activity/route.ts           // User's activity
-├── analytics/route.ts          // User's analytics
-├── reports/route.ts            // User's reports
-└── actions/
-    ├── suspend/route.ts        // Suspend user
-    ├── impersonate/route.ts    // Impersonate user
-    └── export/route.ts         // Export user data
-```
-
-**User Profile Features:**
-- **360-Degree User View**: Complete overview of user's entire interaction with the platform
-- **Drill-Down Capabilities**: Click through to detailed views of projects, messages, payments
-- **Real-Time Updates**: Live data synchronization across all user-related information
-- **Action Center**: Quick actions for common user management tasks
-- **Advanced Search**: Find users by any criteria with intelligent filters
-- **Bulk Operations**: Perform actions on multiple users simultaneously
-- **Export & Reporting**: Generate comprehensive reports on user activity and data
-- **Audit Trail**: Complete tracking of all admin actions on user accounts
-- **Impersonation**: Secure user impersonation for support and troubleshooting
-- **Communication Hub**: Direct messaging and notification management from user profile
-
-### ✅ Phase 6: Financial Management & Control (Week 13-15)
-**Focus**: Advanced financial oversight, payment processing, and budget management
-
-**Financial Management Features:**
-```typescript
-// Complete financial administration
-interface FinancialManagementFeatures {
-  // Payment Operations
-  getAllPayments: (filters: PaymentFilters) => Promise<Payment[]>;
-  approvePayment: (paymentId: string, approval: PaymentApproval) => Promise<void>;
-  rejectPayment: (paymentId: string, reason: string) => Promise<void>;
-  processRefund: (paymentId: string, amount: number, reason: string) => Promise<void>;
-  
-  // Budget Management
-  getProjectBudgets: (projectId?: string) => Promise<Budget[]>;
-  updateBudget: (budgetId: string, updates: BudgetUpdates) => Promise<Budget>;
-  trackBudgetVariance: (projectId: string) => Promise<BudgetVariance>;
-  
-  // Credit Account Management
-  getCreditAccounts: () => Promise<CreditAccount[]>;
-  updateCreditLimit: (accountId: string, newLimit: number) => Promise<void>;
-  freezeAccount: (accountId: string, reason: string) => Promise<void>;
-  
-  // Financial Reporting
-  generateFinancialReport: (type: ReportType, filters: ReportFilters) => Promise<FinancialReport>;
-  exportFinancialData: (filters: ExportFilters) => Promise<ExportData>;
-  getFinancialAnalytics: (period: TimePeriod) => Promise<FinancialAnalytics>;
-  
-  // Receipt & Document Management
-  processReceipt: (receiptData: ReceiptData) => Promise<ProcessedReceipt>;
-  validateExpense: (expenseId: string, validation: ExpenseValidation) => Promise<void>;
-}
-```
-
-**Financial Management Screens:**
-- PaymentsTable with approval workflow
-- FinancialDashboard with real-time metrics
-- BudgetManager with variance tracking
-- CreditAccountsPanel with limit management
-- ExpenseTracker with receipt processing
-- FinancialReports with export capabilities
-- PaymentApprovalWorkflow with multi-level approvals
-
-### ✅ Phase 7: Communication & Response System (Week 16-18)
-**Focus**: Centralized communication management and response capabilities
-
-**Communication Management Features:**
-```typescript
-// Comprehensive communication administration
-interface CommunicationManagementFeatures {
-  // Message Management
-  getAllConversations: (filters: ConversationFilters) => Promise<Conversation[]>;
-  getConversationMessages: (conversationId: string) => Promise<Message[]>;
-  respondToMessage: (messageId: string, response: MessageResponse) => Promise<Message>;
-  forwardMessage: (messageId: string, recipients: string[]) => Promise<void>;
-  
-  // Broadcast Communications
-  sendAnnouncement: (announcement: Announcement, targets: UserTarget[]) => Promise<void>;
-  scheduleNotification: (notification: ScheduledNotification) => Promise<void>;
-  createSystemAlert: (alert: SystemAlert, urgency: AlertLevel) => Promise<void>;
-  
-  // Approval Workflows
-  getApprovalRequests: (filters: ApprovalFilters) => Promise<ApprovalRequest[]>;
-  processApproval: (requestId: string, decision: ApprovalDecision) => Promise<void>;
-  delegateApproval: (requestId: string, delegateTo: string) => Promise<void>;
-  
-  // Communication Analytics
-  getResponseMetrics: (period: TimePeriod) => Promise<ResponseMetrics>;
-  getCommunicationInsights: () => Promise<CommunicationInsights>;
-  trackEscalations: () => Promise<EscalationReport>;
-  
-  // Auto-Response Management
-  configureAutoResponses: (rules: AutoResponseRule[]) => Promise<void>;
-  manageEmailTemplates: (templates: EmailTemplate[]) => Promise<void>;
-}
-```
-
-**Communication Management Screens:**
-- CommunicationHub with unified inbox
-- ConversationThreads with response interface
-- BroadcastCenter for announcements
-- ApprovalWorkflow with decision interface
-- CommunicationAnalytics with response metrics
-- NotificationCenter with alert management
-- AutoResponseManager with rule configuration
-
-### ✅ Phase 8: Contractor & Team Management (Week 19-21)
-**Focus**: Advanced contractor oversight and team coordination
-
-**Contractor Management Features:**
-```typescript
-// Complete contractor administration
-interface ContractorManagementFeatures {
-  // Contractor Operations
-  getAllContractors: (filters: ContractorFilters) => Promise<Contractor[]>;
-  approveContractor: (contractorId: string, approval: ContractorApproval) => Promise<void>;
-  suspendContractor: (contractorId: string, reason: string) => Promise<void>;
-  updateContractorRating: (contractorId: string, rating: ContractorRating) => Promise<void>;
-  
-  // Assignment Management
-  getContractorAssignments: (contractorId: string) => Promise<Assignment[]>;
-  createAssignment: (assignment: ContractorAssignment) => Promise<Assignment>;
-  updateAssignmentStatus: (assignmentId: string, status: AssignmentStatus) => Promise<void>;
-  
-  // Performance Tracking
-  getContractorPerformance: (contractorId: string) => Promise<ContractorPerformance>;
-  generatePerformanceReport: (contractorId: string, period: TimePeriod) => Promise<PerformanceReport>;
-  trackContractorMetrics: () => Promise<ContractorMetrics>;
-  
-  // Review Management
-  getContractorReviews: (contractorId: string) => Promise<ContractorReview[]>;
-  moderateReview: (reviewId: string, moderation: ReviewModeration) => Promise<void>;
-  respondToReview: (reviewId: string, response: ReviewResponse) => Promise<void>;
-  
-  // Capability Assessment
-  updateCapabilities: (contractorId: string, capabilities: ContractorCapabilities) => Promise<void>;
-  verifyCredentials: (contractorId: string, credentials: Credentials) => Promise<void>;
-}
-```
-
-**Contractor Management Screens:**
-- ContractorsTable with status and ratings
-- ContractorDetailProfile with comprehensive info
-- ContractorAssignments with project mapping
-- ContractorPerformanceDashboard with metrics
-- ContractorReviewsPanel with moderation tools
-- ContractorVerification with credential checks
-- TeamCoordinationBoard with assignment overview
-
-### ✅ Phase 9: Quality Control & Safety Management (Week 22-24)
-**Focus**: Quality assurance oversight and safety compliance management
-
-**Quality & Safety Management Features:**
-```typescript
-// Comprehensive quality and safety administration
-interface QualitySafetyManagementFeatures {
-  // Quality Inspections
-  getAllInspections: (filters: InspectionFilters) => Promise<QualityInspection[]>;
-  scheduleInspection: (inspection: InspectionSchedule) => Promise<QualityInspection>;
-  reviewInspectionResults: (inspectionId: string) => Promise<InspectionResults>;
-  approveInspection: (inspectionId: string, approval: InspectionApproval) => Promise<void>;
-  
-  // Quality Standards Management
-  getQualityStandards: () => Promise<QualityStandard[]>;
-  updateQualityStandard: (standardId: string, updates: StandardUpdates) => Promise<void>;
-  createQualityChecklist: (checklist: QualityChecklist) => Promise<QualityChecklist>;
-  
-  // Safety Oversight
-  getSafetyInspections: (filters: SafetyFilters) => Promise<SafetyInspection[]>;
-  reviewSafetyIncident: (incidentId: string) => Promise<SafetyIncident>;
-  createSafetyAlert: (alert: SafetyAlert) => Promise<void>;
-  trackSafetyMetrics: (period: TimePeriod) => Promise<SafetyMetrics>;
-  
-  // Compliance Management
-  getComplianceDocuments: (projectId: string) => Promise<ComplianceDocument[]>;
-  reviewCompliance: (documentId: string, review: ComplianceReview) => Promise<void>;
-  generateComplianceReport: (filters: ComplianceFilters) => Promise<ComplianceReport>;
-  
-  // Training Oversight
-  getTrainingRecords: (filters: TrainingFilters) => Promise<TrainingRecord[]>;
-  scheduleTraining: (training: TrainingSchedule) => Promise<TrainingRecord>;
-  trackCertifications: () => Promise<CertificationReport>;
-}
-```
-
-**Quality & Safety Management Screens:**
-- QualityDashboard with inspection overview
-- SafetyIncidentTracker with incident management
-- ComplianceMonitor with document tracking
-- TrainingManager with certification tracking
-- QualityReportsGenerator with analytics
-- SafetyAlertsPanel with notification system
-
-### ✅ Phase 10: Schedule & Resource Management (Week 25-27)
-**Focus**: Advanced project scheduling and resource allocation
-
-**Schedule Management Features:**
-```typescript
-// Complete schedule and resource administration
-interface ScheduleResourceManagementFeatures {
-  // Schedule Operations
-  getAllSchedules: (filters: ScheduleFilters) => Promise<ProjectSchedule[]>;
-  updateSchedule: (scheduleId: string, updates: ScheduleUpdates) => Promise<ProjectSchedule>;
-  resolveScheduleConflict: (conflictId: string, resolution: ConflictResolution) => Promise<void>;
-  
-  // Resource Allocation
-  getResourceAssignments: (projectId: string) => Promise<ResourceAssignment[]>;
-  allocateResources: (allocation: ResourceAllocation) => Promise<ResourceAssignment>;
-  reassignResource: (assignmentId: string, newAssignment: ResourceReassignment) => Promise<void>;
-  
-  // Crew Management
-  getCrewMembers: (filters: CrewFilters) => Promise<CrewMember[]>;
-  assignCrew: (assignment: CrewAssignment) => Promise<void>;
-  trackCrewPerformance: (crewId: string) => Promise<CrewPerformance>;
-  
-  // Timeline Management
-  getProjectTimelines: () => Promise<ProjectTimeline[]>;
-  updateMilestone: (milestoneId: string, updates: MilestoneUpdates) => Promise<void>;
-  handleScheduleDeviation: (deviation: ScheduleDeviation) => Promise<void>;
-  
-  // Weather Impact Management
-  getWeatherConditions: (projectId: string, period: TimePeriod) => Promise<WeatherCondition[]>;
-  assessWeatherImpact: (projectId: string, conditions: WeatherCondition) => Promise<WeatherImpact>;
-  adjustForWeather: (projectId: string, adjustment: WeatherAdjustment) => Promise<void>;
-}
-```
-
-**Schedule & Resource Management Screens:**
-- ScheduleDashboard with Gantt chart view
-- ResourceAllocationBoard with drag-drop interface
-- CrewManagementPanel with assignment tracking
-- TimelineVisualization with milestone tracking
-- WeatherImpactMonitor with adjustment tools
-- ScheduleAnalytics with performance metrics
-
-### ✅ Phase 11: Document & Content Management (Week 28-30)
-**Focus**: Centralized document management and content control
-
-**Document Management Features:**
-```typescript
-// Comprehensive document administration
-interface DocumentManagementFeatures {
-  // Document Operations
-  getAllDocuments: (filters: DocumentFilters) => Promise<Document[]>;
-  uploadDocument: (file: File, metadata: DocumentMetadata) => Promise<Document>;
-  approveDocument: (documentId: string, approval: DocumentApproval) => Promise<void>;
-  versionDocument: (documentId: string, newVersion: File) => Promise<DocumentVersion>;
-  
-  // Content Management
-  manageProjectContent: (projectId: string) => Promise<ProjectContent>;
-  updateMobileAppContent: (updates: ContentUpdates) => Promise<void>;
-  scheduleContentUpdate: (update: ScheduledUpdate) => Promise<void>;
-  
-  // Document Workflow
-  createApprovalWorkflow: (workflow: ApprovalWorkflow) => Promise<void>;
-  routeDocumentForApproval: (documentId: string, approvers: string[]) => Promise<void>;
-  trackDocumentStatus: (documentId: string) => Promise<DocumentStatus>;
-  
-  // Digital Signatures
-  initiateSigningProcess: (documentId: string, signers: Signer[]) => Promise<SigningProcess>;
-  trackSignatureStatus: (processId: string) => Promise<SignatureStatus>;
-  completeDocumentSigning: (processId: string) => Promise<SignedDocument>;
-  
-  // Content Analytics
-  getDocumentAnalytics: () => Promise<DocumentAnalytics>;
-  trackDocumentUsage: (documentId: string) => Promise<UsageMetrics>;
-  generateContentReport: (filters: ContentFilters) => Promise<ContentReport>;
-}
-```
-
-**Document Management Screens:**
-- DocumentLibrary with search and filters
-- DocumentWorkflow with approval tracking
-- ContentManager for mobile app updates
-- DocumentVersioning with comparison tools
-- DigitalSignatures with signing workflow
-- DocumentAnalytics with usage insights
-
-### ✅ Phase 12: Analytics & Business Intelligence (Week 31-33)
-**Focus**: Advanced analytics, reporting, and business intelligence
-
-**Analytics & BI Features:**
-```typescript
-// Comprehensive analytics and reporting
-interface AnalyticsReportingFeatures {
-  // Business Intelligence
-  getBusinessMetrics: (period: TimePeriod) => Promise<BusinessMetrics>;
-  generateExecutiveDashboard: () => Promise<ExecutiveDashboard>;
-  createCustomReport: (config: ReportConfiguration) => Promise<CustomReport>;
-  
-  // Performance Analytics
-  getProjectPerformanceAnalytics: () => Promise<ProjectPerformanceAnalytics>;
-  getContractorPerformanceAnalytics: () => Promise<ContractorPerformanceAnalytics>;
-  getFinancialPerformanceAnalytics: () => Promise<FinancialPerformanceAnalytics>;
-  
-  // Predictive Analytics
-  forecastProjectCompletion: (projectId: string) => Promise<CompletionForecast>;
-  predictResourceNeeds: (projectId: string) => Promise<ResourceForecast>;
-  analyzeCostTrends: () => Promise<CostTrendAnalysis>;
-  
-  // User Behavior Analytics
-  getUserEngagementMetrics: () => Promise<UserEngagementMetrics>;
-  trackFeatureUsage: () => Promise<FeatureUsageReport>;
-  analyzeUserJourneys: () => Promise<UserJourneyAnalysis>;
-  
-  // Export & Sharing
-  exportReport: (reportId: string, format: ExportFormat) => Promise<ExportedReport>;
-  scheduleAutomaticReports: (schedule: ReportSchedule) => Promise<void>;
-  shareReport: (reportId: string, recipients: string[]) => Promise<void>;
-}
-```
-
-**Analytics & BI Screens:**
-- ExecutiveDashboard with high-level KPIs
-- CustomReportBuilder with drag-drop interface
-- PerformanceAnalytics with trend analysis
-- PredictiveInsights with forecasting
-- DataVisualization with interactive charts
-- ReportScheduler with automatic generation
-- AnalyticsExport with multiple formats
-
-### ✅ Phase 13: System Administration & Configuration (Week 34-36)
-**Focus**: System settings, user management, and platform configuration
-
-**System Administration Features:**
-```typescript
-// Complete system administration
-interface SystemAdministrationFeatures {
-  // System Configuration
-  getSystemSettings: () => Promise<SystemSettings>;
-  updateSystemSettings: (settings: SystemSettingsUpdate) => Promise<void>;
-  manageFeatureFlags: (flags: FeatureFlag[]) => Promise<void>;
-  
-  // User Management
-  getAdminUsers: () => Promise<AdminUser[]>;
-  createAdminUser: (userData: AdminUserData) => Promise<AdminUser>;
-  updateAdminPermissions: (userId: string, permissions: AdminPermissions) => Promise<void>;
-  
-  // Audit & Logging
-  getAuditLogs: (filters: AuditFilters) => Promise<AuditLog[]>;
-  generateAuditReport: (period: TimePeriod) => Promise<AuditReport>;
-  configureLogging: (config: LoggingConfiguration) => Promise<void>;
-  
-  // Data Management
-  exportSystemData: (filters: DataExportFilters) => Promise<SystemDataExport>;
-  importSystemData: (data: SystemDataImport) => Promise<ImportResult>;
-  manageDataRetention: (policies: RetentionPolicy[]) => Promise<void>;
-  
-  // Integration Management
-  configureIntegrations: (integrations: Integration[]) => Promise<void>;
-  testAPIConnections: () => Promise<ConnectionTestResult[]>;
-  manageWebhooks: (webhooks: Webhook[]) => Promise<void>;
-  
-  // Backup & Recovery
-  initiateBackup: (type: BackupType) => Promise<BackupResult>;
-  restoreFromBackup: (backupId: string) => Promise<RestoreResult>;
-  scheduleAutomaticBackups: (schedule: BackupSchedule) => Promise<void>;
-}
-```
-
-**System Administration Screens:**
-- SystemSettings with configuration management
-- AdminUserManagement with role assignment
-- AuditTrail with comprehensive logging
-- DataManagement with import/export tools
-- IntegrationHub with API management
-- BackupManager with recovery options
-- SystemMonitoring with health metrics
-
-## 🎨 Design System & UI Requirements
-
-### Professional Admin Theme
-```typescript
-// Admin-specific design tokens
-const adminTheme = {
-  colors: {
-    primary: '#fe6700', // Construction Orange
-    secondary: '#6c757d', // Professional Gray
-    success: '#28a745',
-    warning: '#ffc107',
-    error: '#dc3545',
-    info: '#17a2b8',
-  },
-  typography: {
-    headings: 'Inter', // Clean, professional
-    body: 'Inter',
-    mono: 'JetBrains Mono', // For code/data
-  },
-  spacing: {
-    // Generous spacing for admin interfaces
-    section: '2rem',
-    component: '1rem',
-    element: '0.5rem',
-  },
-  breakpoints: {
-    desktop: '1024px', // Minimum for admin
-    wide: '1440px',
-    ultrawide: '1920px',
-  }
-}
-```
-
-### Component Library Requirements
-- **DataTable**: Advanced filtering, sorting, pagination, bulk actions
-- **Dashboard Widgets**: Metrics cards, charts, activity feeds
-- **Forms**: Multi-step forms, validation, auto-save
-- **Modals**: Confirmation dialogs, detail views, workflows
-- **Navigation**: Sidebar navigation, breadcrumbs, search
-- **Notifications**: Toast messages, alert banners, system alerts
-
-## 🔐 Security & Compliance
-
-### Enterprise Security Standards
-- **Authentication**: Multi-factor authentication (MFA) required
-- **Authorization**: Role-based access control (RBAC) with granular permissions
-- **Audit Logging**: Complete admin action tracking with immutable logs
-- **Data Encryption**: AES-256 encryption for sensitive data
-- **Session Management**: Secure sessions with automatic timeout
-- **API Security**: Rate limiting, input validation, SQL injection prevention
-
-### Compliance Requirements
-- **Data Privacy**: GDPR/CCPA compliance for user data handling
-- **Financial**: SOX compliance for financial data management
-- **Construction**: Industry-specific regulatory compliance
-- **Security**: ISO 27001 information security standards
-
-## 📊 Success Metrics & KPIs
-
-### Technical Performance
-- **Page Load Time**: <1 second for dashboard
-- **API Response Time**: <500ms average
-- **System Uptime**: >99.9%
-- **Data Accuracy**: 100% (no corruption)
-- **Security Score**: >95% (security audits)
-
-### Admin Efficiency
-- **Task Completion Time**: 50% reduction vs manual processes
-- **Error Rate**: <1% in admin operations
-- **User Satisfaction**: >4.5/5 admin user rating
-- **Data Processing**: Handle 10,000+ records efficiently
-- **Response Time**: Support tickets resolved <2 hours
-
-### Business Impact
-- **Project Oversight**: 100% project visibility
-- **Financial Control**: Real-time payment processing
-- **Quality Assurance**: 95% first-time quality pass rate
-- **Customer Satisfaction**: >4.7/5 client satisfaction
-- **Operational Efficiency**: 40% improvement in admin workflows
-
-## 🔄 Development Workflow & Standards
-
-### Code Quality Requirements
-- **TypeScript**: Strict mode with 100% type coverage
-- **Testing**: >90% code coverage with unit and integration tests
-- **Code Review**: All changes require peer review
-- **Security**: Automated security scanning with every deployment
-- **Performance**: Bundle analysis and optimization monitoring
-
-### Deployment & DevOps
-- **CI/CD**: Automated testing and deployment pipeline
-- **Environment Management**: Development, staging, production environments
-- **Monitoring**: Real-time application performance monitoring
-- **Backup**: Automated daily backups with disaster recovery
-- **Scaling**: Auto-scaling for high-traffic periods
-
-## 🎯 Critical Success Factors
-
-1. **Real-time Data**: All admin interfaces must display live data
-2. **Comprehensive Control**: Complete oversight of mobile app operations
-3. **Security First**: Enterprise-grade security throughout
-4. **Performance**: Fast, responsive interface for efficiency
-5. **Scalability**: Handle growing number of projects and users
-6. **Accessibility**: WCAG 2.1 AA compliance for all interfaces
-7. **Mobile Responsive**: Functional on tablets (1024px minimum)
-8. **Integration**: Seamless integration with mobile app data
-
-## 🚨 Emergency Response Capabilities
-
-### Critical Admin Functions
-- **System-wide Alerts**: Broadcast urgent messages to all users
-- **Emergency Shutdown**: Ability to disable system features if needed
-- **Incident Response**: Rapid response tools for safety incidents
-- **Data Recovery**: Quick restoration from backups if needed
-- **Communication Override**: Emergency communication channels
-- **Audit Trail**: Complete tracking of all emergency actions
-
-## 🧪 Testing & Validation Strategy
-
-### Dynamic Data Verification
-To ensure no hardcoded data is displayed:
-
-1. **Database Connection Testing:**
-   ```bash
-   # Test Supabase connection
-   npm run dev
-   # Check browser console for Supabase connection logs
-   # Verify all data loads from database tables
-   ```
-
-2. **Data Flow Validation:**
-   ```typescript
-   // All components should use these patterns:
-   const { data: users, loading, error } = useQuery('users', fetchUsers);
-   const { data: projects } = useRealTimeProjects();
-   const metrics = useDashboardMetrics(); // No hardcoded values
-   ```
-
-3. **Testing Checklist:**
-   - [ ] Dashboard metrics pull from live database queries
-   - [ ] User tables display real user data from `users` table
-   - [ ] Project data comes from `projects` table
-   - [ ] Financial data syncs with `payments` and `credit_accounts`
-   - [ ] No hardcoded strings for names, numbers, or status values
-   - [ ] Real-time updates work when database changes
-   - [ ] All forms submit to and update Supabase tables
-
-### Manual Testing Procedures
-
-1. **Start Development Server:**
-   ```bash
-   npm run dev
-   # Visit http://localhost:3000
-   ```
-
-2. **Database Connection Test:**
-   - Open browser dev tools
-   - Check Network tab for Supabase API calls
-   - Verify no console errors for database connections
-   - Confirm data loading states work properly
-
-3. **Data Validation Steps:**
-   - Create test user in Supabase dashboard
-   - Verify it appears in admin user management
-   - Create test project and verify dashboard metrics update
-   - Test real-time subscriptions by changing data in Supabase
-
-4. **Cross-Platform Testing:**
-   - Test admin dashboard on desktop browsers
-   - Verify mobile app data appears in admin dashboard
-   - Confirm both systems use same database tables
-   - Test data synchronization between platforms
-
-### Integration with KoraBuild Mobile App
-
-The admin dashboard must seamlessly integrate with the mobile app:
-
-**Shared Database Tables:**
-- `users` - Mobile app users appear in admin user management
-- `projects` - Projects created on mobile show in admin dashboard
-- `contractors` - Contractor management across both platforms
-- `messages` - Communication hub shows mobile app messages
-- `payments` - Financial oversight of mobile transactions
-- `quality_inspections` - Quality control from mobile field work
-
-**Testing Integration:**
-1. Create user on mobile app → verify appears in admin dashboard
-2. Create project on mobile → verify admin can manage it
-3. Send message on mobile → verify admin can respond
-4. Make payment on mobile → verify admin sees transaction
-
-### ✅ Current Development Status (UPDATED - All Major Phases Complete)
-
-**✅ COMPLETED PHASES:**
-- ✅ **Phase 1**: Foundation & Authentication System (Next.js 14 + TypeScript + Supabase)
-- ✅ **Phase 2**: Admin Dashboard & Layout (Professional construction-themed interface)
-- ✅ **Phase 3**: User Management System (Complete admin user oversight with real authenticated users)
-- ✅ **Phase 4**: Project Management & Oversight (Complete project lifecycle with health scoring and real-time monitoring)
-- ✅ **Phase 5**: User Profile & Comprehensive Dashboard System (360-degree user view with drill-down capabilities)
-
-**✅ RESOLVED CRITICAL ISSUES:**
-- ✅ **Project Deletion System**: Fixed cascade deletion for 60+ related tables with proper constraint handling
-- ✅ **Financial Data Consistency**: Resolved R 755,000+ discrepancy between mobile app and admin dashboard
-- ✅ **Database Integrity**: Fixed constraint violations and implemented proper deletion order
-- ✅ **JSX Parsing Error**: Fixed ProjectsTable component with proper React imports and syntax
-- ✅ **Dynamic Data Integration**: All components now use 100% database-driven content
-- ✅ **TypeScript Compilation**: Resolved all linter errors and type safety issues
-- ✅ **Real-time Dashboard**: Dashboard overview displays live project metrics and user counts
-- ✅ **User Profile System**: Complete implementation with comprehensive user data aggregation
-
-**🔧 TECHNICAL FOUNDATION COMPLETED:**
-- ✅ Supabase Admin Client with RLS bypass capability
-- ✅ TypeScript strict mode with comprehensive type definitions
-- ✅ Professional admin UI components with construction theme
-- ✅ API route architecture with proper error handling
-- ✅ Real-time data fetching with loading/error states
-- ✅ Security implementation with admin-level access control
-- ✅ Dynamic data integration with no hardcoded content
-- ✅ Advanced project health scoring and monitoring algorithms
-- ✅ User management system with real authenticated user data
-- ✅ Project management with comprehensive oversight and health monitoring
-- ✅ Professional data tables with filtering, sorting, and search capabilities
-- ✅ Real-time dashboard metrics with live database synchronization
-- ✅ Complete user profile system with 360-degree user view and activity tracking
-- ✅ **NEW**: Robust project deletion system with cascade handling for 60+ tables
-- ✅ **NEW**: Perfect financial data consistency between mobile app and admin dashboard
-- ✅ **NEW**: Comprehensive activity tracking and user engagement scoring
-
-**🔧 PHASE 5 IMPLEMENTATION COMPLETED:**
-**User Profile & Comprehensive Dashboard System:**
-```typescript
-// Complete 360-degree user view system - ALL COMPLETED
+// Complete user profile and dashboard system - ALL COMPLETED
 - ✅ UserProfile API Route (/api/users/[userId]): Aggregates data from 60+ database tables
 - ✅ UserActivity API Route (/api/users/[userId]/activity): Comprehensive activity timeline
 - ✅ useUserProfile Hook: Professional React hook with TypeScript interfaces and loading states
@@ -1072,57 +573,7 @@ The admin dashboard must seamlessly integrate with the mobile app:
 - ✅ Financial Data Consistency: Perfect alignment between mobile app and admin dashboard financial data
 ```
 
-**✅ CRITICAL RESOLVED ISSUES:**
-
-**1. Project Deletion System (100% Fixed)**
-- **Issue**: Project deletion was failing with constraint violations and foreign key errors
-- **Root Cause**: Complex database relationships across 60+ tables with improper deletion order
-- **Solution Implemented**:
-  - Fixed cascade deletion for photo_comments → album_photos → work_sessions
-  - Resolved schedule dependencies: schedule_tasks → schedule_phases
-  - Fixed quality/safety: inspection_results, photos, incident_attachments
-  - Corrected order chain: delivery_items → deliveries → order_items → order_status_history
-  - Added document versions and receipt metadata cleanup
-  - Enhanced error handling with specific user feedback
-- **Result**: Project deletion now works flawlessly with comprehensive cascade handling
-
-**2. Financial Data Consistency (100% Fixed)**
-- **Issue**: Critical R 755,000+ discrepancy between mobile app and admin dashboard
-  - Mobile App: Cash R 1,870,000, Used R 1,252,900, Remaining R 617,100
-  - Admin Dashboard: Cash R 2,625,000, Used R 1,360,000, Remaining R 1,265,000
-- **Root Cause**: Admin dashboard was summing ALL project_financials records while mobile app used only LATEST record
-- **Solution Implemented**:
-  - Modified `/api/users/[userId]/route.ts` to use latest financial records only
-  - Added proper ordering by snapshot_date descending
-  - Implemented grouping by project_id to get latest record per project
-  - Created sync verification endpoints for data consistency
-- **Result**: Perfect financial data consistency - both platforms now show identical values
-
-**✅ COMPLETED PHASES (UPDATED):**
-- ✅ **Phase 1**: Foundation & Authentication System (Next.js 14 + TypeScript + Supabase)
-- ✅ **Phase 2**: Admin Dashboard & Layout (Professional construction-themed interface)
-- ✅ **Phase 3**: User Management System (Complete admin user oversight with real authenticated users)
-- ✅ **Phase 4**: Project Management & Oversight (Complete project lifecycle with health scoring and real-time monitoring)
-- ✅ **Phase 5**: User Profile & Comprehensive Dashboard System (360-degree user view with drill-down capabilities)
-- ✅ **Phase 6**: Individual Project Details View (Comprehensive project overview with navigation)
-
-**🚧 CURRENT PHASE:**
-- 🚧 **Phase 7**: Financial Management & Control (READY TO START)
-- 🚧 Payment approval workflows and budget oversight
-- 🚧 Financial analytics and credit account management
-- 🚧 Receipt processing and expense tracking
-- 🚧 Real-time financial reporting and insights
-
-**📋 UPCOMING PHASES:**
-- Phase 8: Communication & Response System (Message management, approvals)
-- Phase 9: Contractor & Team Management (Performance tracking, assignments)
-- Phase 10: Quality Control & Safety Management (Inspections, compliance)
-- Phase 11: Schedule & Resource Management (Timeline optimization)
-- Phase 12: Document & Content Management (Document workflows, content control)
-- Phase 13: Analytics & Business Intelligence (Reporting, insights, forecasting)
-- Phase 14: System Administration & Configuration (Platform settings, integrations)
-
-### ✅ Phase 6: Individual Project Details View (NEW - Week 13-14) - ✅ COMPLETED
+### ✅ Phase 6: Individual Project Details View (Week 13-14) - ✅ COMPLETED
 **Focus**: Comprehensive project overview with detailed navigation and 360-degree project view
 
 **✅ COMPLETED FEATURES:**
@@ -1143,180 +594,343 @@ The admin dashboard must seamlessly integrate with the mobile app:
 - ✅ TypeScript Safety: Complete type definitions and error handling
 ```
 
-**✅ TECHNICAL IMPLEMENTATION:**
-- **Dynamic Routes**: Next.js 14 App Router with proper parameter handling
-- **Database Integration**: Multi-table queries with project, user, milestone, financial data
-- **UI Components**: Professional card-based layout with responsive design
-- **State Management**: Proper loading states and error handling
-- **Navigation**: Seamless integration with existing navigation structure
+### ✅ Phase 7: Financial Management & Control (Week 15-16) - ✅ COMPLETED
+**Focus**: Advanced financial oversight, payment processing, and budget management
 
-**✅ PROJECT DETAILS FEATURES:**
-- **Overview Tab**: Project information, client details, quick stats, timeline
-- **Finances Tab**: Payment history, budget tracking, credit accounts, financial health
-- **Milestones Tab**: Project phases, completion status, progress tracking
-- **Activity Tab**: Recent updates, project activities, team interactions
-- **Professional UI**: Construction-themed interface with consistent styling
-- **Real-time Data**: 100% dynamic content from database
+**✅ COMPLETED FEATURES:**
+**Complete Financial Management System:**
+```typescript
+// Advanced financial management and control - ALL COMPLETED
+- ✅ PaymentApprovalWorkflow Component: Multi-level approval system with priority-based processing
+- ✅ Enhanced Finances Page: 4-tab system (Overview, Payment Management, Budget Control, Credit Accounts)
+- ✅ Financial Health Dashboard: Scoring algorithm (0-100 scale) with visual indicators
+- ✅ Budget Control Features: Variance analysis with color-coded performance tracking
+- ✅ Credit Account Management: Utilization tracking with payment schedules
+- ✅ Payment Processing: Priority levels based on amounts (High/Medium/Low)
+- ✅ Real-time Financial Analytics: Dynamic calculations from database
+- ✅ Professional UI: Construction orange theme with responsive design
+- ✅ Dynamic Data Integration: 100% database-driven with no hardcoded content
+- ✅ TypeScript Safety: Comprehensive type definitions and error handling
+```
 
-**✅ FILES CREATED/UPDATED:**
-- `src/app/(dashboard)/projects/[projectId]/page.tsx` - Dynamic project details page
-- `src/components/dashboard/project-details-view.tsx` - Main project details component
-- `src/components/tables/ProjectsTable.tsx` - Updated with navigation functionality
+### ✅ Phase 8: Communication & Response System (Week 17-18) - ✅ COMPLETED
+**Focus**: Centralized communication management and response capabilities
 
-**User Profile System Features:**
-- **360-Degree User View**: Complete overview of user's entire interaction with the platform
-- **Multi-tab Interface**: Overview, Projects, Payments, Documents, Activity, Notifications
-- **Real-time Activity Timeline**: Aggregated activity from all database tables with intelligent categorization
-- **User Analytics**: Engagement scoring (0-100), interaction metrics, and behavioral insights
-- **Quick Statistics**: Project counts, financial summary, message counts, notification status
-- **Search and Navigation**: Seamless integration with user management table for drill-down access
-- **Professional UI**: Construction orange theme with responsive design and accessibility
-- **Dynamic Data**: Real-time data fetching with comprehensive error handling and loading states
-- **Project Management**: Complete project deletion with cascade handling for complex relationships
-- **Financial Accuracy**: Perfect data consistency between admin dashboard and mobile app
+**✅ COMPLETED FEATURES:**
+**Complete Communication Management System:**
+```typescript
+// Advanced communication and response system - ALL COMPLETED
+- ✅ Communications API Route (/api/communications): Comprehensive communication data from 5 tables
+- ✅ useCommunications Hook: Professional React hook with auto-refresh capabilities (disabled by default)
+- ✅ Communications Page: 4-tab interface (Overview, Messages, Approvals, Notifications)
+- ✅ Communication Statistics: Real-time metrics and analytics with database calculations
+- ✅ Message Management: Complete conversation and message thread handling
+- ✅ Approval Workflows: Request management with response capabilities
+- ✅ Notification Center: System alerts and priority-based notifications
+- ✅ Professional UI: Construction orange theme with South African context
+- ✅ Dynamic Data Integration: 100% database-driven with no hardcoded content
+- ✅ TypeScript Safety: Comprehensive type definitions and error handling
+- ✅ Fixed Auto-refresh Issue: Resolved aggressive 30-second refresh causing page reloading
+```
 
-## 🧪 Testing Guide: Comprehensive System Testing (100% Dynamic Data)
+**✅ RECENT CRITICAL FIXES:**
+- ✅ **Auto-refresh Disabled**: Fixed aggressive 30-second refresh that was causing constant page reloading
+- ✅ **Hook Optimization**: Updated useCommunications and useFinances hooks with sensible defaults
+- ✅ **Page Stability**: Replaced window.location.reload() with proper refetch functions
+- ✅ **Performance Improvement**: Changed default refresh intervals from 30 seconds to 5 minutes
 
-### ✅ **How to Test the Complete Admin Dashboard System**
+## ✅ COMPLETED PHASES 1-8: FULL ADMIN DASHBOARD FOUNDATION
 
-**🔍 System Testing Steps:**
+### 🎯 **Phase 9: Mobile App Data Control System (Week 19-22) - 🚧 CURRENT PHASE**
+**Focus**: Complete control over all data that users see in their mobile app with real-time synchronization
 
-1. **Start Development Server:**
+**✅ FOUNDATION COMPLETE:**
+- ✅ **Complete Admin Authentication System** - Role-based access control with super_admin, project_manager, finance_admin, support_admin
+- ✅ **Professional Admin Dashboard** - Real-time overview with construction-themed UI and responsive design
+- ✅ **User Management System** - Complete CRUD operations, authentication sync, and professional data tables
+- ✅ **Project Management & Oversight** - Full project lifecycle management with health scoring and real-time monitoring
+- ✅ **User Profile & Dashboard System** - Individual user profiles with comprehensive data views and analytics
+- ✅ **Individual Project Details View** - Complete 4-tab interface with Overview, Finances, Milestones, Activity
+- ✅ **Financial Management & Control** - Advanced financial oversight, payment processing, and budget management
+- ✅ **Communication & Response System** - Centralized communication management with 4-tab interface and real-time updates
+
+**🚧 CURRENT IMPLEMENTATION: MOBILE APP DATA CONTROL**
+
+#### 📱 **Building Progress & Timeline Control Panel**
+**Implementation Requirements:**
+```typescript
+// Admin interface to control what users see in mobile app
+interface MobileAppProgressControl {
+  // Direct Mobile App Data Updates
+  updateMobileProgress: (projectId: string, data: MobileProgressData) => Promise<void>;
+  updateMobileTimeline: (projectId: string, timeline: MobileTimelineData) => Promise<void>;
+  updateMobileMilestones: (projectId: string, milestones: MobileMilestoneData[]) => Promise<void>;
+  uploadMobileProgressPhotos: (projectId: string, photos: MobilePhotoData[]) => Promise<void>;
+  
+  // Mobile App Progress Data Structure
+  MobileProgressData: {
+    currentStage: string;           // "Foundation & Structure"
+    completionPercentage: number;   // 42
+    daysLeft: number;              // 34
+    milestoneStatus: {
+      completed: number;           // 1
+      inProgress: number;          // 1
+      notStarted: number;          // 1
+    };
+  };
+}
+```
+
+#### 💰 **Financial Data Control Panel**
+**Implementation Requirements:**
+```typescript
+// Admin interface to control financial data in mobile app
+interface MobileAppFinancialControl {
+  // Direct Mobile App Financial Updates
+  updateMobileFinancials: (projectId: string, data: MobileFinancialData) => Promise<void>;
+  updateMobilePayments: (projectId: string, payments: MobilePaymentData[]) => Promise<void>;
+  updateMobileCredit: (projectId: string, credit: MobileCreditData) => Promise<void>;
+  updateMobileNextPayment: (projectId: string, payment: MobileNextPaymentData) => Promise<void>;
+  
+  // Mobile App Financial Data Structure (from screenshots)
+  MobileFinancialData: {
+    contractValue: number;          // R 4,200,000
+    cashReceived: number;           // R 1,870,000
+    amountUsed: number;            // R 1,252,900
+    amountRemaining: number;        // R 617,100
+    financialHealth: string;        // "Caution"
+    creditAvailable: number;        // R 375,000
+    creditUsed: number;            // R 125,000
+    creditLimit: number;           // R 500,000
+  };
+}
+```
+
+#### 💬 **Communication Control Panel**
+**Implementation Requirements:**
+```typescript
+// Admin interface to control communications in mobile app
+interface MobileAppCommunicationControl {
+  // Direct Mobile App Communication Updates
+  respondToMobileMessage: (messageId: string, response: string) => Promise<void>;
+  sendMobileNotification: (userId: string, notification: MobileNotificationData) => Promise<void>;
+  updateMobileConversation: (conversationId: string, updates: ConversationUpdates) => Promise<void>;
+  
+  // Mobile App Communication Data Structure
+  MobileNotificationData: {
+    title: string;
+    message: string;
+    priority: 'urgent' | 'high' | 'normal' | 'low';
+    projectId?: string;
+    actionUrl?: string;
+  };
+}
+```
+
+#### 👥 **Team Coordination Control Panel**
+**Implementation Requirements:**
+```typescript
+// Admin interface to control team data in mobile app
+interface MobileAppTeamControl {
+  // Direct Mobile App Team Updates
+  updateMobileTeamData: (projectId: string, data: MobileTeamData) => Promise<void>;
+  updateMobileContractors: (projectId: string, contractors: MobileContractorData[]) => Promise<void>;
+  approveMobileContractor: (contractorId: string, approval: ContractorApproval) => Promise<void>;
+  
+  // Mobile App Team Data Structure (from screenshots)
+  MobileTeamData: {
+    totalContractors: number;       // 7
+    currentlyOnSite: number;        // 1
+    addedByUser: number;            // 5
+    avgRating: number;              // 4.2
+    contractors: MobileContractorData[];
+  };
+  
+  MobileContractorData: {
+    name: string;                   // "John Smith"
+    company: string;                // "Smith Construction Co."
+    specialization: string;         // "GENERAL CONTRACTOR"
+    status: string;                 // "On Site"
+    progress: number;               // 35%
+    contractValue: number;          // R 850,000
+    rating: number;                 // 4.8
+    isAddedByUser: boolean;         // true/false
+  };
+}
+```
+
+#### 📦 **Material Orders Control Panel**
+**Implementation Requirements:**
+```typescript
+// Admin interface to control material orders in mobile app
+interface MobileAppMaterialControl {
+  // Direct Mobile App Material Updates
+  updateMobileMaterialCounts: (projectId: string, counts: MaterialCounts) => Promise<void>;
+  updateMobileMaterialOrders: (projectId: string, orders: MobileOrderData[]) => Promise<void>;
+  approveMaterialOrder: (orderId: string, approval: OrderApproval) => Promise<void>;
+  updateMaterialDelivery: (orderId: string, delivery: DeliveryUpdate) => Promise<void>;
+  
+  // Mobile App Material Data Structure (from screenshots)
+  MaterialCounts: {
+    allOrders: number;              // 10
+    materialsNeeded: number;        // 10
+    deliveredOrders: number;        // 0
+  };
+  
+  MobileOrderData: {
+    orderId: string;                // "PO-001"
+    supplier: string;               // "Cape Concrete Suppliers"
+    contact: string;                // "John Smith • +27 21 555 0001"
+    amount: number;                 // R 10,000
+    description: string;            // "Project materials and construction"
+    neededBy: string;               // "04 Jul 2025"
+    priority: string;               // "CRITICAL - ASAP"
+    status: string;                 // "URGENT: Required in -8 days"
+    daysRemaining: number;          // -8
+  };
+}
+```
+
+### 🔧 **Implementation Strategy**
+
+#### **1. Enhanced API Endpoints**
+```typescript
+// New API endpoints for mobile app data control
+/api/mobile-control/
+├── progress/route.ts           // Control building progress data
+├── financial/route.ts          // Control financial data
+├── communication/route.ts      // Control communication data
+├── team/route.ts              // Control team coordination data
+├── materials/route.ts         // Control material orders data
+└── sync/route.ts              // Synchronize all data
+```
+
+#### **2. Enhanced UI Components**
+```typescript
+// New admin UI components for mobile app control
+/components/mobile-control/
+├── ProgressControlPanel.tsx   // Building progress control
+├── FinancialControlPanel.tsx  // Financial data control
+├── CommunicationHub.tsx       // Communication control
+├── TeamCoordinationPanel.tsx  // Team coordination control
+├── MaterialOrdersPanel.tsx    // Material orders control
+└── MobileDataSync.tsx         // Real-time sync monitor
+```
+
+#### **3. Real-time Synchronization**
+```typescript
+// Real-time sync between admin dashboard and mobile app
+interface MobileAppSync {
+  // Push updates to mobile app instantly
+  pushToMobile: (userId: string, dataType: string, data: any) => Promise<void>;
+  
+  // Monitor mobile app activity
+  monitorMobileActivity: (userId: string) => Promise<ActivityStream>;
+  
+  // Sync verification
+  verifyDataSync: (projectId: string) => Promise<SyncReport>;
+}
+```
+
+### 📋 **Implementation Checklist**
+
+#### **Week 1: Building Progress & Timeline Control**
+- [ ] Create progress control API endpoints
+- [ ] Build progress control panel UI
+- [ ] Implement milestone management
+- [ ] Add progress photo upload system
+- [ ] Test real-time progress updates
+
+#### **Week 2: Financial Data Control**
+- [ ] Create financial control API endpoints
+- [ ] Build financial control panel UI
+- [ ] Implement payment processing system
+- [ ] Add detailed expense tracking
+- [ ] Test financial data synchronization
+
+#### **Week 3: Communication & Team Control**
+- [ ] Enhance communication control system
+- [ ] Build team coordination panel
+- [ ] Implement contractor management
+- [ ] Add message response system
+- [ ] Test communication workflows
+
+#### **Week 4: Material Orders & Final Integration**
+- [ ] Create material orders control system
+- [ ] Build material orders panel UI
+- [ ] Implement supplier management
+- [ ] Add delivery tracking system
+- [ ] Complete mobile app data control testing
+
+### 🎯 **Success Criteria**
+1. **Real-time Updates**: All admin changes reflect instantly in mobile app
+2. **Complete Control**: Admin can update every piece of data users see
+3. **Data Consistency**: Perfect synchronization between platforms
+4. **User Experience**: Seamless updates without requiring mobile app restarts
+5. **Performance**: All updates must process within 2 seconds
+6. **Audit Trail**: Complete logging of all admin changes to mobile data
+
+## 🧪 Testing Guide: Mobile App Data Control Verification
+
+### **How to Test Mobile App Data Control:**
+
+1. **Setup Testing Environment:**
    ```bash
+   # Start admin dashboard
    npm run dev
-   # Visit http://localhost:3000
-   ```
-
-2. **Test Database Connection & Dynamic Data:**
-   ```bash
-   # Test all main API endpoints
-   curl -s http://localhost:3000/api/users | jq '.count'
-   curl -s http://localhost:3000/api/projects | jq '.count'
    
-   # All data should come from Supabase database
-   # No hardcoded values should appear anywhere
+   # Have mobile app running simultaneously
+   # Both should connect to same Supabase database
    ```
 
-3. **Test User Management System:**
+2. **Test Building Progress Control:**
    ```bash
-   # Navigate to: http://localhost:3000/users
-   # Verify all user data is dynamic from auth.users table
-   # Test user profile navigation (⋯ → View Profile)
-   # Test search, filtering, and sorting functionality
+   # Update progress in admin dashboard
+   # Verify changes appear instantly in mobile app
+   # Test: Change completion percentage, days left, milestone status
    ```
 
-4. **Test Project Management System:**
+3. **Test Financial Data Control:**
    ```bash
-   # Navigate to: http://localhost:3000/projects
-   # Verify all project data is dynamic from projects table
-   # Test project health scoring and status calculations
-   # Test project filtering and search functionality
+   # Update financial data in admin dashboard
+   # Verify mobile app shows updated amounts
+   # Test: Contract value, payments, credit limits
    ```
 
-5. **Test User Profile System:**
+4. **Test Communication Control:**
    ```bash
-   # Click "View Profile" on any user
-   # Test all 6 tabs: Overview, Projects, Payments, Documents, Activity, Notifications
-   # Verify engagement scoring and activity timeline
-   # Test project deletion functionality (if available)
+   # Respond to messages in admin dashboard
+   # Verify responses appear in mobile app
+   # Test: Message responses, notifications, approvals
    ```
 
-6. **Test Financial Data Consistency:**
+5. **Test Team & Material Control:**
    ```bash
-   # Check user financial data in admin dashboard
-   # Compare with mobile app financial data
-   # Both should show identical values:
-   # - Cash Received: R 1,870,000
-   # - Amount Used: R 1,252,900
-   # - Amount Remaining: R 617,100
+   # Update contractor data in admin dashboard
+   # Verify mobile app shows updated team info
+   # Test: Contractor status, material orders, deliveries
    ```
 
-### 🔧 Debug Commands for Development
+### 📊 **Integration Verification**
+- All data changes made in admin dashboard must reflect in mobile app within 2 seconds
+- No data should be hardcoded in either platform
+- Both platforms must use identical database queries and calculations
+- Real-time subscriptions must work for instant updates
+- Audit logs must track all admin changes to mobile data
 
-```bash
-# Check system health
-curl -s http://localhost:3000/api/users | grep -o '"count":[0-9]*'
-curl -s http://localhost:3000/api/projects | grep -o '"count":[0-9]*'
-
-# Test specific user profile
-USER_ID="your-user-id-here"
-curl -s http://localhost:3000/api/users/$USER_ID | jq '.userInfo.full_name'
-
-# Test project data
-curl -s http://localhost:3000/api/projects | jq '.projects[0].project_name'
-
-# Monitor real-time logs
-npm run dev | grep -E "(✅|❌|🔍)"
-```
-
-### 📊 Integration Testing with Mobile App
-
-**Database Consistency Verification:**
-1. **Shared Database Tables**: Both platforms use identical Supabase tables
-2. **Real-time Synchronization**: Changes in one platform reflect immediately in the other
-3. **Financial Data Accuracy**: Perfect consistency across all financial metrics
-4. **User Data Sync**: User management changes sync between platforms
-
-**Integration Test Cases:**
-```sql
--- Verify these tables are shared and consistent
-SELECT COUNT(*) FROM users;           -- Should match between platforms
-SELECT COUNT(*) FROM projects;        -- Should match between platforms
-SELECT COUNT(*) FROM payments;        -- Should match between platforms
-SELECT COUNT(*) FROM project_financials; -- Should use latest records only
-```
-
-Remember: This admin dashboard is the command center for the entire KoraBuild construction management ecosystem. Every feature must be enterprise-grade, secure, and provide complete operational control over all aspects of construction project management.
+Remember: This admin dashboard provides complete control over the mobile app user experience. Every piece of data that users see in their mobile app can and must be managed from this admin interface.
 
 ---
 
-## 🎯 **PHASE 7 IMPLEMENTATION: FINANCIAL MANAGEMENT & CONTROL** (READY TO START)
+## 🚨 **CRITICAL SUCCESS FACTORS FOR MOBILE APP DATA CONTROL**
 
-### **What We're Building Next:**
-The next phase focuses on implementing a comprehensive financial management and control system that provides complete oversight of all financial operations across the construction projects. This includes:
+1. **Real-time Data Synchronization**: All admin changes must reflect instantly in mobile app
+2. **Complete Data Control**: Admin must be able to update every piece of information users see
+3. **Data Consistency**: Perfect alignment between admin dashboard and mobile app data
+4. **User Experience**: Seamless updates without requiring mobile app restarts
+5. **Performance**: All updates must process within 2 seconds
+6. **Audit Trail**: Complete logging of all admin changes to mobile data
+7. **Security**: Proper access controls for sensitive financial and project data
+8. **Scalability**: System must handle multiple projects and users simultaneously
 
-**💰 Payment Management & Approval Workflows:**
-- Advanced payment processing with multi-level approval workflows
-- Real-time payment status tracking and automated notifications
-- Payment categorization and financial reporting
-- Integration with existing payment data and financial consistency
-
-**📊 Budget Management & Oversight:**
-- Dynamic budget creation and allocation across projects and milestones
-- Real-time budget vs. actual spending analysis with variance reporting
-- Budget approval workflows and change management
-- Automated budget alerts and notifications
-
-**🏦 Credit Account Management:**
-- Enhanced credit account oversight with limit management
-- Credit utilization tracking and automated alerts
-- Credit account status management and reporting
-- Integration with existing enhanced_credit_accounts table
-
-**📋 Financial Analytics & Reporting:**
-- Real-time financial dashboards with key performance indicators
-- Advanced financial reporting with customizable filters
-- Cash flow analysis and forecasting
-- Financial trend analysis and insights
-
-**🧾 Receipt & Document Processing:**
-- Automated receipt processing with OCR integration
-- Receipt validation and expense categorization
-- Document management for financial records
-- Integration with existing receipt_metadata table
-
-### **Key Benefits:**
-1. **Complete Financial Control**: Comprehensive oversight of all financial operations
-2. **Real-time Insights**: Live financial data and analytics for informed decision-making
-3. **Automated Workflows**: Streamlined payment approvals and budget management
-4. **Enhanced Security**: Multi-level approvals and audit trails for all financial transactions
-5. **Integration**: Seamless integration with existing financial data and mobile app
-
-### **Technical Implementation:**
-- Dynamic financial data fetching from payments, credit_accounts, financial_budgets tables
-- Advanced API endpoints for financial operations with proper TypeScript interfaces
-- Real-time financial analytics with live chart updates
-- Professional financial UI components with construction-themed design
-- Comprehensive audit logging and security controls for all financial operations
-
-This Phase 7 implementation transforms the admin dashboard into a powerful financial control center, providing the comprehensive financial oversight and control required for enterprise-grade construction project management. 
+The admin dashboard is the central nervous system of the KoraBuild platform - it must provide complete oversight and control over every aspect of the construction project management ecosystem that users interact with on their mobile devices. 

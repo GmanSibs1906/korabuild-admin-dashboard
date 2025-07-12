@@ -25,7 +25,8 @@ import {
   Search,
   User,
   ChevronDown,
-  HelpCircle
+  HelpCircle,
+  Smartphone
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
@@ -77,6 +78,13 @@ const navigation: NavigationItem[] = [
     icon: MessageCircle,
     requiredPermissions: [{ resource: 'communications', action: 'view_all' }],
     badge: '3', // Example unread count
+  },
+  {
+    name: 'Mobile Control',
+    href: '/mobile-control',
+    icon: Smartphone,
+    requiredPermissions: [{ resource: 'projects', action: 'view' }],
+    badge: 'New',
   },
   {
     name: 'Contractors',

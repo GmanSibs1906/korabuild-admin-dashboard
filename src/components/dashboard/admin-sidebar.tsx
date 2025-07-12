@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Package,
   Shield,
+  Smartphone,
   Users,
   X,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const navigationItems: NavItem[] = [
   { name: "Contractors", href: "/contractors", icon: CheckSquare, badge: "18" },
   { name: "Communications", href: "/communications", icon: MessageSquare, badge: "8" },
   { name: "Finances", href: "/finances", icon: CreditCard },
+  { name: "Mobile Control", href: "/mobile-control", icon: Smartphone, badge: "New" },
   { name: "Quality", href: "/quality", icon: Shield },
   { name: "Schedule", href: "/schedule", icon: Calendar },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },

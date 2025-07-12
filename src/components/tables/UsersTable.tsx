@@ -39,7 +39,7 @@ type SortField = 'full_name' | 'email' | 'role' | 'created_at' | 'updated_at';
 type SortDirection = 'asc' | 'desc';
 
 export function UsersTable({ className }: UsersTableProps) {
-  const { users, loading, error, stats, count } = useUsers();
+  const { users, loading, error, stats, count, refetch } = useUsers();
   const router = useRouter();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -108,8 +108,8 @@ export function UsersTable({ className }: UsersTableProps) {
   };
 
   const refreshUsers = () => {
-    // TODO: Implement refresh functionality
-    window.location.reload();
+    // Use refetch instead of full page reload
+    refetch();
   };
 
   const formatDate = (date: string) => {

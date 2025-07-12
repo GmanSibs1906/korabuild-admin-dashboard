@@ -30,8 +30,8 @@ const FinancesPage = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'budgets' | 'credit'>('overview');
   const { financialData, isLoading, error, refetch, approvePayment } = useFinances({
     type: 'overview',
-    autoRefetch: true,
-    refetchInterval: 30000 // 30 seconds
+    autoRefetch: false,  // Disable auto-refresh to prevent constant reloading
+    refetchInterval: 300000  // 5 minutes if manually enabled
   });
 
   if (isLoading) {
