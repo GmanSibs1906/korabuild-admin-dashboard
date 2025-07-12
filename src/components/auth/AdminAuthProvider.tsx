@@ -1,122 +1,139 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AdminUser, AdminRole, AdminPermissions } from '@/types/auth';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { adminAuth, AdminUser } from '@/lib/auth/admin-auth';
 
 interface AdminAuthContextType {
   user: AdminUser | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  loading: boolean;
+  isAuthenticated: boolean;
+  hasPermission: (resource: string, action: string) => boolean;
+  login: (email: string, password: string) => Promise<AdminUser>;
+  sendOTP: (email: string) => Promise<{ success: boolean; message: string }>;
+  verifyOTP: (email: string, otp: string) => Promise<AdminUser>;
   logout: () => Promise<void>;
-  hasPermission: (resource: keyof AdminPermissions, action: string) => boolean;
+  checkSession: () => Promise<void>;
 }
 
-const AdminAuthContext = createContext<AdminAuthContextType | null>(null);
+const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
-// Mock admin user for testing
-const mockAdminUser: AdminUser = {
-  id: '1',
-  email: 'admin@korabuild.com',
-  full_name: 'Admin User',
-  phone: '+1234567890',
-  role: 'admin',
-  admin_role: 'super_admin',
-  profile_photo_url: undefined,
-  last_login: new Date().toISOString(),
-  login_history: [],
-  mfa_enabled: false,
-  is_active: true,
-  department: 'IT Administration',
-  employee_id: 'ADM001',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  permissions: {
-    users: {
-      view: true,
-      edit: true,
-      delete: true,
-      impersonate: true,
-    },
-    projects: {
-      view: true,
-      edit: true,
-      delete: true,
-      create: true,
-    },
-    finances: {
-      view: true,
-      approve_payments: true,
-      modify_budgets: true,
-      generate_reports: true,
-    },
-    communications: {
-      view_all: true,
-      respond: true,
-      broadcast: true,
-      moderate: true,
-    },
-    contractors: {
-      view: true,
-      approve: true,
-      suspend: true,
-      manage_assignments: true,
-    },
-    quality: {
-      view_inspections: true,
-      schedule_inspections: true,
-      approve_standards: true,
-      generate_reports: true,
-    },
-    safety: {
-      view_incidents: true,
-      create_alerts: true,
-      manage_compliance: true,
-      access_records: true,
-    },
-    system: {
-      view_logs: true,
-      manage_settings: true,
-      backup_restore: true,
-      user_management: true,
-    },
-  },
-};
+interface AdminAuthProviderProps {
+  children: ReactNode;
+}
 
-export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
+export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock authentication - in real app, this would check Supabase session
-    setUser(mockAdminUser);
-    setIsLoading(false);
+    checkInitialSession();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    // Mock login - in real app, this would authenticate with Supabase
-    setTimeout(() => {
-      setUser(mockAdminUser);
-      setIsLoading(false);
-    }, 1000);
+  const checkInitialSession = async () => {
+    try {
+      console.log('🔄 Checking initial session...');
+      const existingUser = await adminAuth.checkExistingSession();
+      
+      if (existingUser) {
+        console.log('✅ Found existing session:', existingUser.email);
+        setUser(existingUser);
+      } else {
+        console.log('❌ No existing session found');
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('❌ Error checking initial session:', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = async () => {
-    setUser(null);
+  const login = async (email: string, password: string): Promise<AdminUser> => {
+    setLoading(true);
+    try {
+      console.log('🔐 Logging in with mobile app pattern:', email);
+      const authenticatedUser = await adminAuth.signInWithEmail(email, password);
+      setUser(authenticatedUser);
+      return authenticatedUser;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const hasPermission = (resource: keyof AdminPermissions, action: string): boolean => {
-    if (!user?.permissions) return false;
-    const resourcePermissions = user.permissions[resource] as any;
-    return resourcePermissions?.[action] === true;
+  // Send OTP (same as mobile app)
+  const sendOTP = async (email: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      console.log('📧 Sending OTP using mobile app pattern:', email);
+      const result = await adminAuth.signInWithOTP(email);
+      return result;
+    } catch (error: any) {
+      console.error('Send OTP failed:', error);
+      throw error;
+    }
   };
 
-  const value = {
+  // Verify OTP (same as mobile app)
+  const verifyOTP = async (email: string, otp: string): Promise<AdminUser> => {
+    setLoading(true);
+    try {
+      console.log('🔐 Verifying OTP using mobile app pattern:', email);
+      const result = await adminAuth.verifyOTPForSignIn(email, otp);
+      
+      if (!result.success || !result.user) {
+        throw new Error(result.error || 'OTP verification failed');
+      }
+
+      const adminUser = result.user as AdminUser;
+      setUser(adminUser);
+      return adminUser;
+    } catch (error: any) {
+      console.error('OTP verification failed:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      await adminAuth.logout();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkSession = async (): Promise<void> => {
+    try {
+      const existingUser = await adminAuth.checkExistingSession();
+      setUser(existingUser);
+    } catch (error) {
+      console.error('Session check failed:', error);
+      setUser(null);
+    }
+  };
+
+  const hasPermission = (resource: string, action: string): boolean => {
+    return adminAuth.hasPermission(resource, action);
+  };
+
+  const value: AdminAuthContextType = {
     user,
-    isLoading,
-    login,
-    logout,
+    loading,
+    isAuthenticated: !!user,
     hasPermission,
+    login,
+    sendOTP,
+    verifyOTP,
+    logout,
+    checkSession,
   };
 
   return (
@@ -126,10 +143,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAdminAuth() {
+export function useAdminAuth(): AdminAuthContextType {
   const context = useContext(AdminAuthContext);
-  if (!context) {
-    throw new Error('useAdminAuth must be used within AdminAuthProvider');
+  if (context === undefined) {
+    throw new Error('useAdminAuth must be used within an AdminAuthProvider');
   }
   return context;
 }
@@ -139,42 +156,42 @@ export function useRequireAuth() {
   const auth = useAdminAuth();
   
   useEffect(() => {
-    if (!auth.isLoading && !auth.user) {
+    if (!auth.loading && !auth.isAuthenticated) {
       // Redirect to login - this would be handled by the route protection
       console.warn('User not authenticated');
     }
-  }, [auth.isLoading, auth.user]);
+  }, [auth.loading, auth.isAuthenticated]);
   
   return auth;
 }
 
-export function useRequireRole(requiredRoles: AdminRole | AdminRole[]) {
+export function useRequireRole(requiredRoles: string | string[]) {
   const auth = useAdminAuth();
-  const hasRequiredRole = auth.user?.role === 'admin'; // Mocking role check
+  const hasRequiredRole = auth.user?.admin_role === 'super_admin'; // Check admin role
   
   useEffect(() => {
-    if (!auth.isLoading && auth.user && !hasRequiredRole) {
+    if (!auth.loading && auth.user && !hasRequiredRole) {
       console.warn('User does not have required role');
       // Handle unauthorized access
     }
-  }, [auth.isLoading, auth.user, hasRequiredRole]);
+  }, [auth.loading, auth.user, hasRequiredRole]);
   
   return { ...auth, hasRequiredRole };
 }
 
 export function useRequirePermission(
-  resource: keyof AdminPermissions,
+  resource: string,
   action: string
 ) {
   const auth = useAdminAuth();
   const hasRequiredPermission = auth.hasPermission(resource, action);
   
   useEffect(() => {
-    if (!auth.isLoading && auth.user && !hasRequiredPermission) {
+    if (!auth.loading && auth.user && !hasRequiredPermission) {
       console.warn(`User does not have permission: ${resource}.${action}`);
       // Handle unauthorized access
     }
-  }, [auth.isLoading, auth.user, hasRequiredPermission, resource, action]);
+  }, [auth.loading, auth.user, hasRequiredPermission, resource, action]);
   
   return { ...auth, hasRequiredPermission };
 } 

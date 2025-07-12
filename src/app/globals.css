@@ -97,6 +97,11 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
+  /* Ensure all input elements have black text */
+  input, select, textarea {
+    @apply text-gray-900;
+  }
+
   /* Typography System */
   .text-display-1 {
     font-family: var(--font-inter);

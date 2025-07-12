@@ -1,298 +1,310 @@
-import { supabase, supabaseAdmin } from '@/lib/supabase/client';
-import { 
-  AdminUser, 
-  AdminRole, 
-  AuthSession, 
-  LoginRecord, 
-  AuditLogEntry, 
-  ADMIN_ROLE_PERMISSIONS 
-} from '@/types/auth';
-import { User } from '@/types/database';
+import { supabase } from '@/lib/supabase/client';
+import { User } from '@supabase/supabase-js';
 
-export class AdminAuthService {
-  private static instance: AdminAuthService;
-  
-  public static getInstance(): AdminAuthService {
-    if (!AdminAuthService.instance) {
-      AdminAuthService.instance = new AdminAuthService();
+export interface AdminUser {
+  id: string;
+  email?: string;
+  admin_role: 'super_admin' | 'project_manager' | 'finance_admin' | 'support_admin';
+  full_name: string;
+  profile_photo_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AdminPermissions {
+  [resource: string]: {
+    [action: string]: boolean;
+  };
+}
+
+// OTP Verification Interface (same as mobile app)
+interface OTPVerificationResult {
+  success: boolean;
+  user?: User | AdminUser;
+  session?: any;
+  error?: string;
+}
+
+class AdminAuthService {
+  private currentUser: AdminUser | null = null;
+  private permissions: AdminPermissions = {};
+
+  // Use the same sign-in pattern as mobile app
+  async signInWithEmail(email: string, password: string): Promise<AdminUser> {
+    console.log('🔐 Using mobile app auth pattern for:', email);
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Admin sign in error:', error);
+      throw error;
     }
-    return AdminAuthService.instance;
+
+    if (!data.user || !data.user.id) {
+      throw new Error('No user returned from authentication');
+    }
+
+    // Create admin user object using mobile app pattern
+    const adminUser: AdminUser = {
+      id: data.user.id,
+      email: data.user.email,
+      admin_role: 'super_admin', // All authenticated users are super admin in dashboard
+      full_name: data.user.user_metadata?.full_name || data.user.email || 'Admin User',
+      profile_photo_url: data.user.user_metadata?.profile_photo_url,
+      created_at: data.user.created_at,
+      updated_at: data.user.updated_at
+    };
+
+    this.currentUser = adminUser;
+    this.setupPermissions('super_admin');
+
+    console.log('✅ Admin authenticated using mobile app pattern:', { 
+      email: adminUser.email, 
+      role: adminUser.admin_role,
+      id: adminUser.id 
+    });
+
+    return adminUser;
   }
 
-  /**
-   * Authenticate admin user with email/password
-   */
-  async signInWithPassword(email: string, password: string): Promise<AuthSession> {
+  // OTP Sign-in (passwordless) - Send OTP (same as mobile app)
+  async signInWithOTP(email: string): Promise<{ success: boolean; message: string }> {
     try {
-      // Sign in with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      console.log('📧 Sending 6-digit OTP code for admin sign-in to:', email);
+      
+      // Force OTP token (not magic link) by using signInWithOtp
+      // The key is to NOT include emailRedirectTo which forces magic links
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password
+        options: {
+          shouldCreateUser: false, // Only allow existing users to sign in
+          // NO emailRedirectTo = forces OTP tokens instead of magic links
+        }
       });
 
-      if (authError) {
-        await this.logAuthAttempt(email, false, authError.message);
-        throw new Error(authError.message);
-      }
-
-      if (!authData.user || !authData.session) {
-        await this.logAuthAttempt(email, false, 'No user or session returned');
-        throw new Error('Authentication failed');
-      }
-
-      // Get admin user details from database
-      const adminUser = await this.getAdminUser(authData.user.id);
-      
-      if (!adminUser) {
-        await this.logAuthAttempt(email, false, 'User not found in admin system');
-        throw new Error('User not authorized for admin access');
-      }
-
-      if (!adminUser.is_active) {
-        await this.logAuthAttempt(email, false, 'Admin account is inactive');
-        throw new Error('Admin account is inactive');
-      }
-
-      // Update last login
-      await this.updateLastLogin(adminUser.id);
-
-      // Log successful login
-      await this.logAuthAttempt(email, true);
-
-      // Create session
-      const session: AuthSession = {
-        user: adminUser,
-        access_token: authData.session.access_token,
-        refresh_token: authData.session.refresh_token,
-        expires_at: authData.session.expires_at || 0,
-        session_id: authData.session.access_token
-      };
-
-      return session;
-    } catch (error) {
-      console.error('Admin sign-in error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Sign out admin user
-   */
-  async signOut(): Promise<void> {
-    try {
-      const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Sign out error:', error);
-        throw new Error(error.message);
-      }
-    } catch (error) {
-      console.error('Admin sign-out error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Refresh session
-   */
-  async refreshSession(): Promise<AuthSession | null> {
-    try {
-      const { data: authData, error } = await supabase.auth.refreshSession();
-      
-      if (error || !authData.session || !authData.user) {
-        return null;
+        console.error('❌ OTP sign-in error:', error.message);
+        throw error;
       }
 
-      const adminUser = await this.getAdminUser(authData.user.id);
-      if (!adminUser || !adminUser.is_active) {
-        return null;
-      }
-
+      console.log('✅ 6-digit OTP code sent successfully for admin sign-in to:', email);
       return {
-        user: adminUser,
-        access_token: authData.session.access_token,
-        refresh_token: authData.session.refresh_token,
-        expires_at: authData.session.expires_at || 0,
-        session_id: authData.session.access_token
+        success: true,
+        message: 'Check your email for a 6-digit verification code'
       };
-    } catch (error) {
-      console.error('Session refresh error:', error);
-      return null;
+    } catch (error: any) {
+      console.error('❌ OTP sign-in failed:', error.message);
+      throw this.handleAuthError(error);
     }
   }
 
-  /**
-   * Get current session
-   */
-  async getCurrentSession(): Promise<AuthSession | null> {
+  // Verify OTP for sign-in (same as mobile app)
+  async verifyOTPForSignIn(email: string, otp: string): Promise<OTPVerificationResult> {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('🔐 Verifying OTP for admin sign-in:', email);
       
-      if (error || !session || !session.user) {
-        return null;
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email' // For sign-in OTP
+      });
+
+      if (error) {
+        console.error('❌ OTP sign-in verification error:', error.message);
+        return {
+          success: false,
+          error: this.handleAuthError(error).message
+        };
       }
 
-      const adminUser = await this.getAdminUser(session.user.id);
-      if (!adminUser || !adminUser.is_active) {
-        return null;
+      if (!data.user) {
+        return {
+          success: false,
+          error: 'No user returned after OTP verification'
+        };
       }
 
-      return {
-        user: adminUser,
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        expires_at: session.expires_at || 0,
-        session_id: session.access_token
-      };
-    } catch (error) {
-      console.error('Get current session error:', error);
-      return null;
-    }
-  }
+      console.log('✅ OTP sign-in verification successful');
+      console.log('✅ User signed in:', data.user.email);
 
-  /**
-   * Get admin user from database with role and permissions
-   */
-  private async getAdminUser(userId: string): Promise<AdminUser | null> {
-    try {
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .eq('role', 'admin')
-        .single();
-
-      if (error || !user) {
-        return null;
-      }
-
-      // Get admin metadata (admin_role, etc.) from user metadata or separate table
-      // For now, we'll use super_admin as default, but this should come from user metadata
-      const adminRole: AdminRole = (user as any).admin_role || 'project_manager';
-      
+      // Create admin user object using mobile app pattern
       const adminUser: AdminUser = {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        phone: user.phone,
-        role: user.role,
-        admin_role: adminRole,
-        permissions: ADMIN_ROLE_PERMISSIONS[adminRole],
-        profile_photo_url: user.profile_photo_url,
-        last_login: undefined, // Will be fetched separately
-        login_history: [], // Will be fetched separately
-        mfa_enabled: false, // Will be implemented later
-        is_active: true,
-        created_at: user.created_at,
-        updated_at: user.updated_at
+        id: data.user.id,
+        email: data.user.email,
+        admin_role: 'super_admin',
+        full_name: data.user.user_metadata?.full_name || data.user.email || 'Admin User',
+        profile_photo_url: data.user.user_metadata?.profile_photo_url,
+        created_at: data.user.created_at,
+        updated_at: data.user.updated_at
       };
 
-      return adminUser;
+      this.currentUser = adminUser;
+      this.setupPermissions('super_admin');
+
+      console.log('✅ Admin OTP authentication successful:', adminUser.email);
+
+      return {
+        success: true,
+        user: adminUser,
+        session: data.session
+      };
+    } catch (error: any) {
+      console.error('❌ OTP sign-in verification failed:', error.message);
+      return {
+        success: false,
+        error: this.handleAuthError(error).message
+      };
+    }
+  }
+
+  // Use the same session check as mobile app
+  async checkExistingSession(): Promise<AdminUser | null> {
+    try {
+      console.log('🔍 Checking existing session using mobile app pattern...');
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user?.id) {
+        console.log('✅ Found existing session');
+        const user = session.user;
+        const adminUser: AdminUser = {
+          id: user.id,
+          email: user.email,
+          admin_role: 'super_admin',
+          full_name: user.user_metadata?.full_name || user.email || 'Admin User',
+          profile_photo_url: user.user_metadata?.profile_photo_url,
+          created_at: user.created_at,
+          updated_at: user.updated_at
+        };
+        
+        this.currentUser = adminUser;
+        this.setupPermissions('super_admin');
+        return adminUser;
+      }
+      
+      console.log('❌ No existing session found');
+      return null;
     } catch (error) {
-      console.error('Get admin user error:', error);
+      console.error('Error checking session:', error);
       return null;
     }
   }
 
-  /**
-   * Update last login timestamp
-   */
-  private async updateLastLogin(userId: string): Promise<void> {
-    try {
-      await supabase
-        .from('users')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', userId);
-    } catch (error) {
-      console.error('Update last login error:', error);
-    }
+  private setupPermissions(role?: string) {
+    // Grant all permissions for admin dashboard
+    this.permissions = {
+      users: {
+        view: true,
+        edit: true,
+        delete: true,
+        create: true
+      },
+      projects: {
+        view: true,
+        edit: true,
+        delete: true,
+        create: true
+      },
+      finances: {
+        view: true,
+        approve_payments: true
+      },
+      communications: {
+        view_all: true,
+        respond: true
+      },
+      contractors: {
+        view: true,
+        manage: true
+      },
+      quality: {
+        view_inspections: true
+      },
+      safety: {
+        view_incidents: true
+      },
+      system: {
+        manage_settings: true
+      }
+    };
   }
 
-  /**
-   * Log authentication attempt for audit purposes
-   */
-  private async logAuthAttempt(
-    email: string, 
-    success: boolean, 
-    errorMessage?: string
-  ): Promise<void> {
+  // Handle authentication errors (same as mobile app)
+  private handleAuthError(error: any): Error {
+    let message = 'Authentication error occurred';
+    
+    switch (error.message) {
+      case 'Invalid login credentials':
+        message = 'Invalid email or password';
+        break;
+      case 'User already registered':
+        message = 'An account with this email already exists';
+        break;
+      case 'Password should be at least 6 characters':
+        message = 'Password must be at least 6 characters long';
+        break;
+      case 'Invalid email':
+        message = 'Invalid email address';
+        break;
+      case 'Email not confirmed':
+        message = 'Please verify your email with the OTP sent to your inbox';
+        break;
+      case 'Invalid token':
+        message = 'Invalid or expired OTP. Please request a new one.';
+        break;
+      case 'Token has expired':
+        message = 'OTP has expired. Please request a new one.';
+        break;
+      default:
+        message = error.message || 'Authentication failed';
+    }
+
+    return new Error(message);
+  }
+
+  hasPermission(resource: string, action: string): boolean {
+    return this.permissions[resource]?.[action] || false;
+  }
+
+  getCurrentUser(): AdminUser | null {
+    return this.currentUser;
+  }
+
+  async logout(): Promise<void> {
+    await supabase.auth.signOut();
+    this.currentUser = null;
+    this.permissions = {};
+  }
+
+  isAuthenticated(): boolean {
+    return this.currentUser !== null;
+  }
+
+  // Initialize using mobile app pattern
+  async initialize(): Promise<AdminUser | null> {
     try {
-      // Get client IP and user agent (in a real app, these would come from headers)
-      const ip_address = '127.0.0.1'; // Placeholder
-      const user_agent = navigator.userAgent;
-
-      const loginRecord: Omit<LoginRecord, 'id'> = {
-        timestamp: new Date().toISOString(),
-        ip_address,
-        user_agent,
-        success,
-        failure_reason: errorMessage
-      };
-
-      // In a production app, you'd store this in an audit log table
-      console.log('Auth attempt:', { email, ...loginRecord });
+      console.log('🔐 Initializing admin auth using mobile app pattern...');
       
-      // TODO: Store in audit_logs table
+      // Check for existing session first (like mobile app does)
+      const existingUser = await this.checkExistingSession();
+      
+      if (existingUser) {
+        console.log('✅ Using existing session for admin dashboard');
+        return existingUser;
+      }
+
+      // No existing session - user needs to login
+      console.log('❌ No existing session - user needs to login');
+      return null;
+      
     } catch (error) {
-      console.error('Log auth attempt error:', error);
+      console.error('Failed to initialize admin auth:', error);
+      return null;
     }
-  }
-
-  /**
-   * Log admin action for audit trail
-   */
-  async logAdminAction(
-    adminId: string,
-    adminEmail: string,
-    action: string,
-    resourceType: string,
-    resourceId?: string,
-    oldValues?: Record<string, any>,
-    newValues?: Record<string, any>
-  ): Promise<void> {
-    try {
-      const auditEntry: Omit<AuditLogEntry, 'id'> = {
-        admin_id: adminId,
-        admin_email: adminEmail,
-        action,
-        resource_type: resourceType,
-        resource_id: resourceId,
-        old_values: oldValues,
-        new_values: newValues,
-        ip_address: '127.0.0.1', // Placeholder
-        user_agent: navigator.userAgent,
-        timestamp: new Date().toISOString(),
-        success: true
-      };
-
-      // TODO: Store in audit_logs table
-      console.log('Admin action logged:', auditEntry);
-    } catch (error) {
-      console.error('Log admin action error:', error);
-    }
-  }
-
-  /**
-   * Check if user has specific permission
-   */
-  hasPermission(
-    user: AdminUser,
-    resource: keyof typeof user.permissions,
-    action: string
-  ): boolean {
-    const resourcePermissions = user.permissions[resource];
-    if (!resourcePermissions || typeof resourcePermissions !== 'object') {
-      return false;
-    }
-    return (resourcePermissions as any)[action] === true;
-  }
-
-  /**
-   * Check if user has specific role(s)
-   */
-  hasRole(user: AdminUser, roles: AdminRole | AdminRole[]): boolean {
-    const roleArray = Array.isArray(roles) ? roles : [roles];
-    return roleArray.includes(user.admin_role);
   }
 }
 
-export const adminAuthService = AdminAuthService.getInstance(); 
+export const adminAuth = new AdminAuthService(); 

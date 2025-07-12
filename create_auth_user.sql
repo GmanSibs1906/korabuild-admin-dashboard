@@ -1,0 +1,57 @@
+-- Create User in Supabase Auth
+-- This script creates gmansibs@gmail.com in Supabase Auth system
+
+-- Option 1: Use Supabase Dashboard (Recommended)
+-- 1. Go to Authentication > Users in Supabase Dashboard
+-- 2. Click "Add User" 
+-- 3. Email: gmansibs@gmail.com
+-- 4. Password: your-chosen-password
+-- 5. Skip email confirmation
+
+-- Option 2: Use SQL (Advanced)
+-- Note: This requires admin privileges and may not work in all setups
+
+-- Insert into auth.users (this is the Supabase Auth table)
+-- WARNING: This bypasses normal auth flows and may cause issues
+-- INSERT INTO auth.users (
+--   instance_id,
+--   id,
+--   aud,
+--   role,
+--   email,
+--   encrypted_password,
+--   email_confirmed_at,
+--   recovery_sent_at,
+--   last_sign_in_at,
+--   raw_app_meta_data,
+--   raw_user_meta_data,
+--   created_at,
+--   updated_at,
+--   confirmation_token,
+--   email_change,
+--   email_change_token_new,
+--   recovery_token
+-- ) VALUES (
+--   '00000000-0000-0000-0000-000000000000',
+--   gen_random_uuid(),
+--   'authenticated',
+--   'authenticated',
+--   'gmansibs@gmail.com',
+--   crypt('your-password-here', gen_salt('bf')),
+--   NOW(),
+--   NOW(),
+--   NOW(),
+--   '{"provider":"email","providers":["email"]}',
+--   '{}',
+--   NOW(),
+--   NOW(),
+--   '',
+--   '',
+--   '',
+--   ''
+-- );
+
+-- Better approach: Use the dashboard or sign up flow
+-- Go to your login page and use the "Demo Credentials" shown in development:
+-- Email: admin@korabuild.com
+-- Password: admin123 

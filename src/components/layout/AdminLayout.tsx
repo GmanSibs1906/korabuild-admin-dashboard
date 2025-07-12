@@ -129,6 +129,7 @@ const systemNavigation: NavigationItem[] = [
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
+  console.log('🔍 AdminLayout - Rendering with pathname:', usePathname());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -158,6 +159,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     finance_admin: 'bg-green-100 text-green-800',
     support_admin: 'bg-yellow-100 text-yellow-800',
   };
+
+  // Show loading state while authenticating
+  if (auth.loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex bg-gray-50">
@@ -292,7 +305,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <input
                     type="text"
                     placeholder="Search..."
-                    className="pl-10 pr-4 py-2 w-64 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="pl-10 pr-4 py-2 w-64 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
               </div>

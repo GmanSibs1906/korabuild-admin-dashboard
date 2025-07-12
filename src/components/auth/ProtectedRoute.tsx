@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from './AdminAuthProvider';
 import { AdminRole, AdminPermissions } from '@/types/auth';
@@ -28,6 +28,13 @@ export function ProtectedRoute({
   const auth = useAdminAuth();
   const router = useRouter();
 
+  // Handle redirect in useEffect to avoid render-time state updates
+  useEffect(() => {
+    if (!auth.isLoading && !auth.user) {
+      router.push(redirectTo);
+    }
+  }, [auth.isLoading, auth.user, router, redirectTo]);
+
   // Show loading state while checking authentication
   if (auth.isLoading) {
     return (
@@ -40,17 +47,14 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect to login if not authenticated
-  if (!auth.isAuthenticated) {
-    if (typeof window !== 'undefined') {
-      router.push(redirectTo);
-    }
+  // Return null if not authenticated (redirect will happen in useEffect)
+  if (!auth.user) {
     return null;
   }
 
   // Check role requirements
   if (requiredRoles && requiredRoles.length > 0) {
-    const hasRequiredRole = auth.hasRole(requiredRoles);
+    const hasRequiredRole = requiredRoles.includes(auth.user.admin_role);
     if (!hasRequiredRole) {
       return (
         <AccessDenied
