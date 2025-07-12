@@ -90,15 +90,36 @@ function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 'blue',
 export default function DashboardOverview() {
   const { users, loading: usersLoading, error: usersError, stats: userStats } = useUsers();
   const { projects, loading: projectsLoading, error: projectsError, summary: projectSummary } = useProjects();
-  const { loading: financesLoading, error: financesError, stats: financeStats } = useFinances();
+  const { financialData, isLoading: financesLoading, error: financesError } = useFinances();
   const { loading: messagesLoading, error: messagesError, stats: messageStats } = useMessages();
   const { activities, loading: activityLoading, error: activityError } = useActivity();
+
+  // Extract financial stats from financialData
+  const financeStats = financialData?.overview ? {
+    totalRevenue: financialData.overview.totalPayments || 0,
+    monthlyRevenue: financialData.overview.totalPayments * 0.1 || 0, // Estimate monthly as 10% of total
+    totalBudget: financialData.overview.totalBudget || 0,
+    totalActual: financialData.overview.totalActual || 0,
+    financialHealthScore: financialData.overview.financialHealthScore || 0,
+    financialHealthStatus: financialData.overview.financialHealthStatus || 'unknown',
+    pendingApprovals: financialData.overview.pendingApprovalsCount || 0,
+    overduePayments: financialData.overview.overduePaymentsCount || 0
+  } : {
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    totalBudget: 0,
+    totalActual: 0,
+    financialHealthScore: 0,
+    financialHealthStatus: 'unknown',
+    pendingApprovals: 0,
+    overduePayments: 0
+  };
 
   // Debug logging to help diagnose issues
   console.log('Dashboard Data Status:', {
     users: { count: users?.length, loading: usersLoading, error: usersError, stats: userStats },
     projects: { count: projects?.length, loading: projectsLoading, error: projectsError, summary: projectSummary },
-    finances: { loading: financesLoading, error: financesError, stats: financeStats },
+    finances: { loading: financesLoading, error: financesError, stats: financeStats, rawData: financialData },
     messages: { loading: messagesLoading, error: messagesError, stats: messageStats }
   });
 
@@ -298,7 +319,7 @@ export default function DashboardOverview() {
             <h4 className="text-sm font-medium text-green-900">System Status</h4>
             <p className="text-sm text-green-700 mt-1">
               ✅ All core systems are online with real-time Supabase data! 
-              📊 Displaying live metrics from {userStats.totalUsers} users, {projectSummary.totalProjects} projects, and {financeStats.totalPayments} payments.
+              📊 Displaying live metrics from {userStats.totalUsers} users, {projectSummary.totalProjects} projects, and R{financeStats.totalRevenue.toLocaleString()} in total revenue.
             </p>
           </div>
         </div>

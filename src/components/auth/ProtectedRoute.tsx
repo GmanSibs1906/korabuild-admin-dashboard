@@ -30,13 +30,13 @@ export function ProtectedRoute({
 
   // Handle redirect in useEffect to avoid render-time state updates
   useEffect(() => {
-    if (!auth.isLoading && !auth.user) {
+    if (!auth.loading && !auth.user) {
       router.push(redirectTo);
     }
-  }, [auth.isLoading, auth.user, router, redirectTo]);
+  }, [auth.loading, auth.user, router, redirectTo]);
 
   // Show loading state while checking authentication
-  if (auth.isLoading) {
+  if (auth.loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="flex flex-col items-center space-y-4">

@@ -7,10 +7,10 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function HomePage() {
   const router = useRouter();
-  const { user, isLoading } = useAdminAuth();
+  const { user, loading } = useAdminAuth();
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!loading) {
       if (user) {
         // User is authenticated, redirect to dashboard
         router.push('/dashboard');
@@ -19,9 +19,9 @@ export default function HomePage() {
         router.push('/login');
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, loading, router]);
 
-  if (isLoading) {
+  if (loading) {
   return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

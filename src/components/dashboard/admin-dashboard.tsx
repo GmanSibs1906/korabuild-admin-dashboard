@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AdminSidebar } from "./admin-sidebar";
 import { AdminHeader } from "./admin-header";
-import { DashboardOverview } from "./dashboard-overview";
+import DashboardOverview from "./dashboard-overview";
 
 export function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
