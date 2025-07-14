@@ -375,9 +375,35 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
     fetchOrdersData();
   };
 
-  const handleEditDelivery = (delivery: any) => {
-    setSelectedDelivery(delivery);
-    setShowDeliveryEditModal(true);
+  const handleEditDelivery = async (delivery: any) => {
+    console.log('🚚 Opening edit modal for delivery:', {
+      deliveryId: delivery.id,
+      deliveryNumber: delivery.delivery_number
+    });
+    
+    try {
+      // Fetch fresh delivery data with complete order relations
+      const response = await fetch(`/api/mobile-control/deliveries?deliveryId=${delivery.id}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('🚚 Fresh delivery data fetched:', result.data);
+        setSelectedDelivery(result.data);
+        setShowDeliveryEditModal(true);
+      } else {
+        console.error('❌ Failed to fetch delivery data:', result.error);
+        setError('Failed to fetch delivery data');
+        // Fallback to existing data
+        setSelectedDelivery(delivery);
+        setShowDeliveryEditModal(true);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching delivery data:', error);
+      setError('Failed to fetch delivery data');
+      // Fallback to existing data
+      setSelectedDelivery(delivery);
+      setShowDeliveryEditModal(true);
+    }
   };
 
   const handleDeleteDelivery = async (deliveryId: string) => {

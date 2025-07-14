@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
             order_number,
             project_id,
             total_amount,
+            delivery_address,
+            delivery_instructions,
             suppliers (
               supplier_name,
               contact_person,
@@ -162,6 +164,13 @@ async function createDelivery(projectId: string, deliveryData: any) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
     }
 
+    console.log('🚚 Creating delivery for project:', projectId, 'with data:', {
+      order_id: deliveryData.order_id,
+      delivery_date: deliveryData.delivery_date,
+      driver_name: deliveryData.driver_name,
+      itemsCount: deliveryData.delivery_items?.length || 0
+    });
+
     // Generate delivery number
     const deliveryNumber = generateDeliveryNumber();
 
@@ -178,7 +187,8 @@ async function createDelivery(projectId: string, deliveryData: any) {
         driver_phone: deliveryData.driver_phone,
         vehicle_info: `${deliveryData.vehicle_type} - ${deliveryData.vehicle_registration}`,
         delivery_method: deliveryData.delivery_method,
-        special_handling_notes: deliveryData.special_requirements,
+        received_by_name: deliveryData.recipient_name,
+        special_handling_notes: deliveryData.delivery_instructions || deliveryData.special_requirements,
         notes: deliveryData.notes,
         delivery_photos: deliveryData.delivery_photos || [],
         created_at: new Date().toISOString(),
@@ -283,6 +293,8 @@ async function updateDelivery(deliveryId: string, deliveryData: any) {
       return NextResponse.json({ error: 'Delivery ID is required' }, { status: 400 });
     }
 
+    console.log('🚚 Updating delivery:', deliveryId, 'with data:', deliveryData);
+
     // Update the delivery
     const { data: delivery, error: deliveryError } = await supabaseAdmin
       .from('deliveries')
@@ -313,6 +325,8 @@ async function updateDelivery(deliveryId: string, deliveryData: any) {
       return NextResponse.json({ error: 'Failed to update delivery' }, { status: 500 });
     }
 
+    console.log('✅ Delivery updated successfully:', delivery.delivery_number);
+
     // Create delivery tracking entry (if delivery_tracking table exists)
     // await supabaseAdmin
     //   .from('delivery_tracking')
@@ -323,8 +337,6 @@ async function updateDelivery(deliveryId: string, deliveryData: any) {
     //     notes: `Delivery ${delivery.delivery_number} updated`,
     //     updated_by: 'abefe861-97da-4556-8b39-18c5ddbce22c', // Use actual user ID
     //   });
-
-    console.log('✅ Delivery updated successfully:', delivery.delivery_number);
 
     return NextResponse.json({
       success: true,

@@ -219,12 +219,23 @@ export function DeliveryCreateModal({
         delivery_items: formData.delivery_items.filter(item => item.quantity_to_deliver > 0),
       };
 
+      console.log('🚚 Creating delivery with data:', {
+        action: 'create',
+        projectId,
+        deliveryData,
+        itemsCount: deliveryData.delivery_items.length
+      });
+
       const response = await fetch(`/api/mobile-control/deliveries`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(deliveryData),
+        body: JSON.stringify({
+          action: 'create',  // Add required action field
+          projectId,         // Add required projectId field
+          deliveryData       // Send deliveryData in the expected structure
+        }),
       });
 
       if (!response.ok) {
@@ -233,6 +244,8 @@ export function DeliveryCreateModal({
       }
 
       const result = await response.json();
+      
+      console.log('🚚 Delivery creation result:', result);
       
       if (result.success) {
         onDeliveryCreated(result.data);
