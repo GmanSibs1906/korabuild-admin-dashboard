@@ -21,6 +21,7 @@ interface UseUsersReturn {
   loading: boolean;
   error: string | null;
   count: number;
+  refetch: () => void;
 }
 
 export function useUsers(): UseUsersReturn {
@@ -117,5 +118,6 @@ export function useUsers(): UseUsersReturn {
     loading,
     error,
     count: users.length,
+    refetch: fetchUsers,
   };
 } 

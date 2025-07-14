@@ -179,14 +179,16 @@ export async function GET(
       .order('issue_date', { ascending: false });
 
     // Get additional financial data from project_financials table (AUTHORITATIVE SOURCE)
-    // 🚨 CRITICAL FIX: Get only the LATEST record per project, not all records
+    // 🚨 CRITICAL FIX: Get only the LATEST record per project using consistent ordering
     const { data: projectFinancials, error: financialsError } = await supabaseAdmin
       .from('project_financials')
       .select('project_id, cash_received, amount_used, amount_remaining, created_at, updated_at, snapshot_date')
       .in('project_id', projectIds)
-      .order('snapshot_date', { ascending: false }); // Get latest first
+      .order('snapshot_date', { ascending: false })
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
-    // Group by project_id and take only the latest record for each project
+    // Group by project_id and take only the latest record for each project (same logic as mobile-control API)
     const latestFinancials = projectIds.map(projectId => {
       const projectRecords = projectFinancials?.filter(pf => pf.project_id === projectId) || [];
       return projectRecords.length > 0 ? projectRecords[0] : null; // Take the latest (first after sorting)
@@ -196,6 +198,10 @@ export async function GET(
       total_records: projectFinancials?.length || 0,
       latest_records_used: latestFinancials.length,
       error: financialsError?.message,
+      projects_with_duplicates: projectIds.filter(projectId => {
+        const records = projectFinancials?.filter(pf => pf.project_id === projectId) || [];
+        return records.length > 1;
+      }),
       data: latestFinancials
     });
 
