@@ -1,10 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { NextPaymentModal } from '@/components/modals/NextPaymentModal';
+import { NextPaymentData } from '@/types/next-payment';
+import { 
+  DollarSign, 
+  TrendingUp, 
+  TrendingDown, 
+  AlertTriangle, 
+  CheckCircle, 
+  Clock, 
+  Calendar,
+  CreditCard,
+  Wallet,
+  Calculator,
+  Bell,
+  Plus,
+  Edit
+} from 'lucide-react';
 
 interface MobileFinancialData {
   contractValue: number;
@@ -59,6 +77,11 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
   const [payments, setPayments] = useState<MobilePaymentData[]>([]);
   const [creditData, setCreditData] = useState<MobileCreditData | null>(null);
   const [nextPayment, setNextPayment] = useState<MobileNextPaymentData | null>(null);
+  
+  // Next Payment Due State
+  const [nextPaymentModal, setNextPaymentModal] = useState(false);
+  const [nextPaymentData, setNextPaymentData] = useState<NextPaymentData | null>(null);
+  const [loadingNextPayment, setLoadingNextPayment] = useState(false);
   
   const [editMode, setEditMode] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
@@ -170,27 +193,75 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
     setEditValues({});
   };
 
-  // Add new payment
-  const addPayment = async () => {
-    const newPayment = {
-      amount: 100000,
-      date: new Date().toISOString().split('T')[0],
-      description: 'New payment',
-      category: 'milestone',
-      status: 'completed',
-      reference: `PAY-${Date.now()}`,
-      method: 'bank_transfer'
-    };
+  // Fetch next payment data for the current project
+  const fetchNextPaymentData = async () => {
+    if (!projectId) return;
     
-    await updateFinancialData('payment', newPayment);
+    setLoadingNextPayment(true);
+    try {
+      console.log('💰 Fetching next payment data for project:', projectId);
+      
+      const response = await fetch(`/api/finances/next-payment?projectId=${projectId}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setNextPaymentData(result.data);
+      } else {
+        console.error('❌ Error fetching next payment data:', result.error);
+        setNextPaymentData(null);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching next payment data:', error);
+      setNextPaymentData(null);
+    } finally {
+      setLoadingNextPayment(false);
+    }
+  };
+
+  // Handle next payment updated
+  const handleNextPaymentUpdated = () => {
+    fetchNextPaymentData();
+    fetchFinancialData(); // Refresh financial data
+  };
+
+  // Calculate days until next payment
+  const getDaysUntilPayment = (dateString: string) => {
+    if (!dateString) return null;
+    const today = new Date();
+    const paymentDate = new Date(dateString);
+    const diffTime = paymentDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Get payment urgency color
+  const getPaymentUrgencyColor = (daysUntil: number | null) => {
+    if (daysUntil === null) return 'bg-gray-100 text-gray-800';
+    if (daysUntil < 0) return 'bg-red-100 text-red-800'; // Overdue
+    if (daysUntil <= 3) return 'bg-orange-100 text-orange-800'; // Due soon
+    if (daysUntil <= 7) return 'bg-yellow-100 text-yellow-800'; // Due this week
+    return 'bg-green-100 text-green-800'; // Future
   };
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return `R ${amount.toLocaleString()}`;
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR'
+    }).format(amount);
   };
 
-  // Get health color
+  // Format date
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString('en-ZA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Get health color based on financial health status
   const getHealthColor = (health: string) => {
     switch (health) {
       case 'Healthy':
@@ -204,23 +275,39 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
     }
   };
 
-  // Get payment status color
+  // Get status color based on payment status
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'completed':
+      case 'paid':
+      case 'approved':
         return 'bg-green-100 text-green-800';
       case 'pending':
+      case 'processing':
         return 'bg-yellow-100 text-yellow-800';
       case 'failed':
+      case 'rejected':
+      case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'partial':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
+  // Add payment handler
+  const addPayment = () => {
+    // TODO: Implement add payment functionality
+    console.log('Add payment functionality coming soon...');
+    // For now, we'll just log this - in a real implementation, this would open a modal
+    // or redirect to a payment creation form
+  };
+
   // Load data on component mount
   useEffect(() => {
     fetchFinancialData();
+    fetchNextPaymentData(); // Fetch next payment data on mount
   }, [projectId]);
 
   if (loading) {
@@ -649,6 +736,181 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
                 <p className="text-gray-500">No credit facility configured</p>
               </div>
             )}
+
+            {/* Next Payment Due Section */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h4 className="text-xl font-bold text-gray-900">Next Payment Due</h4>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {nextPaymentData && (
+                    <Button
+                      onClick={() => setNextPaymentModal(true)}
+                      variant="outline"
+                      size="sm"
+                      className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setNextPaymentModal(true)}
+                    size="sm"
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    {nextPaymentData ? 'Update' : 'Add Payment'}
+                  </Button>
+                </div>
+              </div>
+
+              {loadingNextPayment ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner />
+                  <span className="ml-2 text-sm text-gray-600">Loading payment data...</span>
+                </div>
+              ) : nextPaymentData ? (
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-100">
+                  {/* Payment Amount and Overdue Status */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-4xl font-bold text-gray-900">
+                      {formatCurrency(nextPaymentData.payment_amount || nextPaymentData.monthly_payment || 0)}
+                    </div>
+                    {(() => {
+                      const daysUntil = getDaysUntilPayment(nextPaymentData.next_payment_date);
+                      if (daysUntil !== null && daysUntil < 0) {
+                        return (
+                          <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
+                            {Math.abs(daysUntil)}d overdue
+                          </div>
+                        );
+                      } else if (daysUntil !== null && daysUntil <= 7) {
+                        return (
+                          <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+                            Due in {daysUntil} days
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+
+                  {/* Milestone Information */}
+                  {nextPaymentData.milestone_name && (
+                    <div className="flex items-start space-x-3 mb-4">
+                      <div className="bg-red-100 rounded-full p-2 flex-shrink-0">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Milestone payment:</p>
+                        <p className="text-base font-medium text-gray-900">
+                          {nextPaymentData.milestone_name}
+                        </p>
+                        {nextPaymentData.milestone_description && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            {nextPaymentData.milestone_description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Due Date */}
+                  <div className="mb-4">
+                    <span className="text-sm font-medium text-gray-600">Due Date: </span>
+                    <span className="text-base font-semibold text-gray-900">
+                      {new Date(nextPaymentData.next_payment_date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+
+                  {/* Payment Sequence and Total */}
+                  {(nextPaymentData.total_payments && nextPaymentData.total_payments > 1) || nextPaymentData.total_amount ? (
+                    <div className="text-sm text-gray-600">
+                      {nextPaymentData.total_payments && nextPaymentData.total_payments > 1 && (
+                        <span>
+                          +{nextPaymentData.total_payments - (nextPaymentData.payment_sequence || 1)} more payment
+                          {nextPaymentData.total_payments - (nextPaymentData.payment_sequence || 1) !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {nextPaymentData.total_amount && (
+                        <span>
+                          {nextPaymentData.total_payments && nextPaymentData.total_payments > 1 ? ' • ' : ''}
+                          Total: {formatCurrency(nextPaymentData.total_amount)}
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {/* Additional Details (collapsed by default) */}
+                  {(nextPaymentData.credit_terms !== '30 days net' || nextPaymentData.notes || nextPaymentData.last_payment_date) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        {nextPaymentData.credit_terms !== '30 days net' && (
+                          <div>
+                            <span className="text-gray-600">Terms: </span>
+                            <span className="font-medium text-gray-900">{nextPaymentData.credit_terms}</span>
+                          </div>
+                        )}
+                        
+                        {nextPaymentData.last_payment_date && (
+                          <div>
+                            <span className="text-gray-600">Last Payment: </span>
+                            <span className="font-medium text-gray-900">
+                              {formatDate(nextPaymentData.last_payment_date)}
+                            </span>
+                          </div>
+                        )}
+
+                        <div>
+                          <span className="text-gray-600">Status: </span>
+                          <Badge className={getStatusColor(nextPaymentData.credit_status)}>
+                            {nextPaymentData.credit_status}
+                          </Badge>
+                        </div>
+
+                        {nextPaymentData.payment_sequence && nextPaymentData.total_payments && (
+                          <div>
+                            <span className="text-gray-600">Payment: </span>
+                            <span className="font-medium text-gray-900">
+                              {nextPaymentData.payment_sequence} of {nextPaymentData.total_payments}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {nextPaymentData.notes && (
+                        <div className="mt-3">
+                          <p className="text-gray-600 text-sm">
+                            <span className="font-medium">Notes: </span>
+                            {nextPaymentData.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Payment Scheduled</h3>
+                  <p className="text-gray-600 mb-4">Set up your next payment schedule</p>
+                  <Button
+                    onClick={() => setNextPaymentModal(true)}
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Next Payment
+                  </Button>
+                </div>
+              )}
+            </Card>
           </div>
         )}
 
@@ -658,18 +920,21 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
             <h3 className="text-lg font-medium text-gray-900">Budget Control</h3>
             <Card className="p-6">
               <div className="text-center py-8">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Budget Control Panel</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Coming soon - Control budget allocation, expense categories, and spending limits
-                </p>
+                <p className="text-gray-500">Budget control features coming soon...</p>
               </div>
             </Card>
           </div>
         )}
       </div>
+
+      {/* Next Payment Modal */}
+      <NextPaymentModal
+        isOpen={nextPaymentModal}
+        onClose={() => setNextPaymentModal(false)}
+        projectId={projectId}
+        existingPayment={nextPaymentData}
+        onPaymentUpdated={handleNextPaymentUpdated}
+      />
     </div>
   );
 } 

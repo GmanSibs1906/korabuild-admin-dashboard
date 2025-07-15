@@ -15,9 +15,7 @@ import {
   Clock, 
   CreditCard, 
   PieChart,
-  FileText,
   Calculator,
-  Target,
   Wallet,
   Settings,
   Plus,
@@ -28,7 +26,7 @@ import {
 
 const FinancesPage = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'budgets' | 'credit'>('overview');
-  const { financialData, isLoading, error, refetch, approvePayment } = useFinances({
+  const { financialData, isLoading, error, refetch } = useFinances({
     type: 'overview',
     autoRefetch: false,  // Disable auto-refresh to prevent constant reloading
     refetchInterval: 300000  // 5 minutes if manually enabled
@@ -68,7 +66,7 @@ const FinancesPage = () => {
     );
   }
 
-  const { overview, payments, budgets, creditAccounts, counts } = financialData;
+  const { overview, payments, budgets, creditAccounts } = financialData;
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -89,33 +87,12 @@ const FinancesPage = () => {
     }
   };
 
-  // Get status badge color
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'refunded': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const tabs = [
     { id: 'overview', label: 'Financial Overview', icon: DollarSign },
     { id: 'payments', label: 'Payment Management', icon: CreditCard },
     { id: 'budgets', label: 'Budget Control', icon: Calculator },
     { id: 'credit', label: 'Credit Accounts', icon: Wallet }
   ];
-
-  const handleApprovePayment = async (paymentId: string) => {
-    try {
-      await approvePayment(paymentId);
-      // Success feedback would be handled by the hook
-    } catch (error) {
-      console.error('Failed to approve payment:', error);
-      // Error feedback would be handled by the hook
-    }
-  };
 
   const renderEnhancedOverview = () => (
     <div className="space-y-8">
@@ -203,6 +180,53 @@ const FinancesPage = () => {
                 }`}
                 style={{ width: `${Math.min(overview.creditUtilization, 100)}%` }}
               />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Next Payment Due Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-lg font-semibold">Next Payment Due</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">Upcoming payment schedule and management</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* Removed edit button */}
+              {/* Removed add payment button */}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Removed loadingNextPayment state and logic */}
+            {/* Removed nextPaymentData state and logic */}
+            {/* Removed fetchNextPaymentData function */}
+            {/* Removed handleOpenNextPaymentModal function */}
+            {/* Removed handleNextPaymentUpdated function */}
+            {/* Removed useEffect for fetching next payment data */}
+            <div className="text-center py-8">
+              {/* Removed Calendar import */}
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Payment Schedule Set</h3>
+              <p className="text-gray-600 mb-4">Add a payment schedule to track upcoming payments and deadlines.</p>
+              {/* Removed Add Payment Schedule button */}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Alerts & Notifications */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center">
+              <Bell className="h-5 w-5 mr-2 text-orange-600" />
+              Payment Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Removed nextPaymentData and getDaysUntilPayment logic */}
+            <div className="text-center py-4">
+              <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-gray-600">No payment alerts</p>
             </div>
           </CardContent>
         </Card>
@@ -635,6 +659,9 @@ const FinancesPage = () => {
       <div className="mt-6">
         {renderTabContent()}
       </div>
+
+      {/* Next Payment Modal */}
+      {/* Removed NextPaymentModal component */}
     </div>
   );
 };
