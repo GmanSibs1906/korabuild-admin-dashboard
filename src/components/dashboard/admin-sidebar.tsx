@@ -15,6 +15,7 @@ import {
   Smartphone,
   Users,
   X,
+  Bell,
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -31,18 +32,11 @@ interface NavItem {
 
 const navigationItems: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Projects", href: "/projects", icon: Building2, badge: "12" },
-  { name: "Users", href: "/users", icon: Users, badge: "245" },
-  { name: "Contractors", href: "/contractors", icon: CheckSquare, badge: "18" },
-  { name: "Communications", href: "/communications", icon: MessageSquare, badge: "8" },
+  { name: "Users", href: "/users", icon: Users },
+  { name: "Projects", href: "/projects", icon: Building2 },
   { name: "Finances", href: "/finances", icon: CreditCard },
-  { name: "Mobile Control", href: "/mobile-control", icon: Smartphone, badge: "New" },
-  { name: "Quality", href: "/quality", icon: Shield },
-  { name: "Schedule", href: "/schedule", icon: Calendar },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Documents", href: "/documents", icon: FileText },
-  { name: "Safety", href: "/safety", icon: Shield },
-  { name: "Orders", href: "/orders", icon: Package },
+  { name: "Communication", href: "/communications", icon: MessageSquare },
+  { name: "Notifications", href: "/notifications", icon: Bell },
 ];
 
 export function AdminSidebar({ open, onOpenChange }: AdminSidebarProps) {

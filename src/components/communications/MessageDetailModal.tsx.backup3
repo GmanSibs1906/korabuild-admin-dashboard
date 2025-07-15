@@ -1,0 +1,387 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { X, Send, User, Clock, CheckCircle, AlertCircle, Phone, Mail, FileText, Calendar, MapPin, MessageSquare, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface Message {
+  id: string;
+  content: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: string;
+  sent_at: string;
+  is_read: boolean;
+  message_type: 'text' | 'image' | 'document' | 'system';
+  attachments?: Array<{
+    id: string;
+    filename: string;
+    file_type: string;
+    file_size: number;
+    file_url: string;
+  }>;
+}
+
+interface Conversation {
+  id: string;
+  name: string;
+  project_name?: string;
+  participants: Array<{
+    id: string;
+    name: string;
+    role: string;
+    avatar_url?: string;
+  }>;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+  status: 'active' | 'archived' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+}
+
+interface MessageDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  conversationId: string;
+  conversationName: string;
+  projectName?: string;
+  onMessageSent?: () => void;
+}
+
+export function MessageDetailModal({
+  isOpen,
+  onClose,
+  conversationId,
+  conversationName,
+  projectName,
+  onMessageSent
+}: MessageDetailModalProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (isOpen && conversationId) {
+      fetchConversationMessages();
+    }
+  }, [isOpen, conversationId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const fetchConversationMessages = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/communications/messages?conversationId=${conversationId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+      
+      const data = await response.json();
+      setMessages(data.messages || []);
+      setConversation(data.conversation || null);
+      
+      // Mark conversation as read
+      await fetch('/api/communications/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'mark_conversation_read',
+          conversationId: conversationId
+        }),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load messages');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || isSending) return;
+
+    setIsSending(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/communications/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'send_message',
+          conversationId: conversationId,
+          content: newMessage.trim(),
+          messageType: 'text'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+      
+      // Add the new message to the list
+      setMessages(prev => [...prev, data.message]);
+      setNewMessage('');
+      
+      // Notify parent component
+      onMessageSent?.();
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send message');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const formatMessageTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'high':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getMessageTypeIcon = (type: string) => {
+    switch (type) {
+      case 'image':
+        return <FileText className="h-4 w-4" />;
+      case 'document':
+        return <FileText className="h-4 w-4" />;
+      case 'system':
+        return <AlertCircle className="h-4 w-4" />;
+      default:
+        return <MessageSquare className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl h-[80vh] flex flex-col bg-white">
+        <DialogHeader className="flex-shrink-0 border-b border-gray-200 pb-4 bg-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <User className="h-5 w-5 text-gray-600" />
+                <DialogTitle className="text-lg font-semibold text-black">
+                  {conversationName}
+                </DialogTitle>
+              </div>
+              {projectName && (
+                <Badge variant="outline" className="text-xs text-black">
+                  {projectName}
+                </Badge>
+              )}
+              {conversation?.priority && (
+                <Badge className={cn("text-xs", getPriorityColor(conversation.priority))}>
+                  {conversation.priority.toUpperCase()}
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {conversation && (
+            <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
+              <div className="flex items-center space-x-1">
+                <Users className="h-4 w-4" />
+                <span>{conversation.participants.length} participants</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock className="h-4 w-4" />
+                <span>Last activity: {formatMessageTime(conversation.last_message_at)}</span>
+              </div>
+            </div>
+          )}
+        </DialogHeader>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <LoadingSpinner />
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-32 text-red-600">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              {error}
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-gray-600">
+              <MessageSquare className="h-5 w-5 mr-2" />
+              No messages yet
+            </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex space-x-3 p-3 rounded-lg",
+                  message.sender_role === 'admin' 
+                    ? "bg-orange-50 ml-8 border border-orange-100" 
+                    : "bg-gray-50 mr-8 border border-gray-200"
+                )}
+              >
+                <div className="flex-shrink-0">
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium",
+                    message.sender_role === 'admin' 
+                      ? "bg-orange-500" 
+                      : "bg-gray-500"
+                  )}>
+                    {message.sender_name.charAt(0).toUpperCase()}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="text-sm font-medium text-black">
+                      {message.sender_name}
+                    </span>
+                    <Badge variant="outline" className="text-xs text-black">
+                      {message.sender_role}
+                    </Badge>
+                    <span className="text-xs text-gray-500">
+                      {formatMessageTime(message.sent_at)}
+                    </span>
+                    {message.is_read && (
+                      <CheckCircle className="h-3 w-3 text-green-500" />
+                    )}
+                  </div>
+                  <div className="text-sm text-black whitespace-pre-wrap">
+                    {message.content}
+                  </div>
+                  {message.attachments && message.attachments.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {message.attachments.map((attachment, index) => {
+                        const isImage = attachment?.file_type?.startsWith('image/');
+                        
+                        if (isImage) {
+                          return (
+                            <div key={attachment?.id || `attachment_${message.id}_${index}`} className="mt-2">
+                              <img
+                                src={attachment.file_url}
+                                alt={attachment.filename}
+                                className="max-w-xs max-h-48 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:opacity-90 transition-opacity" onLoad={(e) => { const filenameDiv = e.currentTarget.nextElementSibling; if (filenameDiv) { filenameDiv.style.display = 'block'; } }} onClick={() => { if (attachment.file_url) { window.open(attachment.file_url, '_blank'); } }}
+                                onError={(e) => {
+                                  // Fallback to file display if image fails to load
+                                  const container = e.currentTarget.parentElement; if (container) { container.innerHTML = `<div class="flex items-center space-x-2 text-xs text-gray-600 bg-white p-2 rounded border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.open('${attachment.file_url}', '_blank')"><svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span>${attachment.filename}</span><span>(${(attachment.file_size / 1024).toFixed(1)} KB)</span></div>`; }
+                                }}
+                              />
+                              <div className="text-xs text-gray-500 mt-1 text-center" style={{ display: 'none' }}>
+                                {attachment.filename} ({(attachment.file_size / 1024).toFixed(1)} KB)
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div
+                              key={attachment?.id || `attachment_${message.id}_${index}`}
+                              className="flex items-center space-x-2 text-xs text-gray-600 bg-white p-2 rounded border border-gray-200"
+                            >
+                              <FileText className="h-3 w-3" />
+                              <span>{attachment.filename}</span>
+                              <span>({(attachment.file_size / 1024).toFixed(1)} KB)</span>
+                            </div>
+                          );
+                        }
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Reply Area */}
+        <div className="flex-shrink-0 border-t border-gray-200 p-4 bg-white">
+          <div className="flex space-x-3">
+            <div className="flex-1">
+              <Textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your reply..."
+                className="min-h-[60px] resize-none bg-white border-gray-300 text-black placeholder-gray-500 focus:border-orange-500 focus:ring-orange-500"
+                disabled={isSending}
+              />
+            </div>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || isSending}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6"
+            >
+              {isSending ? (
+                <LoadingSpinner className="h-4 w-4" />
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send
+                </>
+              )}
+            </Button>
+          </div>
+          {error && (
+            <div className="mt-2 text-sm text-red-600 flex items-center">
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {error}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

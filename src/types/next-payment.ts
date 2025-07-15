@@ -11,7 +11,7 @@ export interface NextPaymentData {
   monthly_payment?: number; // Legacy field for backward compatibility
   payment_sequence?: number;
   total_payments?: number;
-  total_amount?: number;
+  total_amount?: number; // Total cost for the entire milestone
   next_payment_date: string;
   last_payment_date?: string;
   credit_terms: string;

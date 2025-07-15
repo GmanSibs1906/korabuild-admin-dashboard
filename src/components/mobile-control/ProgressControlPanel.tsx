@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { LoadingSpinner } from '../ui/loading-spinner';
-import { Plus, Edit, Trash2, Calendar, Target, TrendingUp, Clock, Image, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Calendar, Target, TrendingUp, Clock, Image, CheckCircle, XCircle, Eye, Upload } from 'lucide-react';
+import { PhotoUploadModal } from '../modals/PhotoUploadModal';
 
 interface ProgressControlPanelProps {
   projectId: string;
@@ -98,6 +99,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'milestones' | 'photos'>('overview');
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
 
   // Fetch progress data
   const fetchProgressData = async () => {
@@ -863,10 +865,19 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
         <div className="space-y-6">
           {/* Photos Header */}
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900">Progress Photos</h3>
-            <div className="text-sm text-gray-600">
-              {progressPhotos.length} photo{progressPhotos.length !== 1 ? 's' : ''}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Progress Photos</h3>
+              <p className="text-sm text-gray-600">
+                {progressPhotos.length} photo{progressPhotos.length !== 1 ? 's' : ''}
+              </p>
             </div>
+            <Button
+              onClick={() => setShowPhotoUploadModal(true)}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Photos
+            </Button>
           </div>
 
           {/* Photos Grid */}
@@ -991,6 +1002,19 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
           }}
           milestone={selectedMilestone}
           onMilestoneUpdated={handleUpdateMilestone}
+        />
+      )}
+
+      {/* Photo Upload Modal */}
+      {showPhotoUploadModal && (
+        <PhotoUploadModal
+          isOpen={showPhotoUploadModal}
+          onClose={() => setShowPhotoUploadModal(false)}
+          projectId={projectId}
+          onUploadSuccess={() => {
+            setShowPhotoUploadModal(false);
+            fetchProgressData();
+          }}
         />
       )}
     </div>

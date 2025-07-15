@@ -111,7 +111,7 @@ export function NextPaymentModal({
       return;
     }
     
-    if (formData.payment_amount <= 0) {
+    if ((formData.payment_amount || 0) <= 0) {
       setError('Payment amount must be greater than 0');
       return;
     }
@@ -367,7 +367,7 @@ export function NextPaymentModal({
             </div>
             <div className="flex justify-between items-center mt-2">
               <p className="text-xs text-gray-500">
-                Preview: {formatCurrency(formData.payment_amount)}
+                Preview: {formatCurrency(formData.payment_amount || 0)}
               </p>
               {(formData.total_payments || 0) > 1 && (
                 <p className="text-xs text-gray-500">
@@ -377,10 +377,10 @@ export function NextPaymentModal({
             </div>
           </div>
 
-          {/* Total Amount */}
+          {/* Milestone Total Cost */}
           <div>
             <Label htmlFor="total_amount" className="text-sm font-medium text-gray-700">
-              Total Amount (All Payments) *
+              Milestone Total Cost *
             </Label>
             <div className="mt-1 relative">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -397,7 +397,7 @@ export function NextPaymentModal({
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Total: {formatCurrency(formData.total_amount || 0)}
+              Milestone total cost: {formatCurrency(formData.total_amount || 0)}
             </p>
           </div>
 

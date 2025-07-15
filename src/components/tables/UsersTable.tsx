@@ -8,17 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { EditUserModal } from '@/components/modals/EditUserModal';
 import { 
   Search, 
   MoreHorizontal, 
   Edit, 
   Trash2, 
   UserPlus, 
-  Filter,
   Download,
   RefreshCw,
   Users,
-  Shield,
   Phone,
   Mail,
   Calendar,
@@ -39,17 +38,21 @@ type SortField = 'full_name' | 'email' | 'role' | 'created_at' | 'updated_at';
 type SortDirection = 'asc' | 'desc';
 
 export function UsersTable({ className }: UsersTableProps) {
-  const { users, loading, error, stats, count, refetch } = useUsers();
+  const { users, loading, error, stats, refetch } = useUsers();
   const router = useRouter();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
-    let filtered = users.filter(user => {
+    const filtered = users.filter(user => {
       const matchesSearch = 
         user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,9 +98,14 @@ export function UsersTable({ className }: UsersTableProps) {
     }
   };
 
-  const handleRoleUpdate = async (userId: string, newRole: User['role']) => {
-    // TODO: Implement user role update API
-    console.log('Update user role:', userId, newRole);
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveUser = (updatedUser: User) => {
+    // Refresh the users list to show updated data
+    refetch();
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -169,221 +177,229 @@ export function UsersTable({ className }: UsersTableProps) {
   }
 
   return (
-    <div className={cn("bg-white rounded-lg shadow-sm border border-gray-200", className)}>
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Users Management</h2>
-            <p className="text-sm text-gray-500">
-              Manage all platform users • {stats.totalUsers} total • {stats.activeUsers} active
+    <>
+      <div className={cn("bg-white rounded-lg shadow-sm border border-gray-200", className)}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Users Management</h2>
+              <p className="text-sm text-gray-500">
+                Manage all platform users • {stats.totalUsers} total • {stats.activeUsers} active
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={refreshUsers}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                title="Refresh data"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+              <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </button>
+              <button className="flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add User
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center space-x-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Role Filter */}
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="all">All Roles</option>
+              {uniqueRoles.map(role => (
+                <option key={role} value={role}>
+                  {role?.charAt(0).toUpperCase() + role?.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort('full_name')}
+                    className="flex items-center space-x-1 hover:text-gray-700"
+                  >
+                    <span>User</span>
+                    {sortField === 'full_name' && (
+                      sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort('role')}
+                    className="flex items-center space-x-1 hover:text-gray-700"
+                  >
+                    <span>Role</span>
+                    {sortField === 'role' && (
+                      sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Contact
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort('created_at')}
+                    className="flex items-center space-x-1 hover:text-gray-700"
+                  >
+                    <span>Joined</span>
+                    {sortField === 'created_at' && (
+                      sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredAndSortedUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={user.profile_photo_url || undefined} />
+                        <AvatarFallback className="bg-orange-500 text-white text-sm">
+                          {getInitials(user.full_name || user.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.full_name || 'No name provided'}
+                        </div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <Badge className={cn("text-xs", getRoleBadgeColor(user.role))}>
+                      {user.role?.charAt(0).toUpperCase() + user.role?.slice(1)}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="space-y-1">
+                      {user.phone && (
+                        <div className="flex items-center">
+                          <Phone className="w-3 h-3 mr-1 text-gray-400" />
+                          {user.phone}
+                        </div>
+                      )}
+                      <div className="flex items-center">
+                        <Mail className="w-3 h-3 mr-1 text-gray-400" />
+                        {user.email}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center">
+                      <Calendar className="w-3 h-3 mr-1 text-gray-400" />
+                      {formatDate(user.created_at)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="p-1 hover:bg-gray-100 rounded">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => {
+                          console.log('🔍 UsersTable - View Profile clicked for user:', user.id);
+                          console.log('🔍 UsersTable - Navigating to URL:', `/users/${user.id}`);
+                          router.push(`/users/${user.id}`);
+                        }}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Profile
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete User
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Empty State */}
+        {filteredAndSortedUsers.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <Users className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchTerm || selectedRole !== 'all' 
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Get started by adding your first user.'
+              }
             </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={refreshUsers}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-              title="Refresh data"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-            <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </button>
-            <button className="flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add User
-            </button>
+        )}
+
+        {/* Results Summary */}
+        {filteredAndSortedUsers.length > 0 && (
+          <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
+            <div className="text-sm text-gray-500">
+              Showing {filteredAndSortedUsers.length} of {stats.totalUsers} users
+              {(searchTerm || selectedRole !== 'all') && ' (filtered)'}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Filters */}
-      <div className="px-6 py-4 border-b border-gray-200">
-        <div className="flex items-center space-x-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search by name, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Role Filter */}
-          <select
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-          >
-            <option value="all">All Roles</option>
-            {uniqueRoles.map(role => (
-              <option key={role} value={role}>
-                {role?.charAt(0).toUpperCase() + role?.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button
-                  onClick={() => handleSort('full_name')}
-                  className="flex items-center space-x-1 hover:text-gray-700"
-                >
-                  <span>User</span>
-                  {sortField === 'full_name' && (
-                    sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                  )}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button
-                  onClick={() => handleSort('role')}
-                  className="flex items-center space-x-1 hover:text-gray-700"
-                >
-                  <span>Role</span>
-                  {sortField === 'role' && (
-                    sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                  )}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Contact
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button
-                  onClick={() => handleSort('created_at')}
-                  className="flex items-center space-x-1 hover:text-gray-700"
-                >
-                  <span>Joined</span>
-                  {sortField === 'created_at' && (
-                    sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                  )}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredAndSortedUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={user.profile_photo_url || undefined} />
-                      <AvatarFallback className="bg-orange-500 text-white text-sm">
-                        {getInitials(user.full_name || user.email)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {user.full_name || 'No name provided'}
-                      </div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Badge className={cn("text-xs", getRoleBadgeColor(user.role))}>
-                    {user.role?.charAt(0).toUpperCase() + user.role?.slice(1)}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <div className="space-y-1">
-                    {user.phone && (
-                      <div className="flex items-center">
-                        <Phone className="w-3 h-3 mr-1 text-gray-400" />
-                        {user.phone}
-                      </div>
-                    )}
-                    <div className="flex items-center">
-                      <Mail className="w-3 h-3 mr-1 text-gray-400" />
-                      {user.email}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <div className="flex items-center">
-                    <Calendar className="w-3 h-3 mr-1 text-gray-400" />
-                    {formatDate(user.created_at)}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="p-1 hover:bg-gray-100 rounded">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => {
-                        console.log('🔍 UsersTable - View Profile clicked for user:', user.id);
-                        console.log('🔍 UsersTable - Navigating to URL:', `/users/${user.id}`);
-                        router.push(`/users/${user.id}`);
-                      }}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit User
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Shield className="w-4 h-4 mr-2" />
-                        Change Role
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete User
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Empty State */}
-      {filteredAndSortedUsers.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <Users className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {searchTerm || selectedRole !== 'all' 
-              ? 'Try adjusting your search or filter criteria.'
-              : 'Get started by adding your first user.'
-            }
-          </p>
-        </div>
-      )}
-
-      {/* Results Summary */}
-      {filteredAndSortedUsers.length > 0 && (
-        <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
-          <div className="text-sm text-gray-500">
-            Showing {filteredAndSortedUsers.length} of {stats.totalUsers} users
-            {(searchTerm || selectedRole !== 'all') && ' (filtered)'}
-          </div>
-        </div>
-      )}
-    </div>
+      {/* Edit User Modal */}
+      <EditUserModal
+        user={selectedUser}
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedUser(null);
+        }}
+        onSave={handleSaveUser}
+      />
+    </>
   );
-} 
+}

@@ -7,16 +7,40 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, MessageSquare, CheckCircle, Clock, Users, TrendingUp, Send, Bell, ArrowRight, Phone, Mail, FileText, Calendar, MapPin, User } from 'lucide-react';
 import { useCommunications } from '@/hooks/useCommunications';
+import { MessageDetailModal } from '@/components/communications/MessageDetailModal';
 import { cn } from '@/lib/utils';
 
 type TabType = 'overview' | 'messages' | 'approvals' | 'notifications';
 
 export default function CommunicationsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [selectedConversation, setSelectedConversation] = useState<{
+    id: string;
+    name: string;
+    projectName?: string;
+  } | null>(null);
+  
   const { data, isLoading, error, refetch } = useCommunications({
     autoRefresh: false,  // Disable auto-refresh to prevent constant reloading
     refreshInterval: 300000  // 5 minutes if manually enabled
   });
+
+  const handleOpenConversation = (conversationId: string, conversationName: string, projectName?: string) => {
+    setSelectedConversation({
+      id: conversationId,
+      name: conversationName,
+      projectName
+    });
+  };
+
+  const handleCloseConversation = () => {
+    setSelectedConversation(null);
+  };
+
+  const handleMessageSent = () => {
+    // Refresh communications data when a new message is sent
+    refetch();
+  };
 
   const tabs = [
     {
@@ -370,7 +394,15 @@ export default function CommunicationsPage() {
                             {conversation.unread_count} unread
                           </Badge>
                         )}
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenConversation(
+                            conversation.id,
+                            conversation.conversation_name,
+                            conversation.project?.project_name
+                          )}
+                        >
                           <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -536,6 +568,20 @@ export default function CommunicationsPage() {
           </div>
         )}
       </div>
+
+      {/* Message Detail Modal */}
+      {selectedConversation && (
+        <MessageDetailModal
+          isOpen={!!selectedConversation}
+          onClose={() => setSelectedConversation(null)}
+          conversationId={selectedConversation.id}
+          conversationName={selectedConversation.name}
+          projectName={selectedConversation.projectName}
+          onMessageSent={() => {
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 } 

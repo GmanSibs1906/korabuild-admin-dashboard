@@ -583,7 +583,7 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
             </Card>
 
             {/* Next Payment */}
-            {nextPayment && (
+            {/* {nextPayment && (
               <Card className="p-6 md:col-span-2">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Next Payment Due</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -615,7 +615,7 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
                   </div>
                 </div>
               </Card>
-            )}
+            )} */}
           </div>
         )}
 
@@ -842,7 +842,7 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
                       {nextPaymentData.total_amount && (
                         <span>
                           {nextPaymentData.total_payments && nextPaymentData.total_payments > 1 ? ' • ' : ''}
-                          Total: {formatCurrency(nextPaymentData.total_amount)}
+                          Milestone total cost: {formatCurrency(nextPaymentData.total_amount)}
                         </span>
                       )}
                     </div>

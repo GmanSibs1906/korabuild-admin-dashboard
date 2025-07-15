@@ -576,6 +576,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
                         <button 
                           className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
                           title="View Project Details"
+                          onClick={() => router.push(`/projects?projectId=${project.id}`)}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
