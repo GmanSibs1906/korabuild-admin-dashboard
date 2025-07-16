@@ -210,9 +210,9 @@ export default function ProjectsPage() {
             <div className="mb-8">
               {activeTab === 'progress' && (
                 <ProgressControlPanel
-                  projectId={selectedProjectId} onClose={function (): void {
-                    throw new Error('Function not implemented.');
-                  } }                  
+                  projectId={selectedProjectId}
+                  onDataSync={(data) => console.log('Progress data synced:', data)}
+                  onClose={() => setActiveTab('progress')}
                 />
               )}
               {activeTab === 'financial' && (

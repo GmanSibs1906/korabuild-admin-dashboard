@@ -2,333 +2,320 @@
 
 import React, { useState } from 'react';
 import { useDocuments } from '@/hooks/useDocuments';
-import { Badge } from '@/components/ui/badge';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Document, DocumentFilters, DocumentSortOptions } from '@/types/documents';
+import { DocumentsDataTable } from '@/components/tables/DocumentsDataTable';
+import { DocumentViewer } from '@/components/documents/DocumentViewer';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   FileText, 
-  Download, 
-  Eye, 
-  Calendar, 
-  User, 
-  
-  Search,
-  Upload,
-  CheckCircle,
-  XCircle,
+  Upload, 
+  Trash2,
   Clock,
-  AlertCircle,
-  MoreHorizontal,
-  ExternalLink
+  CheckCircle,
+  AlertTriangle,
+  RefreshCw,
+  X
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-const DocumentTypeIcon = ({ type }: { type: string }) => {
-  const icons = {
-    contract: FileText,
-    plan: FileText,
-    permit: FileText,
-    invoice: FileText,
-    receipt: FileText,
-    report: FileText,
-    specification: FileText,
-    change_order: FileText,
-    inspection: FileText,
-    certificate: FileText,
-    warranty: FileText,
-    manual: FileText,
-    photo: FileText,
-    other: FileText
-  };
-  
-  const Icon = icons[type as keyof typeof icons] || FileText;
-  return <Icon className="w-4 h-4" />;
-};
-
-const StatusBadge = ({ status }: { status: string }) => {
-  const statusConfig = {
-    pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-    approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-    rejected: { color: 'bg-red-100 text-red-800', icon: XCircle },
-    revision_required: { color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-    archived: { color: 'bg-gray-100 text-gray-800', icon: FileText }
-  };
-  
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-  const Icon = config.icon;
-  
-  return (
-    <Badge className={cn("flex items-center gap-1", config.color)}>
-      <Icon className="w-3 h-3" />
-      {status.replace('_', ' ')}
-    </Badge>
-  );
-};
 
 export default function DocumentsPage() {
-  const { documents, loading, error, stats } = useDocuments();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [filters, setFilters] = useState<DocumentFilters>({});
+  const [sort, setSort] = useState<DocumentSortOptions>({
+    field: 'created_at',
+    direction: 'desc'
+  });
+  const [page, setPage] = useState(1);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
 
-  // Filter documents
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.document_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.project?.project_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = selectedType === 'all' || doc.document_type === selectedType;
-    const matchesStatus = selectedStatus === 'all' || doc.approval_status === selectedStatus;
-    
-    return matchesSearch && matchesType && matchesStatus;
+  const {
+    documents,
+    total,
+    loading,
+    error,
+    refetch,
+    updateDocument,
+    deleteDocument,
+    downloadDocument,
+    viewDocument
+  } = useDocuments({
+    filters,
+    sort,
+    page,
+    limit: 10,
+    autoRefetch: true,
+    refetchInterval: 30000
   });
 
-  const formatFileSize = (bytes: number) => {
+  // Calculate statistics
+  const stats = React.useMemo(() => {
+    const totalDocs = documents.length;
+    const pending = documents.filter(doc => doc.approval_status === 'pending').length;
+    const approved = documents.filter(doc => doc.approval_status === 'approved').length;
+    const rejected = documents.filter(doc => doc.approval_status === 'rejected').length;
+    const totalSize = documents.reduce((sum, doc) => sum + (doc.file_size_bytes || 0), 0);
+
+    return {
+      totalDocs,
+      pending,
+      approved,
+      rejected,
+      totalSize: formatFileSize(totalSize)
+    };
+  }, [documents]);
+
+  // Format file size helper
+  function formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  // Handle document actions
+  const handleView = async (document: Document) => {
+    setSelectedDocument(document);
+    setViewerOpen(true);
+    try {
+      await viewDocument(document);
+    } catch (error) {
+      console.error('Failed to track document view:', error);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <LoadingSpinner />
-        <span className="ml-2">Loading documents...</span>
-      </div>
-    );
-  }
+  const handleDownload = async (document: Document) => {
+    try {
+      await downloadDocument(document);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // You might want to show a toast notification here
+    }
+  };
+
+  const handleApprove = async (document: Document) => {
+    try {
+      await updateDocument(document.id, {
+        approval_status: 'approved'
+      });
+    } catch (error) {
+      console.error('Failed to approve document:', error);
+    }
+  };
+
+  const handleReject = async (document: Document) => {
+    try {
+      await updateDocument(document.id, {
+        approval_status: 'rejected'
+      });
+    } catch (error) {
+      console.error('Failed to reject document:', error);
+    }
+  };
+
+  const handleDeleteClick = (document: Document) => {
+    setDocumentToDelete(document);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!documentToDelete) return;
+
+    try {
+      await deleteDocument(documentToDelete.id);
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+    }
+  };
+
+  const handleFilter = (newFilters: DocumentFilters) => {
+    setFilters(newFilters);
+    setPage(1); // Reset to first page when filtering
+  };
+
+  const handleSort = (field: string, direction: 'asc' | 'desc') => {
+    setSort({ field: field as DocumentSortOptions['field'], direction });
+    setPage(1); // Reset to first page when sorting
+  };
 
   if (error) {
     return (
-      <div className="text-center py-8">
-        <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Documents</h2>
-        <p className="text-gray-600">{error}</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">Failed to load documents</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={refetch} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
-          <p className="text-gray-600 mt-1">Manage all project documents and approvals</p>
-        </div>
-        <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-          <Upload className="w-4 h-4" />
-          Upload Document
-        </button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Documents</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalDocuments}</p>
+              <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
+              <p className="mt-2 text-gray-600">
+                Manage and view all project documents, contracts, and files
+              </p>
             </div>
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <FileText className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">New Documents</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.newDocuments}</p>
-              <p className="text-xs text-gray-500">This week</p>
-            </div>
-            <div className="bg-green-50 p-3 rounded-lg">
-              <Upload className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Pending Approval</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingApproval}</p>
-            </div>
-            <div className="bg-yellow-50 p-3 rounded-lg">
-              <Clock className="w-6 h-6 text-yellow-600" />
+            
+            <div className="flex items-center space-x-4">
+              <Button
+                onClick={refetch}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              
+              <Button className="bg-orange-500 hover:bg-orange-600 text-orange-50">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Document
+              </Button>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Approved</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.approvedDocuments}</p>
-            </div>
-            <div className="bg-green-50 p-3 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-      </div>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalDocs}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.totalSize} total size
+              </p>
+            </CardContent>
+          </Card>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search documents..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-            >
-              <option value="all">All Types</option>
-              {Object.keys(stats.documentsByType).map(type => (
-                <option key={type} value={type}>
-                  {type.replace('_', ' ')} ({stats.documentsByType[type]})
-                </option>
-              ))}
-            </select>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+              <p className="text-xs text-muted-foreground">
+                Awaiting review
+              </p>
+            </CardContent>
+          </Card>
 
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              {Object.keys(stats.documentsByStatus).map(status => (
-                <option key={status} value={status}>
-                  {status.replace('_', ' ')} ({stats.documentsByStatus[status]})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+              <p className="text-xs text-muted-foreground">
+                Ready for use
+              </p>
+            </CardContent>
+          </Card>
 
-      {/* Documents Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Document
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Project
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Uploaded
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Size
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredDocuments.map((doc) => (
-                <tr key={doc.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <DocumentTypeIcon type={doc.document_type} />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {doc.document_name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          v{doc.version_number}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {doc.project?.project_name || 'No Project'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {doc.document_type.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={doc.approval_status} />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <User className="w-4 h-4 mr-1" />
-                      {doc.uploader?.full_name || 'Unknown'}
-                    </div>
-                    <div className="flex items-center mt-1">
-                      <Calendar className="w-4 h-4 mr-1" />
-                      {new Date(doc.created_at).toLocaleDateString()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatFileSize(doc.file_size_bytes)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="text-green-600 hover:text-green-900">
-                        <Download className="w-4 h-4" />
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-900">
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-900">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              <X className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+              <p className="text-xs text-muted-foreground">
+                Need revision
+              </p>
+            </CardContent>
+          </Card>
         </div>
-        
-        {filteredDocuments.length === 0 && (
-          <div className="text-center py-8">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
-            <p className="text-gray-500">
-              {searchTerm || selectedType !== 'all' || selectedStatus !== 'all' 
-                ? 'Try adjusting your filters' 
-                : 'Upload your first document to get started'}
-            </p>
-          </div>
-        )}
+
+        {/* Documents Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileText className="h-5 w-5" />
+              <span>All Documents</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DocumentsDataTable
+              documents={documents}
+              loading={loading}
+              onView={handleView}
+              onDownload={handleDownload}
+              onDelete={handleDeleteClick}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onFilter={handleFilter}
+              onSort={handleSort}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Document Viewer Dialog */}
+        <DocumentViewer
+          document={selectedDocument}
+          isOpen={viewerOpen}
+          onClose={() => {
+            setViewerOpen(false);
+            setSelectedDocument(null);
+          }}
+          onDownload={() => selectedDocument && handleDownload(selectedDocument)}
+          onOpenExternal={() => {
+            if (selectedDocument) {
+              window.open(selectedDocument.file_url, '_blank', 'noopener,noreferrer');
+            }
+          }}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Document</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{documentToDelete?.document_name}"? 
+                This action cannot be undone and will permanently remove the document and its file.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Document
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

@@ -121,7 +121,10 @@ export default function DashboardOverview() {
   const { projects, loading: projectsLoading, error: projectsError, summary: projectSummary } = useProjects();
   const { financialData, isLoading: financesLoading, error: financesError } = useFinances();
   const { loading: messagesLoading, error: messagesError, stats: messageStats } = useMessages();
-  const { stats: documentStats, loading: documentsLoading } = useDocuments();
+  const { documents, stats: documentStats, loading: documentsLoading } = useDocuments({
+    autoRefetch: false, // Disable auto-refresh for dashboard overview
+    limit: 5 // Only need 5 recent documents for dashboard
+  });
   const { stats: deliveryStats, loading: deliveriesLoading } = useDeliveries();
   const { activities, loading: activityLoading } = useActivity();
 
@@ -399,6 +402,69 @@ export default function DashboardOverview() {
               ))
             ) : (
               <p className="text-sm text-gray-500">No recent activity</p>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Documents */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Documents</h3>
+            <button
+              onClick={() => router.push('/documents')}
+              className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center"
+            >
+              View All
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+          <div className="space-y-3">
+            {documentsLoading ? (
+              <div className="flex items-center space-x-2">
+                <LoadingSpinner />
+                <span className="text-gray-400">Loading documents...</span>
+              </div>
+            ) : documents && documents.length > 0 ? (
+              documents
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .slice(0, 5)
+                .map((document) => (
+                <div key={document.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-orange-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 truncate font-medium">
+                      {document.document_name}
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-xs text-gray-500">
+                        {document.category}
+                      </p>
+                      <span className="text-xs text-gray-400">•</span>
+                      <p className="text-xs text-gray-500">
+                        {new Date(document.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <Badge 
+                      className={cn(
+                        'text-xs',
+                        document.approval_status === 'approved' && 'bg-green-100 text-green-800',
+                        document.approval_status === 'pending' && 'bg-yellow-100 text-yellow-800',
+                        document.approval_status === 'rejected' && 'bg-red-100 text-red-800'
+                      )}
+                    >
+                      {document.approval_status}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No recent documents</p>
             )}
           </div>
         </div>

@@ -1,15 +1,17 @@
 import { ProjectDetailsView } from '@/components/dashboard/project-details-view';
 
 interface ProjectDetailsPageProps {
-  params: {
+  params: Promise<{
     projectId: string;
-  };
+  }>;
 }
 
-export default function ProjectDetailsPage({ params }: ProjectDetailsPageProps) {
+export default async function ProjectDetailsPage({ params }: ProjectDetailsPageProps) {
+  const { projectId } = await params;
+  
   return (
     <div className="space-y-6">
-      <ProjectDetailsView projectId={params.projectId} />
+      <ProjectDetailsView projectId={projectId} />
     </div>
   );
 } 

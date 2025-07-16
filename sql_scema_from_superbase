@@ -8,8 +8,8 @@ CREATE TABLE public.album_photos (
   sort_order integer DEFAULT 0,
   added_at timestamp with time zone DEFAULT now(),
   CONSTRAINT album_photos_pkey PRIMARY KEY (id),
-  CONSTRAINT album_photos_album_id_fkey FOREIGN KEY (album_id) REFERENCES public.photo_albums(id),
-  CONSTRAINT album_photos_photo_id_fkey FOREIGN KEY (photo_id) REFERENCES public.project_photos(id)
+  CONSTRAINT album_photos_photo_id_fkey FOREIGN KEY (photo_id) REFERENCES public.project_photos(id),
+  CONSTRAINT album_photos_album_id_fkey FOREIGN KEY (album_id) REFERENCES public.photo_albums(id)
 );
 CREATE TABLE public.approval_requests (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -31,9 +31,9 @@ CREATE TABLE public.approval_requests (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT approval_requests_pkey PRIMARY KEY (id),
-  CONSTRAINT approval_requests_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.documents(id),
   CONSTRAINT approval_requests_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.users(id),
   CONSTRAINT approval_requests_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
+  CONSTRAINT approval_requests_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.documents(id),
   CONSTRAINT approval_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES public.users(id)
 );
 CREATE TABLE public.approval_responses (
@@ -404,9 +404,9 @@ CREATE TABLE public.documents (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT documents_pkey PRIMARY KEY (id),
-  CONSTRAINT documents_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
+  CONSTRAINT documents_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.users(id),
   CONSTRAINT documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.users(id),
-  CONSTRAINT documents_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.users(id)
+  CONSTRAINT documents_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id)
 );
 CREATE TABLE public.emergency_contacts (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -462,10 +462,10 @@ CREATE TABLE public.enhanced_credit_accounts (
   total_payments integer NOT NULL DEFAULT 1 CHECK (total_payments > 0),
   total_amount numeric NOT NULL DEFAULT 0 CHECK (total_amount >= 0::numeric),
   CONSTRAINT enhanced_credit_accounts_pkey PRIMARY KEY (id),
-  CONSTRAINT enhanced_credit_accounts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
-  CONSTRAINT enhanced_credit_accounts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.users(id),
+  CONSTRAINT enhanced_credit_accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id),
   CONSTRAINT enhanced_credit_accounts_milestone_id_fkey FOREIGN KEY (milestone_id) REFERENCES public.project_milestones(id),
-  CONSTRAINT enhanced_credit_accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+  CONSTRAINT enhanced_credit_accounts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.users(id),
+  CONSTRAINT enhanced_credit_accounts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id)
 );
 CREATE TABLE public.financial_budgets (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -733,8 +733,8 @@ CREATE TABLE public.photo_albums (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT photo_albums_pkey PRIMARY KEY (id),
-  CONSTRAINT photo_albums_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
   CONSTRAINT photo_albums_cover_photo_id_fkey FOREIGN KEY (cover_photo_id) REFERENCES public.project_photos(id),
+  CONSTRAINT photo_albums_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
   CONSTRAINT photo_albums_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
 );
 CREATE TABLE public.photo_comments (

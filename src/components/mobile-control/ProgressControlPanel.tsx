@@ -516,7 +516,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
               <div>
                 <Label className="text-sm font-medium text-gray-700">Current Phase</Label>
                 <div className="mt-1">
-                  <Badge className={`${getPhaseColor(project.current_phase)} text-white`}>
+                  <Badge className={`${getPhaseColor(project.current_phase)} text-orange-50`}>
                     {project.current_phase.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   </Badge>
                 </div>
@@ -547,7 +547,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
               <div>
                 <Label className="text-sm font-medium text-gray-700">Project Status</Label>
                 <div className="mt-1">
-                  <Badge className={`${getStatusColor(project.status)} text-white`}>
+                  <Badge className={`${getStatusColor(project.status)} text-orange-50`}>
                     {getStatusLabel(project.status)}
                   </Badge>
                 </div>
@@ -766,7 +766,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
             <h3 className="text-lg font-semibold text-gray-900">Project Milestones</h3>
             <Button 
               onClick={() => setShowCreateModal(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-orange-500 hover:bg-orange-600 text-orange-50"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Milestone
@@ -783,7 +783,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                   <p className="text-gray-600 mb-4">Start by creating your first project milestone.</p>
                   <Button 
                     onClick={() => setShowCreateModal(true)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    className="bg-orange-500 hover:bg-orange-600 text-orange-50"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add First Milestone
@@ -798,10 +798,10 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
                           <h4 className="text-lg font-semibold text-gray-900">{milestone.milestone_name}</h4>
-                          <Badge className={`${getStatusColor(milestone.status)} text-white`}>
+                          <Badge className={`${getStatusColor(milestone.status)} text-orange-50`}>
                             {getStatusLabel(milestone.status)}
                           </Badge>
-                          <Badge className={`${getPhaseColor(milestone.phase_category)} text-white`}>
+                          <Badge className={`${getPhaseColor(milestone.phase_category)} text-orange-50`}>
                             {milestone.phase_category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </Badge>
                         </div>
@@ -874,7 +874,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
             </div>
             <Button
               onClick={() => setShowPhotoUploadModal(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-orange-500 hover:bg-orange-600 text-orange-50"
             >
               <Upload className="h-4 w-4 mr-2" />
               Upload Photos
@@ -943,7 +943,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                           <Button
                             onClick={() => handleApprovePhoto(photo.id)}
                             size="sm"
-                            className="bg-green-500 hover:bg-green-600 text-white"
+                            className="bg-green-500 hover:bg-green-600 text-orange-50"
                             disabled={updating}
                           >
                             <CheckCircle className="h-3 w-3 mr-1" />
@@ -1250,7 +1250,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             <Button 
               type="submit" 
               disabled={isSubmitting}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-orange-500 hover:bg-orange-600 text-orange-50"
             >
               {isSubmitting ? 'Creating...' : 'Create Milestone'}
             </Button>
@@ -1533,7 +1533,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             <Button 
               type="submit" 
               disabled={isSubmitting}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-orange-500 hover:bg-orange-600 text-orange-50"
             >
               {isSubmitting ? 'Updating...' : 'Update Milestone'}
             </Button>

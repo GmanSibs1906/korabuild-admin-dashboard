@@ -201,6 +201,7 @@ export default function MobileControlPage() {
                 <ProgressControlPanel
                   projectId={selectedProjectId}
                   onDataSync={handleDataSync}
+                  onClose={() => setActiveTab('progress')}
                 />
               )}
               
