@@ -1,55 +1,70 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log('🏗️ Admin API: Fetching all projects with related data...');
+    const { searchParams } = new URL(request.url);
+    const selectFields = searchParams.get('select');
     
-    // Fetch all projects with comprehensive related data
-    const { data: projects, error: projectsError } = await supabaseAdmin
-      .from('projects')
-      .select(`
-        *,
-        client:users!projects_client_id_fkey(
-          id,
-          email,
-          full_name,
-          phone
-        ),
-        project_milestones(
-          id,
-          milestone_name,
-          status,
-          progress_percentage,
-          planned_start,
-          planned_end,
-          actual_start,
-          actual_end,
-          phase_category
-        ),
-        project_contractors(
-          id,
-          contract_status,
-          contract_value,
-          on_site_status,
-          work_completion_percentage,
-          contractor:contractors(
+    console.log('🏗️ Admin API: Fetching projects...', selectFields ? `with select: ${selectFields}` : 'with full data');
+    
+    // Handle selective fields or fetch comprehensive data
+    let query;
+    if (selectFields) {
+      // Simple select for lightweight requests (like payment form)
+      query = supabaseAdmin
+        .from('projects')
+        .select(selectFields)
+        .order('created_at', { ascending: false });
+    } else {
+      // Fetch all projects with comprehensive related data for full dashboard
+      query = supabaseAdmin
+        .from('projects')
+        .select(`
+          *,
+          client:users!projects_client_id_fkey(
             id,
-            contractor_name,
-            company_name,
-            trade_specialization,
-            overall_rating
+            email,
+            full_name,
+            phone
+          ),
+          project_milestones(
+            id,
+            milestone_name,
+            status,
+            progress_percentage,
+            planned_start,
+            planned_end,
+            actual_start,
+            actual_end,
+            phase_category
+          ),
+          project_contractors(
+            id,
+            contract_status,
+            contract_value,
+            on_site_status,
+            work_completion_percentage,
+            contractor:contractors(
+              id,
+              contractor_name,
+              company_name,
+              trade_specialization,
+              overall_rating
+            )
+          ),
+          payments(
+            id,
+            amount,
+            payment_date,
+            status,
+            payment_category
           )
-        ),
-        payments(
-          id,
-          amount,
-          payment_date,
-          status,
-          payment_category
-        )
-      `)
-      .order('created_at', { ascending: false });
+        `)
+        .order('created_at', { ascending: false });
+    }
+
+    const { data: projects, error: projectsError } = await query;
 
     if (projectsError) {
       console.error('❌ Admin API: Error fetching projects:', projectsError);
@@ -59,7 +74,19 @@ export async function GET() {
       );
     }
 
-    // Calculate project statistics and health indicators
+    // Handle simple select queries (like for payment form)
+    if (selectFields) {
+      console.log(`✅ Admin API: Successfully fetched ${projects?.length || 0} projects with selected fields`);
+      return NextResponse.json({
+        success: true,
+        data: {
+          projects: projects || [],
+          total: projects?.length || 0
+        }
+      });
+    }
+
+    // Calculate project statistics and health indicators for full data requests
     const projectsWithStats = projects?.map(project => {
       const totalMilestones = project.project_milestones?.length || 0;
       const completedMilestones = project.project_milestones?.filter((m: any) => m.status === 'completed').length || 0;

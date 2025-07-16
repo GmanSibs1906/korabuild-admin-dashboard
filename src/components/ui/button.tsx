@@ -1,17 +1,42 @@
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
-  size?: 'sm' | 'md' | 'lg';
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
+  {
+    variants: {
+      variant: {
+        primary: "bg-orange-500 text-white hover:bg-orange-600 focus-visible:ring-orange-500",
+        secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-500",
+        outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:ring-gray-500",
+        ghost: "text-gray-700 hover:bg-gray-100 focus-visible:ring-gray-500",
+        destructive: "bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500",
+      },
+      size: {
+        sm: "h-8 px-3 text-sm",
+        md: "h-10 px-4 text-base",
+        lg: "h-12 px-6 text-lg",
+      },
+    },
+    defaultVariants: {
+      variant: "primary",
+      size: "md",
+    },
+  }
+);
+
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
   loading?: boolean;
   children: React.ReactNode;
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ 
-    variant = 'primary', 
-    size = 'md', 
+    variant, 
+    size, 
     loading = false, 
     disabled, 
     className, 
@@ -21,19 +46,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         className={cn(
-          // Base styles
-          "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
-          // Variant styles
-          variant === 'primary' && "bg-orange-500 text-white hover:bg-orange-600 focus-visible:ring-orange-500",
-          variant === 'secondary' && "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-500",
-          variant === 'outline' && "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:ring-gray-500",
-          variant === 'ghost' && "text-gray-700 hover:bg-gray-100 focus-visible:ring-gray-500",
-          variant === 'destructive' && "bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500",
-          // Size styles
-          size === 'sm' && "h-8 px-3 text-sm",
-          size === 'md' && "h-10 px-4 text-base",
-          size === 'lg' && "h-12 px-6 text-lg",
-          // Loading state
+          buttonVariants({ variant, size }),
           loading && "cursor-wait",
           className
         )}
@@ -69,4 +82,6 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 
-Button.displayName = "Button"; 
+Button.displayName = "Button";
+
+export { buttonVariants }; 

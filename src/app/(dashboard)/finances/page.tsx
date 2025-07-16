@@ -3,26 +3,24 @@
 import { useState } from 'react';
 import { useFinances } from '@/hooks/useFinances';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PaymentApprovalWorkflow } from '@/components/dashboard/payment-approval-workflow';
+import { PaymentHistoryManager } from '@/components/dashboard/PaymentHistoryManager';
 import { 
   DollarSign, 
   TrendingUp, 
   AlertCircle, 
   CheckCircle, 
   Clock, 
-  CreditCard, 
   Calculator,
-  Wallet,
   Settings,
   Download,
   Calendar,
-  FileText
+  History
 } from 'lucide-react';
 
 const FinancesPage = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'budgets' | 'credit' | 'due-next'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'payment-history' | 'budgets' | 'credit' | 'due-next'>('overview');
   const { financialData, isLoading, error, refetch } = useFinances({
     type: 'overview',
     autoRefetch: false,
@@ -101,6 +99,7 @@ const FinancesPage = () => {
 
   const tabs = [
     { id: 'overview', label: 'Financial Overview', icon: DollarSign },
+    { id: 'payment-history', label: 'Payment History', icon: History },
     { id: 'due-next', label: 'Due Next Payments', icon: Clock },
     // { id: 'payments', label: 'Payment Management', icon: CreditCard },
     // { id: 'budgets', label: 'Budget Control', icon: Calculator },
@@ -148,54 +147,72 @@ const FinancesPage = () => {
                       <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                       <div>
                         <p className="font-medium">{account.project?.project_name || 'Unknown Project'}</p>
-                        <p className="text-sm text-gray-500">Credit Account Payment</p>
-                        <p className="text-xs text-gray-400">Due: {formatDate(account.next_payment_date!)}</p>
+                        <p className="text-sm text-gray-500">Client Payment Due</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-orange-600">{formatCurrency(account.monthly_payment)}</p>
-                      <Badge className={`text-xs ${getPaymentUrgencyColor(daysUntil)}`}>
-                        {daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : 
-                         daysUntil === 0 ? 'Due today' : 
-                         `${daysUntil} days left`}
-                      </Badge>
+                      <p className={`text-sm px-2 py-1 rounded-full border ${getPaymentUrgencyColor(daysUntil)}`}>
+                        {daysUntil === 0 ? 'Due Today' : 
+                         daysUntil === 1 ? 'Due Tomorrow' : 
+                         daysUntil > 0 ? `Due in ${daysUntil} days` : 
+                         `Overdue by ${Math.abs(daysUntil)} days`}
+                      </p>
                     </div>
                   </div>
                 );
               })}
+            
             {creditAccounts.filter(account => account.next_payment_date && new Date(account.next_payment_date) >= new Date()).length === 0 && (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Upcoming Payments</h3>
-                <p className="text-gray-600">All credit account payments are up to date.</p>
+              <div className="text-center py-8 text-gray-500">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                <p className="text-lg font-medium">All payments are up to date!</p>
+                <p className="text-sm">No upcoming payments scheduled.</p>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Financial Activity */}
+      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Recent Financial Activity</CardTitle>
+          <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {payments.slice(0, 5).map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  <div>
-                    <p className="font-medium">{payment.description}</p>
-                    <p className="text-sm text-gray-500">{payment.project?.project_name || 'No project'}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-green-600">{formatCurrency(payment.amount)}</p>
-                  <p className="text-sm text-gray-500">{new Date(payment.payment_date).toLocaleDateString()}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button 
+              onClick={() => setActiveTab('payment-history')}
+              className="p-4 text-left bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <History className="h-6 w-6 text-orange-600" />
+                <div>
+                  <p className="font-medium text-orange-900">Manage Payment History</p>
+                  <p className="text-sm text-orange-700">View, create, edit, and delete payments</p>
                 </div>
               </div>
-            ))}
+            </button>
+            
+            <button className="p-4 text-left bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors">
+              <div className="flex items-center space-x-3">
+                <Download className="h-6 w-6 text-blue-600" />
+                <div>
+                  <p className="font-medium text-blue-900">Export Financial Report</p>
+                  <p className="text-sm text-blue-700">Download comprehensive financial data</p>
+                </div>
+              </div>
+            </button>
+            
+            <button className="p-4 text-left bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors">
+              <div className="flex items-center space-x-3">
+                <Calculator className="h-6 w-6 text-green-600" />
+                <div>
+                  <p className="font-medium text-green-900">Budget Analysis</p>
+                  <p className="text-sm text-green-700">Review budget performance</p>
+                </div>
+              </div>
+            </button>
           </div>
         </CardContent>
       </Card>
@@ -237,73 +254,74 @@ const FinancesPage = () => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-orange-200 bg-orange-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-orange-800">Total Due</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalDueAmount)}</div>
-              <p className="text-xs text-orange-700">{upcomingPayments.length} upcoming payments</p>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Due</p>
+                  <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalDueAmount)}</p>
+                </div>
+                <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-red-800">Overdue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(overduePayments.reduce((sum, account) => sum + account.monthly_payment, 0))}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Upcoming Payments</p>
+                  <p className="text-2xl font-bold text-blue-600">{upcomingPayments.length}</p>
+                </div>
+                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-blue-600" />
+                </div>
               </div>
-              <p className="text-xs text-red-700">{overduePayments.length} overdue payments</p>
             </CardContent>
           </Card>
 
-          <Card className="border-green-200 bg-green-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-green-800">Next 30 Days</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(upcomingPayments
-                  .filter(account => getDaysUntilPayment(account.next_payment_date!) <= 30)
-                  .reduce((sum, account) => sum + account.monthly_payment, 0))}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Overdue</p>
+                  <p className="text-2xl font-bold text-red-600">{overduePayments.length}</p>
+                </div>
+                <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
               </div>
-              <p className="text-xs text-green-700">
-                {upcomingPayments.filter(account => getDaysUntilPayment(account.next_payment_date!) <= 30).length} payments due
-              </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Overdue Payments */}
         {overduePayments.length > 0 && (
-          <Card className="border-red-200">
+          <Card className="border-red-200 bg-red-50">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-red-800 flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                Overdue Payments
+              <CardTitle className="flex items-center space-x-2 text-red-800">
+                <AlertCircle className="h-5 w-5" />
+                <span>Overdue Payments</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {overduePayments.map((account) => {
                   const daysOverdue = Math.abs(getDaysUntilPayment(account.next_payment_date!));
                   return (
-                    <div key={account.id} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div key={account.id} className="flex items-center justify-between p-4 bg-white rounded-lg border border-red-200">
                       <div className="flex items-center space-x-4">
-                        <AlertCircle className="h-5 w-5 text-red-600" />
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                         <div>
                           <p className="font-medium text-red-900">{account.project?.project_name || 'Unknown Project'}</p>
-                          <p className="text-sm text-red-700">Credit Account Payment</p>
-                          <p className="text-xs text-red-600">Due: {formatDate(account.next_payment_date!)}</p>
+                          <p className="text-sm text-red-700">Overdue by {daysOverdue} days</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-red-600">{formatCurrency(account.monthly_payment)}</p>
-                        <Badge className="bg-red-100 text-red-800 border-red-200">
-                          {daysOverdue} days overdue
-                        </Badge>
+                        <p className="font-bold text-red-600">{formatCurrency(account.monthly_payment)}</p>
+                        <p className="text-sm text-red-500">Requires immediate attention</p>
                       </div>
                     </div>
                   );
@@ -316,36 +334,45 @@ const FinancesPage = () => {
         {/* Upcoming Payments */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Upcoming Payments</CardTitle>
+            <CardTitle className="flex items-center space-x-2">
+              <Clock className="h-5 w-5 text-orange-500" />
+              <span>Upcoming Payments</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {upcomingPayments.map((account) => {
-                const daysUntil = getDaysUntilPayment(account.next_payment_date!);
-                return (
-                  <div key={account.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <Clock className="h-5 w-5 text-gray-600" />
-                      <div>
-                        <p className="font-medium">{account.project?.project_name || 'Unknown Project'}</p>
-                        <p className="text-sm text-gray-500">Credit Account Payment</p>
-                        <p className="text-xs text-gray-400">Due: {formatDate(account.next_payment_date!)}</p>
+            <div className="space-y-3">
+              {upcomingPayments.length > 0 ? (
+                upcomingPayments.map((account) => {
+                  const daysUntil = getDaysUntilPayment(account.next_payment_date!);
+                  return (
+                    <div key={account.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-3 h-3 rounded-full ${
+                          daysUntil <= 7 ? 'bg-orange-500' : 'bg-green-500'
+                        }`}></div>
+                        <div>
+                          <p className="font-medium">{account.project?.project_name || 'Unknown Project'}</p>
+                          <p className="text-sm text-gray-500">
+                            Due {formatDate(account.next_payment_date!)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-gray-900">{formatCurrency(account.monthly_payment)}</p>
+                        <p className={`text-sm px-2 py-1 rounded-full ${getPaymentUrgencyColor(daysUntil)}`}>
+                          {daysUntil === 0 ? 'Due Today' : 
+                           daysUntil === 1 ? 'Due Tomorrow' : 
+                           `Due in ${daysUntil} days`}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-orange-600">{formatCurrency(account.monthly_payment)}</p>
-                      <Badge className={`text-xs ${getPaymentUrgencyColor(daysUntil)}`}>
-                        {daysUntil === 0 ? 'Due today' : `${daysUntil} days left`}
-                      </Badge>
-                    </div>
-                  </div>
-                );
-              })}
-              {upcomingPayments.length === 0 && (
-                <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Upcoming Payments</h3>
-                  <p className="text-gray-600">All credit account payments are up to date.</p>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                  <p className="text-lg font-medium">No upcoming payments</p>
+                  <p className="text-sm">All payments are current</p>
                 </div>
               )}
             </div>
@@ -386,233 +413,47 @@ const FinancesPage = () => {
     </div>
   );
 
-  const renderBudgets = () => (
+  // Render Payment History tab
+  const renderPaymentHistory = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Budget Control</h2>
-          <p className="text-sm text-gray-600">Monitor and control project budgets with variance analysis</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-            <FileText className="h-4 w-4" />
-            <span>New Budget</span>
-          </button>
+          <h2 className="text-xl font-semibold text-gray-900">Payment History Management</h2>
+          <p className="text-sm text-gray-600">Complete CRUD operations for all payment records</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {formatCurrency(budgets.reduce((sum, b) => sum + b.budgeted_amount, 0))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {budgets.length} active budgets
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Actual Spent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(budgets.reduce((sum, b) => sum + b.actual_amount, 0))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Current spending
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Variance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${overview.budgetVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {overview.budgetVariance >= 0 ? '+' : ''}{overview.budgetVariance.toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Budget performance
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Budget Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {budgets.map((budget) => (
-              <div key={budget.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3">
-                    <h3 className="font-medium">{budget.budget_name}</h3>
-                    <Badge className={budget.variance_percentage >= 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}>
-                      {budget.variance_percentage >= 0 ? '+' : ''}{budget.variance_percentage.toFixed(1)}%
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">{budget.project?.project_name || 'No project'}</p>
-                  <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
-                    <span>Budgeted: {formatCurrency(budget.budgeted_amount)}</span>
-                    <span>Actual: {formatCurrency(budget.actual_amount)}</span>
-                    <span>Variance: {formatCurrency(budget.variance_amount)}</span>
-                  </div>
-                </div>
-                <div className="w-32">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        budget.variance_percentage >= 0 ? 'bg-red-500' : 'bg-green-500'
-                      }`}
-                      style={{ width: `${Math.min(Math.abs(budget.variance_percentage), 100)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderCredit = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">Credit Account Management</h2>
-          <p className="text-sm text-gray-600">Monitor credit accounts and utilization</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Credit Limit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {formatCurrency(overview.totalCreditLimit)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {creditAccounts.length} active accounts
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Used Credit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {formatCurrency(overview.totalCreditUsed)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Current utilization
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Available Credit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(overview.totalCreditLimit - overview.totalCreditUsed)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Remaining capacity
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Credit Account Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {creditAccounts.map((account) => (
-              <div key={account.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3">
-                    <h3 className="font-medium">{account.project?.project_name || 'Unknown Project'}</h3>
-                    <Badge className={account.credit_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                      {account.credit_status}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
-                    <span>Limit: {formatCurrency(account.credit_limit)}</span>
-                    <span>Used: {formatCurrency(account.used_credit)}</span>
-                    <span>Available: {formatCurrency(account.available_credit)}</span>
-                  </div>
-                  {account.next_payment_date && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Next payment: {formatDate(account.next_payment_date)} - {formatCurrency(account.monthly_payment)}
-                    </p>
-                  )}
-                </div>
-                <div className="w-32">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="h-2 rounded-full bg-orange-500"
-                      style={{ width: `${Math.min((account.used_credit / account.credit_limit) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 text-center">
-                    {((account.used_credit / account.credit_limit) * 100).toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <PaymentHistoryManager 
+        showSummary={true}
+        showActions={true}
+        className="w-full"
+      />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Financial Management & Control</h1>
-            <p className="mt-2 text-lg text-gray-600">
-              Comprehensive financial oversight and control for construction projects
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-              <Download className="h-4 w-4" />
-              <span>Export Report</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
-              <Settings className="h-4 w-4" />
-              <span>Settings</span>
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Financial Management & Control</h1>
+          <p className="text-sm text-gray-600">
+            Comprehensive financial oversight and control for construction projects
+          </p>
         </div>
+        <div className="flex items-center space-x-3">
+          <button className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+            <Download className="h-4 w-4" />
+            <span>Export Report</span>
+          </button>
+          <button className="flex items-center space-x-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
+            <Settings className="h-4 w-4" />
+            <span>Settings</span>
+          </button>
+        </div>
+      </div>
 
-        {/* Navigation Tabs */}
+      <div className="space-y-6">
         <div className="mb-8">
           <nav className="flex space-x-8 border-b border-gray-200">
             {tabs.map((tab) => {
@@ -638,6 +479,7 @@ const FinancesPage = () => {
         {/* Tab Content */}
         <div className="space-y-6">
           {activeTab === 'overview' && renderEnhancedOverview()}
+          {activeTab === 'payment-history' && renderPaymentHistory()}
           {activeTab === 'due-next' && renderDueNextPayments()}
           {/* {activeTab === 'payments' && renderEnhancedPayments()} */}
           {/* {activeTab === 'budgets' && renderBudgets()} */}

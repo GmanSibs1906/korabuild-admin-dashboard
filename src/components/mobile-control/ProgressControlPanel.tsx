@@ -14,6 +14,7 @@ import { PhotoUploadModal } from '../modals/PhotoUploadModal';
 
 interface ProgressControlPanelProps {
   projectId: string;
+  onDataSync: (data: any) => void;
   onClose: () => void;
 }
 

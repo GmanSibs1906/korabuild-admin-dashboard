@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     // If we have payment data, also fetch milestone information
-    let paymentWithMilestone: Record<string, any> = finalCreditAccount;
+    let paymentWithMilestone: Record<string, any> | null = finalCreditAccount;
     if (finalCreditAccount?.milestone_id) {
       const { data: milestone, error: milestoneError } = await supabaseAdmin
         .from('project_milestones')
