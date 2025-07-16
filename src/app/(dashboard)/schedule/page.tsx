@@ -22,8 +22,11 @@ import {
   MessageSquare,
   Activity,
   MapPin,
-  Timer
+  Timer,
+  Plus
 } from 'lucide-react';
+
+import { ManualUpdateModal } from '@/components/daily-updates/ManualUpdateModal';
 
 export default function SchedulePage() {
   const [overviewData, setOverviewData] = useState<any>(null);
@@ -33,6 +36,7 @@ export default function SchedulePage() {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'overview' | 'project'>('overview');
   const [activeTab, setActiveTab] = useState<'timeline' | 'daily_updates' | 'photos' | 'activity'>('timeline');
+  const [showManualUpdateModal, setShowManualUpdateModal] = useState(false);
 
   useEffect(() => {
     console.log('🚀 Schedule page mounted - Loading overview data');
@@ -127,6 +131,65 @@ export default function SchedulePage() {
       case 'quality_inspection': return 'bg-purple-500';
       case 'safety_incident': return 'bg-red-500';
       default: return 'bg-gray-500';
+    }
+  };
+
+  const handleManualUpdateCreated = (newUpdate: any) => {
+    console.log('📝 New manual update created for project:', selectedProject?.project_id, newUpdate);
+    
+    // Add the new update to the daily timeline (ensure dailyTimeline is always an array)
+    const formattedActivity = {
+      id: newUpdate.id,
+      type: 'project_update',
+      title: newUpdate.title,
+      description: newUpdate.description,
+      date: newUpdate.created_at,
+      author: newUpdate.author?.full_name || 'Admin',
+      metadata: {
+        update_type: newUpdate.update_type,
+        priority: newUpdate.update_priority,
+        milestone: newUpdate.milestone?.milestone_name,
+        photos: newUpdate.photo_urls?.length || 0,
+        source: 'admin_manual'
+      }
+    };
+
+    if (mobileAppData && mobileAppData.data) {
+      // Ensure all arrays are properly initialized
+      const currentTimeline = Array.isArray(mobileAppData.data.dailyTimeline) 
+        ? mobileAppData.data.dailyTimeline 
+        : [];
+      
+      // Ensure projectUpdates array exists and is updated
+      const currentProjectUpdates = Array.isArray(mobileAppData.data.projectUpdates)
+        ? mobileAppData.data.projectUpdates
+        : [];
+        
+      setMobileAppData({
+        ...mobileAppData,
+        data: {
+          ...mobileAppData.data,
+          // Ensure all arrays are defined
+          dailyTimeline: currentTimeline,
+          projectUpdates: [newUpdate, ...currentProjectUpdates],
+          progressPhotos: mobileAppData.data.progressPhotos || [],
+          workSessions: mobileAppData.data.workSessions || [],
+          qualityInspections: mobileAppData.data.qualityInspections || [],
+          safetyIncidents: mobileAppData.data.safetyIncidents || [],
+          stats: {
+            ...mobileAppData.data.stats,
+            totalDailyUpdates: (mobileAppData.data.stats?.totalDailyUpdates || 0) + 1
+          }
+        }
+      });
+
+      // Also reload the project data to ensure we have the latest updates from database
+      if (selectedProject?.project_id) {
+        console.log('🔄 Reloading project data to sync with database...');
+        setTimeout(() => {
+          loadMobileAppData(selectedProject.project_id, selectedProject);
+        }, 1000); // Small delay to ensure database is updated
+      }
     }
   };
 
@@ -468,6 +531,26 @@ export default function SchedulePage() {
           {/* Daily Updates Tab - NEW FEATURE */}
           {activeTab === 'daily_updates' && (
             <div className="space-y-6">
+              {/* Daily Updates Header with Manual Add Button */}
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Daily Updates</h3>
+                  <p className="text-sm text-gray-600">
+                    Project-specific updates for <span className="font-medium text-orange-600">{mobileAppData.data.schedule.projects.project_name}</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only visible to project owner: {(mobileAppData.data.schedule.projects.client as any)?.full_name || 'Project Client'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowManualUpdateModal(true)}
+                  className="bg-orange-500 hover:bg-orange-600 text-orange-50"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Manual Update
+                </Button>
+              </div>
+
               {/* Daily Updates Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <Card>
@@ -530,7 +613,7 @@ export default function SchedulePage() {
                 <CardContent>
                   {mobileAppData.data.dailyTimeline?.length > 0 ? (
                     <div className="space-y-6">
-                      {mobileAppData.data.dailyTimeline.slice(0, 10).map((dayData: any) => (
+                      {(mobileAppData.data.dailyTimeline || []).slice(0, 10).map((dayData: any) => (
                         <div key={dayData.date} className="border-l-4 border-orange-500 pl-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-semibold text-gray-900">{dayData.dateFormatted}</h4>
@@ -540,7 +623,7 @@ export default function SchedulePage() {
                           </div>
                           
                           <div className="space-y-3">
-                            {dayData.activities.map((activity: any) => {
+                            {(dayData.activities || []).map((activity: any) => {
                               const IconComponent = getActivityIcon(activity.type);
                               return (
                                 <div key={activity.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
@@ -584,7 +667,7 @@ export default function SchedulePage() {
             <div className="space-y-6">
               {mobileAppData.data.progressPhotos?.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {mobileAppData.data.progressPhotos.slice(0, 12).map((photo: any) => (
+                  {(mobileAppData.data.progressPhotos || []).slice(0, 12).map((photo: any) => (
                     <Card key={photo.id} className="overflow-hidden hover:shadow-md transition-shadow">
                       <div className="aspect-w-16 aspect-h-12 bg-gray-200">
                         <img
@@ -635,22 +718,21 @@ export default function SchedulePage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {mobileAppData.data.workSessions.slice(0, 5).map((session: any) => (
+                      {(mobileAppData.data.workSessions || []).slice(0, 5).map((session: any) => (
                         <div key={session.id} className="border rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-medium text-gray-900">
                               {session.task?.task_name || 'General Work'}
                             </h4>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-orange-500">
                               {session.duration_hours}h
                             </Badge>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {session.work_description || session.progress_made}
-                          </p>
-                          <div className="text-xs text-gray-500 grid grid-cols-2 gap-4">
+                          <p className="text-sm text-gray-600 mb-2">{session.work_description}</p>
+                          <div className="text-xs text-gray-500 space-y-1">
+                            <div>Crew: {session.crew_member?.crew_name || 'Unknown'}</div>
+                            <div>Lead: {session.crew_member?.crew_lead_name || 'Unknown'}</div>
                             <div>Date: {formatDate(session.session_date)}</div>
-                            <div>Crew: {session.crew_member?.crew_name}</div>
                           </div>
                         </div>
                       ))}
@@ -664,29 +746,34 @@ export default function SchedulePage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <ClipboardCheck className="h-5 w-5 mr-2 text-purple-500" />
+                      <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
                       Quality Inspections
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {mobileAppData.data.qualityInspections.slice(0, 5).map((inspection: any) => (
+                      {(mobileAppData.data.qualityInspections || []).slice(0, 5).map((inspection: any) => (
                         <div key={inspection.id} className="border rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-medium text-gray-900">
                               {inspection.inspection_type}
                             </h4>
                             <Badge className={`text-xs ${
-                              inspection.inspection_status === 'passed' ? 'bg-green-100 text-green-800' :
-                              inspection.inspection_status === 'failed' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
+                              inspection.inspection_status === 'completed' ? 'bg-green-100 text-green-800' :
+                              inspection.inspection_status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
                             }`}>
                               {inspection.inspection_status}
                             </Badge>
                           </div>
-                          <div className="text-xs text-gray-500 grid grid-cols-2 gap-4">
+                          {inspection.overall_score && (
+                            <div className="mb-2">
+                              <span className="text-sm font-medium">Score: {inspection.overall_score}/100</span>
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500 space-y-1">
+                            <div>Inspector: {inspection.inspector?.full_name || 'Unknown'}</div>
                             <div>Date: {formatDate(inspection.inspection_date)}</div>
-                            <div>Score: {inspection.overall_score || 'N/A'}</div>
                           </div>
                         </div>
                       ))}
@@ -727,6 +814,16 @@ export default function SchedulePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Manual Update Modal */}
+      {selectedProject && mobileAppData && (
+        <ManualUpdateModal
+          isOpen={showManualUpdateModal}
+          onClose={() => setShowManualUpdateModal(false)}
+          projectId={mobileAppData.data.schedule.project_id}
+          onUpdateCreated={handleManualUpdateCreated}
+        />
+      )}
     </div>
   );
 } 

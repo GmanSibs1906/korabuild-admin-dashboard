@@ -10,15 +10,15 @@ export async function GET(
 
     if (!projectId) {
       return NextResponse.json(
-        { success: false, error: 'Project ID is required' },
+        { error: 'Project ID is required' },
         { status: 400 }
       );
     }
 
-    console.log('🎯 Fetching project milestones:', { projectId });
+    const supabase = supabaseAdmin;
 
-    // Get project milestones ordered by order_index
-    const { data: milestones, error } = await supabaseAdmin
+    // Fetch milestones for the project
+    const { data: milestones, error } = await supabase
       .from('project_milestones')
       .select(`
         id,
@@ -31,34 +31,33 @@ export async function GET(
         actual_end,
         status,
         progress_percentage,
+        order_index,
         estimated_cost,
         actual_cost,
-        order_index,
-        responsible_contractor,
-        created_at,
-        updated_at
+        responsible_contractor
       `)
       .eq('project_id', projectId)
       .order('order_index', { ascending: true });
 
     if (error) {
-      console.error('❌ Error fetching milestones:', error);
+      console.error('Error fetching milestones:', error);
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch milestones' },
+        { error: 'Failed to fetch milestones' },
         { status: 500 }
       );
     }
 
-    console.log('✅ Successfully fetched milestones:', milestones?.length || 0);
+    console.log(`✅ Fetched ${(milestones || []).length} milestones for project ${projectId}`);
 
     return NextResponse.json({
       success: true,
-      data: milestones || [],
+      data: milestones || []
     });
+
   } catch (error) {
-    console.error('❌ Error in milestones API:', error);
+    console.error('Error in GET /api/projects/[projectId]/milestones:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

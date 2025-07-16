@@ -1,37 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
-// GET handler for fetching schedule data
+// GET handler - fetch schedule data
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
-
+    const userId = searchParams.get('userId'); // Optional user filter
+    
     const supabase = supabaseAdmin;
 
     if (projectId) {
-      // Fetch project basic info first
+      // Fetch specific project's mobile app data
+      console.log('📱 Fetching mobile app data for project:', projectId);
+      
+      // First verify the project exists and get user context
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .select(`
           id,
           project_name,
-          start_date,
-          expected_completion,
+          client_id,
+          status,
           current_phase,
           progress_percentage,
-          status
+          start_date,
+          expected_completion,
+          client:users!projects_client_id_fkey(
+            id,
+            email,
+            full_name,
+            role
+          )
         `)
         .eq('id', projectId)
         .single();
 
-      if (projectError) {
-        console.error('Error fetching project:', projectError);
+      if (projectError || !project) {
+        console.error('❌ Project not found:', projectId, projectError?.message);
         return NextResponse.json(
-          { error: 'Failed to fetch project' },
-          { status: 500 }
+          { success: false, error: 'Project not found' },
+          { status: 404 }
         );
       }
+
+      console.log('✅ Project found:', project.project_name, 'for client:', (project.client as any)?.full_name);
 
       // **MOBILE APP DATA STRUCTURE** - Fetch data exactly how mobile app gets it
       
