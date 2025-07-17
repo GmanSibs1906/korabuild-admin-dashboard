@@ -27,7 +27,7 @@ export function useDocuments(options: UseDocumentsOptions = {}): UseDocumentsRet
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Build query parameters
+  // Build query parameters - memoized to prevent infinite loops
   const buildQueryParams = useCallback(() => {
     const params = new URLSearchParams();
     
@@ -47,7 +47,21 @@ export function useDocuments(options: UseDocumentsOptions = {}): UseDocumentsRet
     if (filters.end_date) params.set('end_date', filters.end_date);
 
     return params.toString();
-  }, [filters, sort, currentPage, currentLimit]);
+  }, [
+    currentPage, 
+    currentLimit, 
+    sort.field, 
+    sort.direction,
+    filters.search,
+    filters.project_id,
+    filters.document_type,
+    filters.approval_status,
+    filters.uploaded_by,
+    filters.category,
+    filters.tags?.join(','),
+    filters.start_date,
+    filters.end_date
+  ]);
 
   // Fetch documents
   const fetchDocuments = useCallback(async () => {
