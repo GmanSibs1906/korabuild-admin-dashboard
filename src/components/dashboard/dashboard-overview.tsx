@@ -1,16 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUsers } from '@/hooks/useUsers';
 import { useProjects } from '@/hooks/useProjects';
 import { useFinances } from '@/hooks/useFinances';
 import { useMessages } from '@/hooks/useMessages';
-import { useDocuments } from '@/hooks/useDocuments';
-import { useDeliveries } from '@/hooks/useDeliveries';
-import { useActivity, ActivityItem } from '@/hooks/useActivity';
+import { useContractors } from '@/hooks/useContractors';
+import { useSchedule } from '@/hooks/useSchedule';
+import { useDocumentsNotifications } from '@/hooks/useDocumentsNotifications';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { 
   Users, 
@@ -19,16 +21,23 @@ import {
   MessageCircle,
   TrendingUp,
   AlertCircle,
-
   CheckCircle,
   ArrowRight,
   BarChart3,
   FileText,
-  Truck,
   Bell,
   Activity,
   UserPlus,
-  Plus
+  Plus,
+  UserCheck,
+  Calendar,
+  Clock,
+  AlertTriangle,
+  Eye,
+  Building2,
+  CreditCard,
+  Wrench,
+  Truck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,9 +54,10 @@ interface MetricCardProps {
   color?: 'blue' | 'green' | 'orange' | 'purple' | 'red';
   loading?: boolean;
   onClick?: () => void;
+  badge?: number;
 }
 
-function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 'blue', loading, onClick }: MetricCardProps) {
+function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 'blue', loading, onClick, badge }: MetricCardProps) {
   const colorClasses = {
     blue: 'bg-blue-50 text-blue-600',
     green: 'bg-green-50 text-green-600',
@@ -64,6 +74,11 @@ function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 'blue',
             <Icon className="w-5 h-5" />
           </div>
           <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+          {badge && badge > 0 && (
+            <Badge variant="destructive" className="bg-red-500 text-white text-xs px-2 py-1">
+              {badge}
+            </Badge>
+          )}
         </div>
         
         <div className="mt-2">
@@ -117,378 +132,672 @@ function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 'blue',
 
 export default function DashboardOverview() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'overview' | 'contractors' | 'schedule' | 'documents' | 'notifications'>('overview');
+  
+  // Data hooks
   const { users, loading: usersLoading, error: usersError, stats: userStats } = useUsers();
   const { projects, loading: projectsLoading, error: projectsError, summary: projectSummary } = useProjects();
   const { financialData, isLoading: financesLoading, error: financesError } = useFinances();
   const { loading: messagesLoading, error: messagesError, stats: messageStats } = useMessages();
-  const { documents, stats: documentStats, loading: documentsLoading } = useDocuments({
-    autoRefetch: false, // Disable auto-refresh for dashboard overview
-    limit: 5 // Only need 5 recent documents for dashboard
-  });
-  const { stats: deliveryStats, loading: deliveriesLoading } = useDeliveries();
-  const { activities, loading: activityLoading } = useActivity();
+  
+  // New notification-enabled hooks
+  const { stats: contractorStats, notifications: contractorNotifications, loading: contractorsLoading } = useContractors();
+  const { stats: scheduleStats, notifications: scheduleNotifications, loading: scheduleLoading } = useSchedule();
+  const { stats: documentStats, notifications: documentNotifications, loading: documentsLoading } = useDocumentsNotifications();
+
+  // Aggregate all notifications
+  const allNotifications = [
+    ...contractorNotifications,
+    ...scheduleNotifications,
+    ...documentNotifications,
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const unreadNotificationsCount = allNotifications.filter(n => !n.is_read).length;
 
   // Extract financial stats from financialData
   const financeStats = financialData?.overview ? {
     totalRevenue: financialData.overview.totalPayments || 0,
     monthlyRevenue: financialData.overview.totalPayments * 0.1 || 0,
-    totalBudget: financialData.overview.totalBudget || 0,
-    totalActual: financialData.overview.totalActual || 0,
-    financialHealthScore: financialData.overview.financialHealthScore || 0,
-    financialHealthStatus: financialData.overview.financialHealthStatus || 'unknown',
     pendingApprovals: financialData.overview.pendingApprovalsCount || 0,
     overduePayments: financialData.overview.overduePaymentsCount || 0
   } : {
     totalRevenue: 0,
     monthlyRevenue: 0,
-    totalBudget: 0,
-    totalActual: 0,
-    financialHealthScore: 0,
-    financialHealthStatus: 'unknown',
     pendingApprovals: 0,
     overduePayments: 0
   };
 
-  // Debug logging to help diagnose issues
-  console.log('Dashboard Data Status:', {
-    users: { count: users?.length, loading: usersLoading, error: usersError, stats: userStats },
-    projects: { count: projects?.length, loading: projectsLoading, error: projectsError, summary: projectSummary },
-    finances: { loading: financesLoading, error: financesError, stats: financeStats, rawData: financialData },
-    messages: { loading: messagesLoading, error: messagesError, stats: messageStats },
-    documents: { loading: documentsLoading, stats: documentStats },
-    deliveries: { loading: deliveriesLoading, stats: deliveryStats }
-  });
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'contractors', label: 'Contractors', icon: UserCheck, badge: contractorStats.unreadNotifications },
+    { id: 'schedule', label: 'Schedule', icon: Calendar, badge: scheduleStats.unreadNotifications },
+    { id: 'documents', label: 'Documents', icon: FileText, badge: documentStats.unreadNotifications },
+    { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotificationsCount },
+  ];
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'normal': return 'bg-blue-100 text-blue-800';
+      case 'low': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'new_assignment':
+      case 'pending_approval':
+        return UserCheck;
+      case 'overdue_task':
+      case 'upcoming_deadline':
+        return Clock;
+      case 'document_uploaded':
+      case 'version_updated':
+        return FileText;
+      case 'approval_overdue':
+      case 'document_expired':
+        return AlertTriangle;
+      default:
+        return Bell;
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
-      {/* Welcome Header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome to the KoraBuild Admin Dashboard</p>
+          <p className="text-gray-600 mt-1">Construction Project Management Overview</p>
         </div>
         <div className="flex items-center space-x-3">
           <Badge variant="secondary" className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
             System Online
           </Badge>
-          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-            <Activity className="h-3 w-3 mr-1" />
-            Real-time Data
-          </Badge>
+          {unreadNotificationsCount > 0 && (
+            <Badge variant="destructive" className="bg-red-500 text-white">
+              {unreadNotificationsCount} Notifications
+            </Badge>
+          )}
           <span className="text-sm text-gray-500">
             Last updated: {new Date().toLocaleTimeString()}
           </span>
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          title="Total Users"
-          value={userStats.totalUsers}
-          subtitle={`${userStats.activeUsers} active users`}
-          icon={Users}
-          color="blue"
-          loading={usersLoading}
-          onClick={() => router.push('/users')}
-          trend={{
-            value: 12,
-            isPositive: true,
-            label: 'this month'
-          }}
-        />
-        
-        <MetricCard
-          title="Active Projects"
-          value={projectSummary.activeProjects}
-          subtitle={`${projectSummary.totalProjects} total projects`}
-          icon={FolderOpen}
-          color="green"
-          loading={projectsLoading}
-          onClick={() => router.push('/projects')}
-          trend={{
-            value: 8,
-            isPositive: true,
-            label: 'this month'
-          }}
-        />
-        
-        <MetricCard
-          title="Total Revenue"
-          value={`R${financeStats.totalRevenue.toLocaleString()}`}
-          subtitle={`R${financeStats.monthlyRevenue.toLocaleString()} this month`}
-          icon={DollarSign}
-          color="orange"
-          loading={financesLoading}
-          onClick={() => router.push('/finances')}
-          trend={{
-            value: 15,
-            isPositive: true,
-            label: 'this month'
-          }}
-        />
-        
-        <MetricCard
-          title="Messages"
-          value={messageStats.unreadMessages}
-          subtitle={`${messageStats.totalConversations} conversations`}
-          icon={MessageCircle}
-          color="purple"
-          loading={messagesLoading}
-          onClick={() => router.push('/communications')}
-        />
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-8">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={cn(
+                  'py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center space-x-2',
+                  activeTab === tab.id
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{tab.label}</span>
+                {tab.badge && tab.badge > 0 && (
+                  <Badge variant="destructive" className="bg-red-500 text-white text-xs px-2 py-1 min-w-5 h-5 flex items-center justify-center">
+                    {tab.badge}
+                  </Badge>
+                )}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
-      {/* Secondary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <MetricCard
-          title="New Documents"
-          value={documentStats.newDocuments}
-          subtitle={`${documentStats.pendingApproval} pending approval`}
-          icon={FileText}
-          color="blue"
-          loading={documentsLoading}
-          onClick={() => router.push('/documents')}
-        />
-        
-        <MetricCard
-          title="Upcoming Deliveries"
-          value={deliveryStats.upcomingDeliveries}
-          subtitle={`${deliveryStats.urgentDeliveries} urgent orders`}
-          icon={Truck}
-          color="orange"
-          loading={deliveriesLoading}
-          onClick={() => router.push('/deliveries')}
-        />
-        
-        <MetricCard
-          title="Pending Approvals"
-          value={financeStats.pendingApprovals}
-          subtitle={`${financeStats.overduePayments} overdue payments`}
-          icon={AlertCircle}
-          color="red"
-          loading={financesLoading}
-          onClick={() => router.push('/finances')}
-        />
-      </div>
+      {/* Tab Content */}
+      <div className="space-y-6">
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Main Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <MetricCard
+                title="Total Users"
+                value={userStats.totalUsers}
+                subtitle={`${userStats.activeUsers} active users`}
+                icon={Users}
+                color="blue"
+                loading={usersLoading}
+                onClick={() => router.push('/users')}
+                trend={{
+                  value: 12,
+                  isPositive: true,
+                  label: 'this month'
+                }}
+              />
+              
+              <MetricCard
+                title="Active Projects"
+                value={projectSummary.activeProjects}
+                subtitle={`${projectSummary.totalProjects} total projects`}
+                icon={FolderOpen}
+                color="green"
+                loading={projectsLoading}
+                onClick={() => router.push('/projects')}
+                trend={{
+                  value: 8,
+                  isPositive: true,
+                  label: 'this month'
+                }}
+              />
+              
+              <MetricCard
+                title="Total Revenue"
+                value={`R${financeStats.totalRevenue.toLocaleString()}`}
+                subtitle={`R${financeStats.monthlyRevenue.toLocaleString()} this month`}
+                icon={DollarSign}
+                color="orange"
+                loading={financesLoading}
+                onClick={() => router.push('/finances')}
+                trend={{
+                  value: 15,
+                  isPositive: true,
+                  label: 'this month'
+                }}
+              />
+              
+              <MetricCard
+                title="Messages"
+                value={messageStats.unreadMessages}
+                subtitle={`${messageStats.totalConversations} conversations`}
+                icon={MessageCircle}
+                color="purple"
+                loading={messagesLoading}
+                onClick={() => router.push('/communications')}
+              />
+            </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Plus className="h-5 w-5 mr-2 text-orange-600" />
-          Quick Actions
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <button 
-            onClick={() => router.push('/users')}
-            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-          >
-            <UserPlus className="w-5 h-5 text-blue-600" />
-            <div className="text-left">
-              <div className="font-medium text-sm text-gray-900">Add User</div>
-              <div className="text-xs text-gray-500">Add new client or contractor</div>
+            {/* System Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <MetricCard
+                title="Contractors"
+                value={contractorStats.activeContractors}
+                subtitle={`${contractorStats.pendingApproval} pending approval`}
+                icon={UserCheck}
+                color="blue"
+                loading={contractorsLoading}
+                onClick={() => setActiveTab('contractors')}
+                badge={contractorStats.unreadNotifications}
+              />
+              
+              <MetricCard
+                title="Schedule"
+                value={scheduleStats.overdueTasks}
+                subtitle={`${scheduleStats.upcomingDeadlines} upcoming deadlines`}
+                icon={Calendar}
+                color="orange"
+                loading={scheduleLoading}
+                onClick={() => setActiveTab('schedule')}
+                badge={scheduleStats.unreadNotifications}
+              />
+              
+              <MetricCard
+                title="Documents"
+                value={documentStats.pendingApproval}
+                subtitle={`${documentStats.recentUploads} recent uploads`}
+                icon={FileText}
+                color="purple"
+                loading={documentsLoading}
+                onClick={() => setActiveTab('documents')}
+                badge={documentStats.unreadNotifications}
+              />
             </div>
-          </button>
-          
-          <button 
-            onClick={() => router.push('/users')}
-            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-          >
-            <Users className="w-5 h-5 text-green-600" />
-            <div className="text-left">
-              <div className="font-medium text-sm text-gray-900">Add Admin</div>
-              <div className="text-xs text-gray-500">Create new admin account</div>
-            </div>
-          </button>
-          
-          <button 
-            onClick={() => router.push('/projects')}
-            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-          >
-            <FolderOpen className="w-5 h-5 text-orange-600" />
-            <div className="text-left">
-              <div className="font-medium text-sm text-gray-900">Create Project</div>
-              <div className="text-xs text-gray-500">Start new construction project</div>
-            </div>
-          </button>
-          
-          <button 
-            onClick={() => router.push('/communications')}
-            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-          >
-            <Bell className="w-5 h-5 text-purple-600" />
-            <div className="text-left">
-              <div className="font-medium text-sm text-gray-900">Send Announcement</div>
-              <div className="text-xs text-gray-500">Broadcast to all users</div>
-            </div>
-          </button>
-          
-          <button 
-            onClick={() => router.push('/analytics')}
-            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-          >
-            <BarChart3 className="w-5 h-5 text-indigo-600" />
-            <div className="text-left">
-              <div className="font-medium text-sm text-gray-900">View Analytics</div>
-              <div className="text-xs text-gray-500">System performance metrics</div>
-            </div>
-          </button>
-          
-          <button 
-            onClick={() => router.push('/notifications')}
-            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
-          >
-            <Bell className="w-5 h-5 text-red-600" />
-            <div className="text-left">
-              <div className="font-medium text-sm text-gray-900">Notifications</div>
-              <div className="text-xs text-gray-500">Manage system alerts</div>
-            </div>
-          </button>
-        </div>
-      </div>
 
-      {/* Additional Information Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Breakdown */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">User Breakdown</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Clients</span>
-              <span className="text-sm font-medium text-gray-900">{userStats.clientUsers}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Contractors</span>
-              <span className="text-sm font-medium text-gray-900">{userStats.contractorUsers}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Admins</span>
-              <span className="text-sm font-medium text-gray-900">{userStats.adminUsers}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">New This Month</span>
-              <span className="text-sm font-medium text-gray-900">{userStats.newUsersThisMonth}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-          <div className="space-y-3">
-            {activityLoading ? (
-              <div className="flex items-center space-x-2">
-                <LoadingSpinner />
-                <span className="text-gray-400">Loading activity...</span>
-              </div>
-            ) : activities.length > 0 ? (
-              activities.slice(0, 5).map((activity: ActivityItem, index: number) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Activity className="w-4 h-4 text-blue-600" />
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Plus className="h-5 w-5 mr-2 text-orange-600" />
+                  Quick Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Button 
+                    variant="outline"
+                    onClick={() => router.push('/users')}
+                    className="flex items-center justify-start space-x-3 p-4 h-auto"
+                  >
+                    <UserPlus className="w-5 h-5 text-blue-600" />
+                    <div className="text-left">
+                      <div className="font-medium text-sm">Add User</div>
+                      <div className="text-xs text-gray-500">Add new client or contractor</div>
                     </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 truncate">
-                      {activity.description}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {activity.timestamp}
-                    </p>
-                  </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => router.push('/projects')}
+                    className="flex items-center justify-start space-x-3 p-4 h-auto"
+                  >
+                    <Building2 className="w-5 h-5 text-green-600" />
+                    <div className="text-left">
+                      <div className="font-medium text-sm">Create Project</div>
+                      <div className="text-xs text-gray-500">Start new construction project</div>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => router.push('/communications')}
+                    className="flex items-center justify-start space-x-3 p-4 h-auto"
+                  >
+                    <MessageCircle className="w-5 h-5 text-purple-600" />
+                    <div className="text-left">
+                      <div className="font-medium text-sm">Send Announcement</div>
+                      <div className="text-xs text-gray-500">Broadcast to all users</div>
+                    </div>
+                  </Button>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No recent activity</p>
-            )}
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        )}
 
-        {/* Recent Documents */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Documents</h3>
-            <button
-              onClick={() => router.push('/documents')}
-              className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center"
-            >
-              View All
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </button>
-          </div>
-          <div className="space-y-3">
-            {documentsLoading ? (
-              <div className="flex items-center space-x-2">
-                <LoadingSpinner />
-                <span className="text-gray-400">Loading documents...</span>
-              </div>
-            ) : documents && documents.length > 0 ? (
-              documents
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                .slice(0, 5)
-                .map((document) => (
-                <div key={document.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-orange-600" />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 truncate font-medium">
-                      {document.document_name}
-                    </p>
-                    <div className="flex items-center space-x-2">
-                      <p className="text-xs text-gray-500">
-                        {document.category}
-                      </p>
-                      <span className="text-xs text-gray-400">•</span>
-                      <p className="text-xs text-gray-500">
-                        {new Date(document.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <Badge 
-                      className={cn(
-                        'text-xs',
-                        document.approval_status === 'approved' && 'bg-green-100 text-green-800',
-                        document.approval_status === 'pending' && 'bg-yellow-100 text-yellow-800',
-                        document.approval_status === 'rejected' && 'bg-red-100 text-red-800'
-                      )}
-                    >
-                      {document.approval_status}
-                    </Badge>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No recent documents</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* System Health */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">99.9%</div>
-            <div className="text-sm text-gray-500">Uptime</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">245ms</div>
-            <div className="text-sm text-gray-500">Response Time</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600">
-              {financeStats.financialHealthScore}%
+        {activeTab === 'contractors' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Contractors Overview</h2>
+              <Button onClick={() => router.push('/contractors')}>
+                View All Contractors
+              </Button>
             </div>
-            <div className="text-sm text-gray-500">Financial Health</div>
+
+            {/* Contractor Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total Contractors</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900">{contractorStats.totalContractors}</div>
+                  <p className="text-sm text-gray-600">{contractorStats.activeContractors} active</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Pending Approval</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{contractorStats.pendingApproval}</div>
+                  <p className="text-sm text-gray-600">Requires review</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">New Assignments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{contractorStats.newAssignments}</div>
+                  <p className="text-sm text-gray-600">This week</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Documents Required</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{contractorStats.documentsRequired}</div>
+                  <p className="text-sm text-gray-600">Missing documents</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Contractor Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Contractor Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {contractorNotifications.slice(0, 5).map((notification) => {
+                    const Icon = getNotificationIcon(notification.type);
+                    return (
+                      <div key={notification.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-shrink-0">
+                          <Icon className="h-5 w-5 text-gray-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {notification.contractor_name} • {formatTimeAgo(notification.created_at)}
+                          </p>
+                        </div>
+                        <Badge className={getPriorityColor(notification.priority)}>
+                          {notification.priority}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        )}
+
+        {activeTab === 'schedule' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Schedule Overview</h2>
+              <Button onClick={() => router.push('/schedule')}>
+                View Full Schedule
+              </Button>
+            </div>
+
+            {/* Schedule Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total Tasks</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900">{scheduleStats.totalTasks}</div>
+                  <p className="text-sm text-gray-600">Across all projects</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Overdue Tasks</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{scheduleStats.overdueTasks}</div>
+                  <p className="text-sm text-gray-600">Require attention</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Upcoming Deadlines</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{scheduleStats.upcomingDeadlines}</div>
+                  <p className="text-sm text-gray-600">Next 7 days</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Projects at Risk</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-yellow-600">{scheduleStats.projectsAtRisk}</div>
+                  <p className="text-sm text-gray-600">Behind schedule</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Schedule Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Schedule Alerts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {scheduleNotifications.slice(0, 5).map((notification) => {
+                    const Icon = getNotificationIcon(notification.type);
+                    return (
+                      <div key={notification.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-shrink-0">
+                          <Icon className="h-5 w-5 text-gray-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {notification.project_name} • {formatTimeAgo(notification.created_at)}
+                          </p>
+                        </div>
+                        <Badge className={getPriorityColor(notification.priority)}>
+                          {notification.priority}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'documents' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Documents Overview</h2>
+              <Button onClick={() => router.push('/documents')}>
+                View All Documents
+              </Button>
+            </div>
+
+            {/* Document Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900">{documentStats.totalDocuments}</div>
+                  <p className="text-sm text-gray-600">In system</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Pending Approval</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{documentStats.pendingApproval}</div>
+                  <p className="text-sm text-gray-600">Awaiting review</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Recent Uploads</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{documentStats.recentUploads}</div>
+                  <p className="text-sm text-gray-600">Last 24 hours</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Expiring Soon</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{documentStats.expiringSoon}</div>
+                  <p className="text-sm text-gray-600">Next 30 days</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Document Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Document Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {documentNotifications.slice(0, 5).map((notification) => {
+                    const Icon = getNotificationIcon(notification.type);
+                    return (
+                      <div key={notification.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-shrink-0">
+                          <Icon className="h-5 w-5 text-gray-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {notification.project_name ? `${notification.project_name} • ` : ''}{formatTimeAgo(notification.created_at)}
+                          </p>
+                        </div>
+                        <Badge className={getPriorityColor(notification.priority)}>
+                          {notification.priority}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Notification Center</h2>
+              <div className="flex space-x-2">
+                <Badge variant="secondary">
+                  {allNotifications.length} Total
+                </Badge>
+                <Badge variant="destructive">
+                  {unreadNotificationsCount} Unread
+                </Badge>
+              </div>
+            </div>
+
+            {/* Notification Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500 flex items-center">
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Contractors
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-blue-600">{contractorNotifications.length}</div>
+                  <p className="text-sm text-gray-600">{contractorStats.unreadNotifications} unread</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500 flex items-center">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-orange-600">{scheduleNotifications.length}</div>
+                  <p className="text-sm text-gray-600">{scheduleStats.unreadNotifications} unread</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500 flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Documents
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-purple-600">{documentNotifications.length}</div>
+                  <p className="text-sm text-gray-600">{documentStats.unreadNotifications} unread</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* All Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All Notifications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {allNotifications.map((notification) => {
+                    const Icon = getNotificationIcon(notification.type);
+                    return (
+                      <div 
+                        key={notification.id} 
+                        className={cn(
+                          'flex items-center space-x-3 p-4 rounded-lg border',
+                          notification.is_read ? 'bg-white border-gray-200' : 'bg-orange-50 border-orange-200'
+                        )}
+                      >
+                        <div className="flex-shrink-0">
+                          <Icon className={cn(
+                            'h-5 w-5',
+                            notification.is_read ? 'text-gray-500' : 'text-orange-600'
+                          )} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <p className={cn(
+                              'text-sm font-medium',
+                              notification.is_read ? 'text-gray-900' : 'text-orange-900'
+                            )}>
+                              {notification.title}
+                            </p>
+                            {!notification.is_read && (
+                              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <p className="text-xs text-gray-500">
+                              {'contractor_name' in notification ? notification.contractor_name :
+                               'project_name' in notification ? notification.project_name :
+                               'document_name' in notification ? notification.document_name : ''}
+                            </p>
+                            <span className="text-xs text-gray-400">•</span>
+                            <p className="text-xs text-gray-500">{formatTimeAgo(notification.created_at)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge className={getPriorityColor(notification.priority)}>
+                            {notification.priority}
+                          </Badge>
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {allNotifications.length === 0 && (
+                    <div className="text-center py-8">
+                      <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No notifications at this time</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

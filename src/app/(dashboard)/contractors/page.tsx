@@ -1496,7 +1496,7 @@ export default function ContractorsPage() {
 
           {/* Contractors List */}
           <div className="grid grid-cols-1 gap-4">
-            {projectContractors.map((projectContractor) => (
+            {projectContractors.map((projectContractor: any) => (
               <Card key={projectContractor.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex justify-between items-start">
