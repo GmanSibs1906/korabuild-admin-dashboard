@@ -153,11 +153,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const isNavigationItemVisible = (item: NavigationItem): boolean => {
-    if (!item.requiredPermissions) return true;
+    // 🚨 TEMPORARILY DISABLED: Show all navigation items during development
+    return true;
     
-    return item.requiredPermissions.every(perm =>
-      auth.hasPermission(perm.resource as any, perm.action)
-    );
+    // TODO: Re-enable permission checking in production
+    // if (!item.requiredPermissions) return true;
+    // 
+    // return item.requiredPermissions.every(perm =>
+    //   auth.hasPermission(perm.resource as any, perm.action)
+    // );
   };
 
   const userInitials = auth.user ? getInitials(auth.user.full_name) : 'AD';

@@ -167,6 +167,12 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
   const saveEdit = async (field: string) => {
     if (editValues[field] !== undefined) {
       switch (field) {
+        case 'contractValue':
+          // Contract value is stored in the projects table, not project_financials
+          await updateFinancialData('contractValue', {
+            contractValue: parseFloat(editValues[field]) || 0
+          });
+          break;
         case 'cashReceived':
         case 'amountUsed':
         case 'amountRemaining':
@@ -412,9 +418,33 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Total Contract Value</span>
-                  <span className="text-xl font-semibold text-gray-900">
-                    {formatCurrency(financialData.contractValue)}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    {editMode === 'contractValue' ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          value={editValues.contractValue}
+                          onChange={(e) => setEditValues({...editValues, contractValue: e.target.value})}
+                          className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                        <Button size="sm" onClick={() => saveEdit('contractValue')}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-xl font-semibold text-gray-900">
+                          {formatCurrency(financialData.contractValue)}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startEdit('contractValue', financialData.contractValue)}
+                        >
+                          Edit
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between">

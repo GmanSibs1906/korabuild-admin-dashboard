@@ -12,7 +12,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Mail, Phone, Shield, Save, X } from 'lucide-react';
 import { Database } from '@/types/database';
 import { getInitials } from '@/lib/utils';
-import { supabase } from '@/lib/supabase/client';
 
 type UserType = Database['public']['Tables']['users']['Row'];
 
@@ -60,26 +59,31 @@ export function EditUserModal({ user, isOpen, onClose, onSave }: EditUserModalPr
     setError(null);
 
     try {
-      // Update user in database
-      const { data, error: updateError } = await supabase
-        .from('users')
-        .update({
+      // Update user via API endpoint
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
           full_name: formData.full_name,
           email: formData.email,
           phone: formData.phone,
           role: formData.role,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id)
-        .select()
-        .single();
+        }),
+      });
 
-      if (updateError) {
-        throw updateError;
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update user');
       }
 
+      console.log('✅ User updated successfully:', result.data);
+
       // Call onSave callback with updated user
-      onSave(data);
+      onSave(result.data);
       onClose();
     } catch (err) {
       console.error('Error updating user:', err);

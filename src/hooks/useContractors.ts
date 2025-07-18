@@ -274,8 +274,10 @@ export function useContractors(): UseContractorsResult {
         },
         body: JSON.stringify({
           action: 'update_contractor',
-          contractorId,
-          data: contractorData,
+          data: {
+            contractor_id: contractorId,
+            updates: contractorData,
+          },
         }),
       });
 
@@ -301,7 +303,7 @@ export function useContractors(): UseContractorsResult {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'assign_contractor',
+          action: 'assign_to_project',
           data: assignmentData,
         }),
       });
@@ -328,9 +330,11 @@ export function useContractors(): UseContractorsResult {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'update_assignment',
-          assignmentId,
-          data: assignmentData,
+          action: 'update_project_assignment',
+          data: {
+            assignment_id: assignmentId,
+            updates: assignmentData,
+          },
         }),
       });
 

@@ -375,6 +375,7 @@ export function PhotoUploadModal({
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               disabled={uploading}
               rows={3}
+              className='bg-white text-gray-900'
             />
           </div>
 

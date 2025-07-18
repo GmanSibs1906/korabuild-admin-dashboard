@@ -226,6 +226,29 @@ export async function POST(request: NextRequest) {
     let result;
 
     switch (updateType) {
+      case 'contractValue':
+        // Update contract value in projects table
+        console.log('💰 Processing contract value update for project:', projectId);
+        console.log('💰 New contract value:', data.contractValue);
+        
+        const { data: projectUpdate, error: projectError } = await supabaseAdmin
+          .from('projects')
+          .update({
+            contract_value: data.contractValue,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', projectId)
+          .select();
+
+        if (projectError) {
+          console.error('❌ Error updating project contract value:', projectError);
+          throw projectError;
+        }
+
+        console.log('✅ Contract value update successful:', projectUpdate);
+        result = projectUpdate;
+        break;
+
       case 'financial':
         // Update project financials - Get the LATEST record and update it
         let financialUpdate;

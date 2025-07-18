@@ -1107,7 +1107,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Label htmlFor="milestone_name">Milestone Name *</Label>
+              <Label className="text-gray-900" htmlFor="milestone_name">Milestone Name *</Label>
               <Input
                 value={formData.milestone_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, milestone_name: e.target.value }))}
@@ -1119,16 +1119,17 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="description">Description</Label>
+              <Label className="text-gray-900" htmlFor="description">Description</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
+                className='bg-white text-gray-900'
               />
             </div>
 
             <div>
-              <Label htmlFor="phase_category">Phase Category</Label>
+              <Label className="text-gray-900" htmlFor="phase_category">Phase Category</Label>
               <Select 
                 value={formData.phase_category} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, phase_category: value }))}
@@ -1153,7 +1154,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div>
-              <Label htmlFor="status">Status</Label>
+              <Label className="text-gray-900" htmlFor="status">Status</Label>
               <Select 
                 value={formData.status} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}
@@ -1172,7 +1173,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div>
-              <Label htmlFor="planned_start">Start Date *</Label>
+              <Label className="text-gray-900" htmlFor="planned_start">Start Date *</Label>
               <Input
                 type="date"
                 value={formData.planned_start}
@@ -1185,7 +1186,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div>
-              <Label htmlFor="planned_end">End Date *</Label>
+              <Label className="text-gray-900" htmlFor="planned_end">End Date *</Label>
               <Input
                 type="date"
                 value={formData.planned_end}
@@ -1198,7 +1199,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div>
-              <Label htmlFor="progress_percentage">Progress (%)</Label>
+              <Label className="text-gray-900" htmlFor="progress_percentage">Progress (%)</Label>
               <Input
                 type="number"
                 min="0"
@@ -1209,7 +1210,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div>
-              <Label htmlFor="estimated_cost">Estimated Cost (ZAR)</Label>
+              <Label className="text-gray-900" htmlFor="estimated_cost">Estimated Cost (ZAR)</Label>
               <Input
                 type="number"
                 min="0"
@@ -1220,7 +1221,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="responsible_contractor">Responsible Contractor</Label>
+              <Label className="text-gray-900" htmlFor="responsible_contractor">Responsible Contractor</Label>
               <Input
                 value={formData.responsible_contractor}
                 onChange={(e) => setFormData(prev => ({ ...prev, responsible_contractor: e.target.value }))}
@@ -1228,11 +1229,12 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label className="text-gray-900" htmlFor="notes">Notes</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 rows={3}
+                className='bg-white text-gray-900'
               />
             </div>
           </div>
