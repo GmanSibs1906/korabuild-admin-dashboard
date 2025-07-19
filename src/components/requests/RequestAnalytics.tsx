@@ -240,42 +240,42 @@ export function RequestAnalytics({ stats, loading }: RequestAnalyticsProps) {
         <AnalyticsMetricCard
           title="Total Requests"
           value={stats.total}
-          subtitle="All time"
+          // subtitle="All time"
           icon={MessageSquare}
           color="blue"
-          trend={{ value: 12, isPositive: true, period: "this month" }}
+          // trend={{ value: 12, isPositive: true, period: "this month" }}
         />
         
         <AnalyticsMetricCard
           title="Pending Review"
           value={stats.pending}
-          subtitle="Requires attention"
+          // subtitle="Requires attention"
           icon={Clock}
           color="orange"
-          badge="Priority"
+          // badge="Priority"
         />
         
         <AnalyticsMetricCard
           title="In Progress"
           value={stats.inProgress}
-          subtitle="Being processed"
+          // subtitle="Being processed"
           icon={Activity}
           color="purple"
-          trend={{ value: 8, isPositive: true, period: "this week" }}
+          // trend={{ value: 8, isPositive: true, period: "this week" }}
         />
         
         <AnalyticsMetricCard
           title="Completed"
           value={stats.completed}
-          subtitle="Successfully resolved"
+          // subtitle="Successfully resolved"
           icon={CheckCircle}
           color="green"
-          trend={{ value: 15, isPositive: true, period: "this month" }}
+          // trend={{ value: 15, isPositive: true, period: "this month" }}
         />
       </div>
 
       {/* Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <AnalyticsMetricCard
           title="Avg Response Time"
           value={4.2}
@@ -310,7 +310,7 @@ export function RequestAnalytics({ stats, loading }: RequestAnalyticsProps) {
           icon={Building2}
           color="purple"
         />
-      </div>
+      </div> */}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
