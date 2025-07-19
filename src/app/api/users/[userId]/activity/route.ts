@@ -87,7 +87,7 @@ export async function GET(
         activities.push({
           id: payment.id,
           type: 'payment',
-          title: `Payment of R${payment.amount?.toLocaleString()}`,
+          title: `Payment of $${payment.amount?.toLocaleString()}`,
           description: payment.description,
           projectName: (payment.projects as any)?.project_name,
           timestamp: payment.payment_date,

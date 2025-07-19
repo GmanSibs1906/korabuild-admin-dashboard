@@ -108,8 +108,8 @@ export function OrderCreateModal({ isOpen, onClose, projectId, suppliers, onOrde
   // Calculate totals whenever order items change
   useEffect(() => {
     const subtotal = formData.order_items.reduce((sum, item) => sum + item.line_total, 0);
-    const tax_amount = subtotal * 0.15; // 15% VAT
-    const total_amount = subtotal + tax_amount - formData.discount_amount;
+    const tax_amount = 0; // No tax/VAT added as per USD pricing rules
+    const total_amount = subtotal - formData.discount_amount;
     
     setFormData(prev => ({
       ...prev,
@@ -226,8 +226,8 @@ export function OrderCreateModal({ isOpen, onClose, projectId, suppliers, onOrde
     try {
       // Calculate final totals before submission
       const subtotal = formData.order_items.reduce((sum, item) => sum + (item.line_total || 0), 0);
-      const taxAmount = subtotal * 0.15; // 15% VAT
-      const total = subtotal + taxAmount;
+      const taxAmount = 0; // No tax/VAT added as per USD pricing rules
+      const total = subtotal - formData.discount_amount;
 
       // Map special_instructions to delivery_instructions and exclude the original field
       const { special_instructions, ...restFormData } = formData;
@@ -296,11 +296,10 @@ export function OrderCreateModal({ isOpen, onClose, projectId, suppliers, onOrde
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 2,
-    }).format(amount);
+      currency: 'USD',
+    }).format(amount || 0);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -452,6 +451,7 @@ export function OrderCreateModal({ isOpen, onClose, projectId, suppliers, onOrde
                   onChange={(e) => handleInputChange('special_instructions', e.target.value)}
                   placeholder="Any special instructions for this order"
                   rows={3}
+                  className='bg-white text-gray-900'
                 />
               </div>
             </CardContent>
@@ -602,11 +602,6 @@ export function OrderCreateModal({ isOpen, onClose, projectId, suppliers, onOrde
                 </div>
                 
                 <div className="flex justify-between text-sm">
-                  <span>Tax (15%):</span>
-                  <span className="font-medium">{formatCurrency(formData.tax_amount)}</span>
-                </div>
-                
-                <div className="flex justify-between text-sm">
                   <Label htmlFor="discount">Discount:</Label>
                   <Input
                     type="number"
@@ -637,6 +632,7 @@ export function OrderCreateModal({ isOpen, onClose, projectId, suppliers, onOrde
                 onChange={(e) => handleInputChange('notes', e.target.value)}
                 placeholder="Any additional notes for this order"
                 rows={3}
+                className='bg-white text-gray-900'
               />
             </CardContent>
           </Card>

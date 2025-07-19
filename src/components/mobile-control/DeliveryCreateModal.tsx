@@ -307,7 +307,7 @@ export function DeliveryCreateModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="order_id">Select Order *</Label>
+                <Label htmlFor="order_id" className='text-gray-900'>Select Order *</Label>
                 <Select 
                   value={formData.order_id} 
                   onValueChange={handleOrderSelect}
@@ -338,9 +338,9 @@ export function DeliveryCreateModal({
 
               {selectedOrder && (
                 <div>
-                  <Label>Order Details</Label>
+                  <Label className='text-gray-900'>Order Details</Label>
                   <div className="bg-white p-3 rounded border">
-                    <p className="text-sm font-medium">{selectedOrder.order_number}</p>
+                    <p className="text-sm font-medium text-orange-500">{selectedOrder.order_number}</p>
                     <p className="text-sm text-gray-600">
                       {selectedOrder.suppliers?.supplier_name || 'Unknown Supplier'}
                     </p>
@@ -393,19 +393,19 @@ export function DeliveryCreateModal({
                       <div key={item.order_item_id} className="bg-white p-4 rounded-lg border">
                         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                           <div className="md:col-span-2">
-                            <Label className="text-sm font-medium">Item Description</Label>
+                            <Label className="text-sm font-medium text-gray-900">Item Description</Label>
                             <p className="text-sm text-gray-700">{item.item_description}</p>
                           </div>
                           
                           <div>
-                            <Label className="text-sm font-medium">Ordered</Label>
+                            <Label className="text-sm font-medium text-gray-900">Ordered</Label>
                             <p className="text-sm text-gray-700">
                               {item.quantity_ordered} {item.unit_of_measure}
                             </p>
                           </div>
                           
                           <div>
-                            <Label htmlFor={`quantity_to_deliver_${index}`} className="text-sm font-medium">
+                            <Label htmlFor={`quantity_to_deliver_${index}`} className="text-sm font-medium text-gray-900">
                               Quantity to Deliver *
                             </Label>
                             <Input
@@ -424,7 +424,7 @@ export function DeliveryCreateModal({
                           </div>
                           
                           <div>
-                            <Label htmlFor={`item_notes_${index}`} className="text-sm font-medium">
+                            <Label htmlFor={`item_notes_${index}`} className="text-sm font-medium text-gray-900">
                               Notes
                             </Label>
                             <Input
@@ -449,7 +449,7 @@ export function DeliveryCreateModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delivery Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="delivery_date">Delivery Date *</Label>
+                <Label htmlFor="delivery_date" className='text-gray-900'>Delivery Date *</Label>
                 <Input
                   type="date"
                   value={formData.delivery_date}
@@ -462,7 +462,7 @@ export function DeliveryCreateModal({
               </div>
 
               <div>
-                <Label htmlFor="delivery_time">Delivery Time *</Label>
+                <Label htmlFor="delivery_time" className='text-gray-900'>Delivery Time *</Label>
                 <Input
                   type="time"
                   value={formData.delivery_time}
@@ -475,7 +475,7 @@ export function DeliveryCreateModal({
               </div>
 
               <div>
-                <Label htmlFor="estimated_duration">Estimated Duration (minutes)</Label>
+                <Label htmlFor="estimated_duration" className='text-gray-900'>Estimated Duration (minutes)</Label>
                 <Input
                   type="number"
                   min="15"
@@ -496,7 +496,7 @@ export function DeliveryCreateModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Driver & Vehicle</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="driver_name">Driver Name *</Label>
+                <Label htmlFor="driver_name" className='text-gray-900'>Driver Name *</Label>
                 <Input
                   value={formData.driver_name}
                   onChange={(e) => handleInputChange('driver_name', e.target.value)}
@@ -509,11 +509,11 @@ export function DeliveryCreateModal({
               </div>
 
               <div>
-                <Label htmlFor="driver_phone">Driver Phone *</Label>
+                <Label htmlFor="driver_phone" className='text-gray-900'>Driver Phone *</Label>
                 <Input
                   value={formData.driver_phone}
                   onChange={(e) => handleInputChange('driver_phone', e.target.value)}
-                  placeholder="+27 XX XXX XXXX"
+                  placeholder="+263 XX XXX XXXX"
                   className={errors.driver_phone ? 'border-red-500' : ''}
                 />
                 {errors.driver_phone && (
@@ -522,7 +522,7 @@ export function DeliveryCreateModal({
               </div>
 
               <div>
-                <Label htmlFor="vehicle_type">Vehicle Type *</Label>
+                <Label htmlFor="vehicle_type" className='text-gray-900'>Vehicle Type *</Label>
                 <Select 
                   value={formData.vehicle_type} 
                   onValueChange={(value) => handleInputChange('vehicle_type', value)}
@@ -546,11 +546,11 @@ export function DeliveryCreateModal({
               </div>
 
               <div>
-                <Label htmlFor="vehicle_registration">Vehicle Registration</Label>
+                <Label htmlFor="vehicle_registration" className='text-gray-900'>Vehicle Registration</Label>
                 <Input
                   value={formData.vehicle_registration}
                   onChange={(e) => handleInputChange('vehicle_registration', e.target.value)}
-                  placeholder="ABC 123 GP"
+                  placeholder="ABP 4335"
                 />
               </div>
             </div>
@@ -561,12 +561,12 @@ export function DeliveryCreateModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delivery Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="delivery_address">Delivery Address *</Label>
+                <Label htmlFor="delivery_address" className='text-gray-900'>Delivery Address *</Label>
                 <Textarea
                   value={formData.delivery_address}
                   onChange={(e) => handleInputChange('delivery_address', e.target.value)}
                   placeholder="Complete delivery address"
-                  className={errors.delivery_address ? 'border-red-500' : ''}
+                  className={errors.delivery_address ? 'border-red-500 bg-white text-gray-900' : 'bg-white text-gray-900'}
                   rows={3}
                 />
                 {errors.delivery_address && (
@@ -575,17 +575,18 @@ export function DeliveryCreateModal({
               </div>
 
               <div>
-                <Label htmlFor="delivery_instructions">Delivery Instructions</Label>
+                <Label htmlFor="delivery_instructions" className='text-gray-900'>Delivery Instructions</Label>
                 <Textarea
                   value={formData.delivery_instructions}
                   onChange={(e) => handleInputChange('delivery_instructions', e.target.value)}
                   placeholder="Special instructions for delivery"
                   rows={3}
+                  className='bg-white text-gray-900'
                 />
               </div>
 
               <div>
-                <Label htmlFor="recipient_name">Recipient Name</Label>
+                <Label htmlFor="recipient_name" className='text-gray-900'>Recipient Name</Label>
                 <Input
                   value={formData.recipient_name}
                   onChange={(e) => handleInputChange('recipient_name', e.target.value)}
@@ -594,7 +595,7 @@ export function DeliveryCreateModal({
               </div>
 
               <div>
-                <Label htmlFor="priority">Priority</Label>
+                <Label htmlFor="priority" className='text-gray-900'>Priority</Label>
                 <Select 
                   value={formData.priority} 
                   onValueChange={(value) => handleInputChange('priority', value)}
@@ -623,22 +624,24 @@ export function DeliveryCreateModal({
 
           {/* Additional Information */}
           <div>
-            <Label htmlFor="special_requirements">Special Requirements</Label>
+            <Label htmlFor="special_requirements" className='text-gray-900'>Special Requirements</Label>
             <Textarea
               value={formData.special_requirements}
               onChange={(e) => handleInputChange('special_requirements', e.target.value)}
               placeholder="Any special handling requirements, equipment needed, etc."
               rows={2}
+              className='bg-white text-gray-900'
             />
           </div>
 
           <div>
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes" className='text-gray-900' >Notes</Label>
             <Textarea
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
               placeholder="Additional notes about the delivery"
               rows={2}
+              className='bg-white text-gray-900'
             />
           </div>
 

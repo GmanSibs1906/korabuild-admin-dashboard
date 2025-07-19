@@ -205,11 +205,10 @@ export function NextPaymentModal({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+      currency: 'USD',
+    }).format(amount || 0);
   };
 
   const getSelectedMilestone = () => {
@@ -491,9 +490,10 @@ export function NextPaymentModal({
               id="notes"
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
-              className="mt-1"
+              // className="mt-1"
               rows={3}
               placeholder="Additional payment notes or instructions..."
+              className='bg-white text-gray-900 mt-1'
             />
           </div>
 

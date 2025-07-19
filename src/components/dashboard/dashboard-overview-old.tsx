@@ -91,6 +91,14 @@ function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 'blue',
   );
 }
 
+// Add formatCurrency function at the top of the component
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(amount || 0);
+};
+
 export default function DashboardOverview() {
   const { users, loading: usersLoading, error: usersError, stats: userStats } = useUsers();
   const { projects, loading: projectsLoading, error: projectsError, summary: projectSummary } = useProjects();
@@ -177,8 +185,8 @@ export default function DashboardOverview() {
         
         <MetricCard
           title="Total Revenue"
-          value={`R${financeStats.totalRevenue.toLocaleString()}`}
-          subtitle={`R${financeStats.monthlyRevenue.toLocaleString()} this month`}
+          value={formatCurrency(financeStats.totalRevenue)}
+          subtitle={`${formatCurrency(financeStats.monthlyRevenue)} this month`}
           icon={DollarSign}
           color="orange"
           loading={financesLoading}

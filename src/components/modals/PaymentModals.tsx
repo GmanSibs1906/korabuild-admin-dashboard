@@ -191,17 +191,17 @@ export function PaymentDeleteModal({
   const [loading, setLoading] = React.useState(false);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -297,22 +297,22 @@ export function PaymentViewModal({
   payment
 }: PaymentViewModalProps) {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-ZA', {
+    return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',

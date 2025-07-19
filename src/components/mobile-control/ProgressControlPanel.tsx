@@ -410,24 +410,18 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not set';
-    try {
-      return new Date(dateString).toLocaleDateString('en-ZA', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (error) {
-      return 'Invalid date';
-    }
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+      currency: 'USD',
+    }).format(amount || 0);
   };
 
   if (loading) {
@@ -1210,7 +1204,7 @@ function MilestoneCreateModal({ isOpen, onClose, projectId, onMilestoneCreated }
             </div>
 
             <div>
-              <Label className="text-gray-900" htmlFor="estimated_cost">Estimated Cost (ZAR)</Label>
+              <Label className="text-gray-900" htmlFor="estimated_cost">Estimated Cost (USD)</Label>
               <Input
                 type="number"
                 min="0"
@@ -1483,7 +1477,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="estimated_cost">Estimated Cost (ZAR)</Label>
+              <Label htmlFor="estimated_cost">Estimated Cost (USD)</Label>
               <Input
                 type="number"
                 min="0"
@@ -1494,7 +1488,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="actual_cost">Actual Cost (ZAR)</Label>
+              <Label htmlFor="actual_cost">Actual Cost (USD)</Label>
               <Input
                 type="number"
                 min="0"

@@ -371,7 +371,7 @@ export async function GET(request: NextRequest) {
       const dailyTimeline = Object.entries(activitiesByDate)
         .map(([date, activities]) => ({
           date,
-          dateFormatted: new Date(date).toLocaleDateString('en-ZA', {
+          dateFormatted: new Date(date).toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',

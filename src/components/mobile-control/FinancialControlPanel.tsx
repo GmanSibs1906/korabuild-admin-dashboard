@@ -21,7 +21,8 @@ import {
   Calculator,
   Bell,
   Plus,
-  Edit
+  Edit,
+  Lock
 } from 'lucide-react';
 
 interface MobileFinancialData {
@@ -251,19 +252,18 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   // Format date
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+      month: 'long',
+      day: 'numeric',
     });
   };
 
@@ -549,12 +549,22 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
                           <span className="font-medium text-gray-900">
                             {formatCurrency(creditData.creditLimit)}
                           </span>
-                          <Button
+                          {/* <Button
                             size="sm"
                             variant="outline"
                             onClick={() => startEdit('creditLimit', creditData.creditLimit)}
                           >
                             Edit
+                          </Button> */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className=' text-gray-400'
+                            // onClick={() => startEdit('creditLimit', creditData.creditLimit)}
+                          >
+                            Edit Disabled
+                            <Lock className="h-4 w-4 ml-1" />
+                            
                           </Button>
                         </>
                       )}
@@ -654,12 +664,12 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">Payment History</h3>
-              <Button
+              {/* <Button
                 onClick={addPayment}
                 className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 Add Payment
-              </Button>
+              </Button> */}
             </div>
             
             {payments.length > 0 ? (
@@ -696,12 +706,12 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-500">No payments recorded</p>
-                <Button
+                {/* <Button
                   onClick={addPayment}
                   className="mt-4 bg-orange-500 hover:bg-orange-600 text-white"
                 >
                   Add First Payment
-                </Button>
+                </Button> */}
               </div>
             )}
           </div>

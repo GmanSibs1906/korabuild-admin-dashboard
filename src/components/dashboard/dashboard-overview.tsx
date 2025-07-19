@@ -9,6 +9,7 @@ import { useMessages } from '@/hooks/useMessages';
 import { useContractors } from '@/hooks/useContractors';
 import { useSchedule } from '@/hooks/useSchedule';
 import { useDocumentsNotifications } from '@/hooks/useDocumentsNotifications';
+import { useRequests } from '@/hooks/useRequests';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,8 @@ import {
   Building2,
   CreditCard,
   Wrench,
-  Truck
+  Truck,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -132,7 +134,7 @@ function MetricCard({ title, value, subtitle, icon: Icon, trend, color = 'blue',
 
 export default function DashboardOverview() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'overview' | 'contractors' | 'schedule' | 'documents' | 'notifications'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'contractors' | 'schedule' | 'documents' | 'requests' | 'notifications'>('overview');
   
   // Data hooks
   const { users, loading: usersLoading, error: usersError, stats: userStats } = useUsers();
@@ -144,12 +146,14 @@ export default function DashboardOverview() {
   const { stats: contractorStats, notifications: contractorNotifications, loading: contractorsLoading } = useContractors();
   const { stats: scheduleStats, notifications: scheduleNotifications, loading: scheduleLoading } = useSchedule();
   const { stats: documentStats, notifications: documentNotifications, loading: documentsLoading } = useDocumentsNotifications();
+  const { stats: requestStats, notifications: requestNotifications, loading: requestsLoading } = useRequests({ includeStats: true, limit: 10 });
 
   // Aggregate all notifications
   const allNotifications = [
     ...contractorNotifications,
     ...scheduleNotifications,
     ...documentNotifications,
+    ...requestNotifications,
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const unreadNotificationsCount = allNotifications.filter(n => !n.is_read).length;
@@ -172,6 +176,7 @@ export default function DashboardOverview() {
     { id: 'contractors', label: 'Contractors', icon: UserCheck, badge: contractorStats.unreadNotifications },
     { id: 'schedule', label: 'Schedule', icon: Calendar, badge: scheduleStats.unreadNotifications },
     { id: 'documents', label: 'Documents', icon: FileText, badge: documentStats.unreadNotifications },
+    { id: 'requests', label: 'Requests', icon: MessageSquare, badge: requestNotifications.filter(n => !n.is_read).length },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotificationsCount },
   ];
 
@@ -211,9 +216,20 @@ export default function DashboardOverview() {
       case 'approval_overdue':
       case 'document_expired':
         return AlertTriangle;
+      case 'new_request':
+      case 'request_updated':
+      case 'request_status_changed':
+        return MessageSquare;
       default:
         return Bell;
     }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   return (
@@ -307,8 +323,8 @@ export default function DashboardOverview() {
               
               <MetricCard
                 title="Total Revenue"
-                value={`R${financeStats.totalRevenue.toLocaleString()}`}
-                subtitle={`R${financeStats.monthlyRevenue.toLocaleString()} this month`}
+                value={formatCurrency(financeStats.totalRevenue)}
+                subtitle={`${formatCurrency(financeStats.monthlyRevenue)} this month`}
                 icon={DollarSign}
                 color="orange"
                 loading={financesLoading}
@@ -332,7 +348,18 @@ export default function DashboardOverview() {
             </div>
 
             {/* System Overview Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <MetricCard
+                title="Requests"
+                value={requestStats?.pending || 0}
+                subtitle={`${requestStats?.total || 0} total requests`}
+                icon={MessageSquare}
+                color="orange"
+                loading={requestsLoading}
+                onClick={() => router.push('/requests')}
+                badge={requestNotifications.filter(n => !n.is_read).length}
+              />
+              
               <MetricCard
                 title="Contractors"
                 value={contractorStats.activeContractors}
@@ -349,7 +376,7 @@ export default function DashboardOverview() {
                 value={scheduleStats.overdueTasks}
                 subtitle={`${scheduleStats.upcomingDeadlines} upcoming deadlines`}
                 icon={Calendar}
-                color="orange"
+                color="purple"
                 loading={scheduleLoading}
                 onClick={() => setActiveTab('schedule')}
                 badge={scheduleStats.unreadNotifications}
@@ -360,7 +387,7 @@ export default function DashboardOverview() {
                 value={documentStats.pendingApproval}
                 subtitle={`${documentStats.recentUploads} recent uploads`}
                 icon={FileText}
-                color="purple"
+                color="green"
                 loading={documentsLoading}
                 onClick={() => setActiveTab('documents')}
                 badge={documentStats.unreadNotifications}
@@ -648,6 +675,91 @@ export default function DashboardOverview() {
               <CardContent>
                 <div className="space-y-3">
                   {documentNotifications.slice(0, 5).map((notification) => {
+                    const Icon = getNotificationIcon(notification.type);
+                    return (
+                      <div key={notification.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-shrink-0">
+                          <Icon className="h-5 w-5 text-gray-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {notification.project_name ? `${notification.project_name} • ` : ''}{formatTimeAgo(notification.created_at)}
+                          </p>
+                        </div>
+                        <Badge className={getPriorityColor(notification.priority)}>
+                          {notification.priority}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'requests' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Requests Overview</h2>
+              <Button onClick={() => router.push('/requests')}>
+                View All Requests
+              </Button>
+            </div>
+
+            {/* Request Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900">{requestStats?.total || 0}</div>
+                  <p className="text-sm text-gray-600">In system</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Pending Review</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{requestStats?.pending || 0}</div>
+                  <p className="text-sm text-gray-600">Awaiting review</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">In Progress</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{requestStats?.inProgress || 0}</div>
+                  <p className="text-sm text-gray-600">Being processed</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Completed</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{requestStats?.completed || 0}</div>
+                  <p className="text-sm text-gray-600">Successfully resolved</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Request Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Request Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {requestNotifications.slice(0, 5).map((notification) => {
                     const Icon = getNotificationIcon(notification.type);
                     return (
                       <div key={notification.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">

@@ -91,10 +91,10 @@ export function PaymentApprovalWorkflow({
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   // Get status badge color

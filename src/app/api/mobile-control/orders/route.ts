@@ -40,12 +40,31 @@ export async function GET(request: NextRequest) {
         suppliers (
           id,
           supplier_name,
+          supplier_code,
           contact_person,
           email,
           phone,
+          address,
+          city,
+          province,
           specialty,
           rating,
           status
+        ),
+        projects (
+          id,
+          project_name,
+          project_address,
+          status,
+          start_date,
+          expected_completion,
+          current_phase,
+          progress_percentage,
+          client:users!projects_client_id_fkey(
+            id,
+            full_name,
+            email
+          )
         ),
         order_items (
           id,
@@ -191,9 +210,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, projectId, orderId, orderData } = body;
+    const { action, projectId, orderId, orderData, supplierId, supplierData } = body;
 
-    console.log('📦 Mobile Orders Control - POST:', { action, projectId, orderId });
+    console.log('📦 Mobile Orders Control - POST:', { action, projectId, orderId, supplierId });
 
     switch (action) {
       case 'create':
@@ -202,6 +221,12 @@ export async function POST(request: NextRequest) {
         return await updateOrder(orderId, orderData);
       case 'delete':
         return await deleteOrder(orderId);
+      case 'create_supplier':
+        return await createSupplier(supplierData);
+      case 'update_supplier':
+        return await updateSupplier(supplierId, supplierData);
+      case 'delete_supplier':
+        return await deleteSupplier(supplierId);
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
@@ -250,7 +275,7 @@ async function createOrder(projectId: string, orderData: any) {
       subtotal: subtotal,
       tax_amount: taxAmount,
       total_amount: totalAmount,
-      currency: 'ZAR',
+              currency: 'USD',
       payment_status: 'pending',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -536,6 +561,201 @@ async function deleteOrder(orderId: string) {
 
   } catch (error) {
     console.error('❌ Delete order error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// 🏭 SUPPLIER MANAGEMENT FUNCTIONS
+
+// Create a new supplier
+async function createSupplier(supplierData: any) {
+  try {
+    if (!supplierData.supplier_name || !supplierData.supplier_code) {
+      return NextResponse.json({ 
+        error: 'Supplier name and supplier code are required' 
+      }, { status: 400 });
+    }
+
+    console.log('🏭 Creating supplier:', supplierData);
+
+    // Check if supplier code already exists
+    const { data: existingSupplier, error: checkError } = await supabaseAdmin
+      .from('suppliers')
+      .select('id, supplier_code')
+      .eq('supplier_code', supplierData.supplier_code)
+      .single();
+
+    if (existingSupplier && !checkError) {
+      return NextResponse.json({ 
+        error: 'Supplier code already exists. Please use a unique code.' 
+      }, { status: 400 });
+    }
+
+    // Create the supplier
+    const { data: newSupplier, error: createError } = await supabaseAdmin
+      .from('suppliers')
+      .insert({
+        supplier_name: supplierData.supplier_name,
+        supplier_code: supplierData.supplier_code,
+        contact_person: supplierData.contact_person || null,
+        email: supplierData.email || null,
+        phone: supplierData.phone || null,
+        address: supplierData.address || null,
+        city: supplierData.city || null,
+        province: supplierData.province || null,
+        postal_code: supplierData.postal_code || null,
+        specialty: supplierData.specialty || null,
+        supplier_type: supplierData.supplier_type || 'material',
+        rating: supplierData.rating || 0,
+        status: supplierData.status || 'active',
+        payment_terms: supplierData.payment_terms || null,
+        credit_limit: supplierData.credit_limit || null,
+        tax_number: supplierData.tax_number || null,
+        notes: supplierData.notes || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('❌ Error creating supplier:', createError);
+      return NextResponse.json({ error: 'Failed to create supplier' }, { status: 500 });
+    }
+
+    console.log('✅ Supplier created successfully:', newSupplier.id);
+    return NextResponse.json({ 
+      success: true, 
+      data: newSupplier,
+      message: 'Supplier created successfully' 
+    });
+
+  } catch (error) {
+    console.error('❌ Create supplier error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// Update an existing supplier
+async function updateSupplier(supplierId: string, supplierData: any) {
+  try {
+    if (!supplierId) {
+      return NextResponse.json({ error: 'Supplier ID is required' }, { status: 400 });
+    }
+
+    if (!supplierData.supplier_name || !supplierData.supplier_code) {
+      return NextResponse.json({ 
+        error: 'Supplier name and supplier code are required' 
+      }, { status: 400 });
+    }
+
+    console.log('🏭 Updating supplier:', supplierId, supplierData);
+
+    // Check if supplier code already exists for other suppliers
+    const { data: existingSupplier, error: checkError } = await supabaseAdmin
+      .from('suppliers')
+      .select('id, supplier_code')
+      .eq('supplier_code', supplierData.supplier_code)
+      .neq('id', supplierId)
+      .single();
+
+    if (existingSupplier && !checkError) {
+      return NextResponse.json({ 
+        error: 'Supplier code already exists. Please use a unique code.' 
+      }, { status: 400 });
+    }
+
+    // Update the supplier
+    const { data: updatedSupplier, error: updateError } = await supabaseAdmin
+      .from('suppliers')
+      .update({
+        supplier_name: supplierData.supplier_name,
+        supplier_code: supplierData.supplier_code,
+        contact_person: supplierData.contact_person || null,
+        email: supplierData.email || null,
+        phone: supplierData.phone || null,
+        address: supplierData.address || null,
+        city: supplierData.city || null,
+        province: supplierData.province || null,
+        postal_code: supplierData.postal_code || null,
+        specialty: supplierData.specialty || null,
+        supplier_type: supplierData.supplier_type || 'material',
+        rating: supplierData.rating || 0,
+        status: supplierData.status || 'active',
+        payment_terms: supplierData.payment_terms || null,
+        credit_limit: supplierData.credit_limit || null,
+        tax_number: supplierData.tax_number || null,
+        notes: supplierData.notes || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', supplierId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ Error updating supplier:', updateError);
+      return NextResponse.json({ error: 'Failed to update supplier' }, { status: 500 });
+    }
+
+    console.log('✅ Supplier updated successfully:', supplierId);
+    return NextResponse.json({ 
+      success: true, 
+      data: updatedSupplier,
+      message: 'Supplier updated successfully' 
+    });
+
+  } catch (error) {
+    console.error('❌ Update supplier error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// Delete a supplier
+async function deleteSupplier(supplierId: string) {
+  try {
+    if (!supplierId) {
+      return NextResponse.json({ error: 'Supplier ID is required' }, { status: 400 });
+    }
+
+    console.log('🏭 Deleting supplier:', supplierId);
+
+    // Check if supplier has any orders
+    const { data: supplierOrders, error: ordersCheckError } = await supabaseAdmin
+      .from('project_orders')
+      .select('id')
+      .eq('supplier_id', supplierId)
+      .limit(1);
+
+    if (ordersCheckError) {
+      console.error('❌ Error checking supplier orders:', ordersCheckError);
+      return NextResponse.json({ error: 'Failed to check supplier orders' }, { status: 500 });
+    }
+
+    if (supplierOrders && supplierOrders.length > 0) {
+      return NextResponse.json({ 
+        error: 'Cannot delete supplier with existing orders. Please archive instead.' 
+      }, { status: 400 });
+    }
+
+    // Delete the supplier
+    const { error: deleteError } = await supabaseAdmin
+      .from('suppliers')
+      .delete()
+      .eq('id', supplierId);
+
+    if (deleteError) {
+      console.error('❌ Error deleting supplier:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete supplier' }, { status: 500 });
+    }
+
+    console.log('✅ Supplier deleted successfully:', supplierId);
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Supplier deleted successfully' 
+    });
+
+  } catch (error) {
+    console.error('❌ Delete supplier error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

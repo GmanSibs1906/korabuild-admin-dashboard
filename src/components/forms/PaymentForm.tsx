@@ -466,7 +466,7 @@ export function PaymentForm({
                   <FormControl>
                     <Textarea
                       placeholder="Enter payment description..."
-                      className="min-h-[80px]"
+                      className="min-h-[80px] bg-white text-gray-900"
                       {...field}
                     />
                   </FormControl>

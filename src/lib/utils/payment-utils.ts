@@ -4,27 +4,25 @@
 import type { NextPaymentData, PaymentCalculation, PaymentUrgency, PaymentAlert } from '@/types/next-payment';
 
 /**
- * Format currency amount using South African Rand
+ * Format currency amount using US Dollar
  */
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-ZA', {
+export const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'ZAR',
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
+    currency: 'USD',
+  }).format(amount || 0);
+};
 
 /**
  * Format date using South African locale
  */
-export function formatDate(dateString: string): string {
-  if (!dateString) return 'Not set';
-  return new Date(dateString).toLocaleDateString('en-ZA', {
+export const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+    month: 'long',
+    day: 'numeric',
   });
-}
+};
 
 /**
  * Calculate days until payment due date

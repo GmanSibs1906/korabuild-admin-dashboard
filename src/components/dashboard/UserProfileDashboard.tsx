@@ -76,27 +76,27 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
   }, [userId, fetchUserProfile, fetchUserActivity]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+      month: 'long',
+      day: 'numeric',
     });
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-ZA', {
+    return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
@@ -331,7 +331,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
             <div className="text-sm text-gray-500">Active Projects</div>
           </div>
           <div className="bg-white rounded-lg p-4 shadow border-l-4 border-green-500">
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(quickStats.totalCashReceived).replace('ZAR', 'R')}</div>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(quickStats.totalCashReceived)}</div>
             <div className="text-sm text-gray-500">Cash Received</div>
             <div className="text-xs text-gray-400 mt-1">
               {quickStats.totalContractValue > 0 
@@ -341,7 +341,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
             </div>
           </div>
           <div className="bg-white rounded-lg p-4 shadow border-l-4 border-indigo-500">
-            <div className="text-2xl font-bold text-indigo-600">{formatCurrency(quickStats.totalContractValue).replace('ZAR', 'R')}</div>
+            <div className="text-2xl font-bold text-indigo-600">{formatCurrency(quickStats.totalContractValue)}</div>
             <div className="text-sm text-gray-500">Contract Value</div>
           </div>
         </div>
@@ -351,7 +351,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
           <div className="bg-white rounded-lg p-4 shadow border-l-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xl font-bold text-red-600">{formatCurrency(quickStats.totalAmountUsed).replace('ZAR', 'R')}</div>
+                <div className="text-xl font-bold text-red-600">{formatCurrency(quickStats.totalAmountUsed)}</div>
                 <div className="text-sm text-gray-500">Amount Used</div>
               </div>
               <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
@@ -381,7 +381,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
           <div className="bg-white rounded-lg p-4 shadow border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xl font-bold text-blue-600">{formatCurrency(quickStats.totalAmountRemaining).replace('ZAR', 'R')}</div>
+                <div className="text-xl font-bold text-blue-600">{formatCurrency(quickStats.totalAmountRemaining)}</div>
                 <div className="text-sm text-gray-500">Amount Remaining</div>
               </div>
               <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">

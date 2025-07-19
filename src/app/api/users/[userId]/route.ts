@@ -237,7 +237,7 @@ export async function GET(
       },
       'DISCREPANCY CHECK': {
         cashReceivedVsPayments: totalCashReceived - paymentBasedSpent,
-        isConsistent: Math.abs(totalCashReceived - paymentBasedSpent) < 100 // Allow R100 tolerance
+        isConsistent: Math.abs(totalCashReceived - paymentBasedSpent) < 100 // Allow $100 tolerance
       }
     });
     

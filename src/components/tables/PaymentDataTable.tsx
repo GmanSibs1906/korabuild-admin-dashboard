@@ -88,18 +88,18 @@ export function PaymentDataTable({
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   // Format date
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+      month: 'long',
+      day: 'numeric',
     });
   };
 
@@ -400,7 +400,7 @@ export function PaymentDataTable({
                       
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs text-orange-500">
                             {PAYMENT_CATEGORIES.find(c => c.value === payment.payment_category)?.label || payment.payment_category}
                           </Badge>
                         </div>

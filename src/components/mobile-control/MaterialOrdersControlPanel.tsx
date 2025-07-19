@@ -14,6 +14,9 @@ import { OrderCreateModal } from './OrderCreateModal';
 import { OrderEditModal } from './OrderEditModal';
 import { DeliveryCreateModal } from './DeliveryCreateModal';
 import { DeliveryEditModal } from './DeliveryEditModal';
+import { SupplierCreateModal } from './SupplierCreateModal';
+import { SupplierEditModal } from './SupplierEditModal';
+import { OrderViewModal } from './OrderViewModal';
 import { 
   Package, 
   Truck, 
@@ -97,6 +100,15 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
   const [showDeliveryCreateModal, setShowDeliveryCreateModal] = useState(false);
   const [showDeliveryEditModal, setShowDeliveryEditModal] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
+  
+  // Supplier modal states
+  const [showSupplierCreateModal, setShowSupplierCreateModal] = useState(false);
+  const [showSupplierEditModal, setShowSupplierEditModal] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  
+  // Order view modal states
+  const [showOrderViewModal, setShowOrderViewModal] = useState(false);
+  const [selectedOrderForView, setSelectedOrderForView] = useState<any>(null);
 
   // Fetch orders data when component mounts or projectId changes
   useEffect(() => {
@@ -375,37 +387,126 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
     fetchOrdersData();
   };
 
-  const handleEditDelivery = async (delivery: any) => {
-    console.log('🚚 Opening edit modal for delivery:', {
-      deliveryId: delivery.id,
-      deliveryNumber: delivery.delivery_number
-    });
-    
+  // Handle delivery editing
+  const handleEditDelivery = (delivery: any) => {
+    setSelectedDelivery(delivery);
+    setShowDeliveryEditModal(true);
+  };
+
+  // Handle delivery creation success
+  const handleDeliveryCreated = (newDelivery: any) => {
+    // Refresh data after creating delivery
+    fetchOrdersData();
+    setShowDeliveryCreateModal(false);
+  };
+
+  // Handle delivery update success
+  const handleDeliveryUpdated = (updatedDelivery: any) => {
+    // Refresh data after updating delivery
+    fetchOrdersData();
+    setShowDeliveryEditModal(false);
+    setSelectedDelivery(null);
+  };
+
+  // Handle delivery status update
+  const handleDeliveryStatusUpdate = async (deliveryId: string, status: string, notes?: string) => {
     try {
-      // Fetch fresh delivery data with complete order relations
-      const response = await fetch(`/api/mobile-control/deliveries?deliveryId=${delivery.id}`);
-      const result = await response.json();
+      setUpdating(true);
       
-      if (result.success) {
-        console.log('🚚 Fresh delivery data fetched:', result.data);
-        setSelectedDelivery(result.data);
-        setShowDeliveryEditModal(true);
-      } else {
-        console.error('❌ Failed to fetch delivery data:', result.error);
-        setError('Failed to fetch delivery data');
-        // Fallback to existing data
-        setSelectedDelivery(delivery);
-        setShowDeliveryEditModal(true);
+      const response = await fetch('/api/mobile-control/deliveries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateStatus',
+          deliveryId,
+          updates: { status, notes }
+        }),
+      });
+
+      if (response.ok) {
+        await fetchOrdersData(); // Refresh data
       }
     } catch (error) {
-      console.error('❌ Error fetching delivery data:', error);
-      setError('Failed to fetch delivery data');
-      // Fallback to existing data
-      setSelectedDelivery(delivery);
-      setShowDeliveryEditModal(true);
+      console.error('Error updating delivery status:', error);
+    } finally {
+      setUpdating(false);
     }
   };
 
+  // 🏭 SUPPLIER MANAGEMENT HANDLERS
+
+  // Handle supplier creation
+  const handleSupplierCreated = (newSupplier: any) => {
+    console.log('🏭 Supplier created successfully:', newSupplier);
+    
+    // Update suppliers data locally
+    if (ordersData) {
+      setOrdersData({
+        ...ordersData,
+        suppliers: {
+          ...ordersData.suppliers,
+          data: [...ordersData.suppliers.data, newSupplier],
+          stats: {
+            ...ordersData.suppliers.stats,
+            totalSuppliers: ordersData.suppliers.stats.totalSuppliers + 1,
+            activeSuppliers: newSupplier.status === 'active' 
+              ? ordersData.suppliers.stats.activeSuppliers + 1 
+              : ordersData.suppliers.stats.activeSuppliers
+          }
+        },
+        suppliersCount: ordersData.suppliersCount + 1
+      });
+    }
+    
+    setShowSupplierCreateModal(false);
+  };
+
+  // Handle supplier editing
+  const handleEditSupplier = (supplier: any) => {
+    console.log('🏭 Opening edit modal for supplier:', supplier);
+    setSelectedSupplier(supplier);
+    setShowSupplierEditModal(true);
+  };
+
+  // Handle supplier update
+  const handleSupplierUpdated = (updatedSupplier: any) => {
+    console.log('🏭 Supplier updated successfully:', updatedSupplier);
+    
+    // Update suppliers data locally
+    if (ordersData) {
+      const updatedSuppliers = ordersData.suppliers.data.map((supplier: any) =>
+        supplier.id === updatedSupplier.id ? updatedSupplier : supplier
+      );
+      
+      setOrdersData({
+        ...ordersData,
+        suppliers: {
+          ...ordersData.suppliers,
+          data: updatedSuppliers,
+          stats: {
+            ...ordersData.suppliers.stats,
+            activeSuppliers: updatedSuppliers.filter((s: any) => s.status === 'active').length
+          }
+        }
+      });
+    }
+    
+    setShowSupplierEditModal(false);
+    setSelectedSupplier(null);
+  };
+
+  // 📦 ORDER VIEW HANDLER
+
+  // Handle order viewing
+  const handleViewOrder = (order: any) => {
+    console.log('📦 Opening view modal for order:', order.order_number);
+    setSelectedOrderForView(order);
+    setShowOrderViewModal(true);
+  };
+
+  // Handle delivery deletion
   const handleDeleteDelivery = async (deliveryId: string) => {
     if (!confirm('Are you sure you want to delete this delivery?')) {
       return;
@@ -454,53 +555,19 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
     }
   };
 
-  const handleDeliveryStatusUpdate = async (deliveryId: string, status: string, notes?: string) => {
-    try {
-      setUpdating(true);
-      
-      const response = await fetch('/api/mobile-control/deliveries', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'updateStatus',
-          deliveryId,
-          updates: { status, notes }
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        console.log('🚚 Delivery status updated successfully');
-        // Refresh data
-        fetchOrdersData();
-      } else {
-        throw new Error(result.error || 'Failed to update delivery status');
-      }
-    } catch (error) {
-      console.error('❌ Error updating delivery status:', error);
-      alert('Failed to update delivery status. Please try again.');
-    } finally {
-      setUpdating(false);
-    }
-  };
-
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+      currency: 'USD',
+    }).format(amount || 0);
   };
 
   // Format date
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
     });
   };
@@ -843,10 +910,7 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => {
-                              // You can add a view details modal here
-                              console.log('View order details:', order);
-                            }}
+                            onClick={() => handleViewOrder(order)}
                           >
                             <Eye className="h-4 w-4 mr-1" />
                             View
@@ -1007,7 +1071,10 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
         <TabsContent value="suppliers" className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Supplier Management</h3>
-            <Button className="flex items-center space-x-2">
+            <Button 
+              className="flex items-center space-x-2"
+              onClick={() => setShowSupplierCreateModal(true)}
+            >
               <Plus className="h-4 w-4" />
               <span>Add Supplier</span>
             </Button>
@@ -1054,7 +1121,11 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
                           {supplier.total_orders || 0} orders completed
                         </span>
                         <div className="flex items-center space-x-2">
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleEditSupplier(supplier)}
+                          >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Button>
@@ -1116,6 +1187,35 @@ export function MaterialOrdersControlPanel({ projectId, onClose }: MaterialOrder
         delivery={selectedDelivery}
         onDeliveryUpdated={handleUpdateDelivery}
       />
+
+      {/* Supplier Modals */}
+      <SupplierCreateModal
+        isOpen={showSupplierCreateModal}
+        onClose={() => setShowSupplierCreateModal(false)}
+        onSupplierCreated={handleSupplierCreated}
+      />
+
+      <SupplierEditModal
+        isOpen={showSupplierEditModal}
+        onClose={() => {
+          setShowSupplierEditModal(false);
+          setSelectedSupplier(null);
+        }}
+        supplier={selectedSupplier}
+        onSupplierUpdated={handleSupplierUpdated}
+      />
+
+      {/* Order View Modal */}
+      {showOrderViewModal && selectedOrderForView && (
+        <OrderViewModal
+          isOpen={showOrderViewModal}
+          onClose={() => {
+            setShowOrderViewModal(false);
+            setSelectedOrderForView(null);
+          }}
+          order={selectedOrderForView}
+        />
+      )}
 
       {/* Loading Overlay */}
       {updating && (

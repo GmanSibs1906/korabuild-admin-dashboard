@@ -101,17 +101,17 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+      month: 'long',
+      day: 'numeric',
     });
   };
 
@@ -220,7 +220,7 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
               Project Management
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Comprehensive project oversight • {summary.totalProjects} total • R{formatCurrency(summary.totalContractValue).replace('ZAR', '').trim()} total value
+              Comprehensive project oversight • {summary.totalProjects} total • {formatCurrency(summary.totalContractValue)} total value
             </p>
           </div>
           <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">

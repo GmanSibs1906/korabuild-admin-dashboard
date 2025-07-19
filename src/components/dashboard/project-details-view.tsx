@@ -133,17 +133,25 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+    });
+  };
+
+  const formatDateToLocal = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
   };
 
@@ -151,6 +159,13 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const projectPayments = financialData?.payments || [];
   const projectBudgets = financialData?.budgets || [];
   const projectCreditAccounts = financialData?.creditAccounts || [];
+
+  const formatCurrencyLocal = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount || 0);
+  };
 
   return (
     <div className="space-y-6">
@@ -331,7 +346,7 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
 // Overview Tab Component
 function OverviewTab({ project }: { project: any }) {
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -466,10 +481,10 @@ function FinancesTab({ project, financialData, loading, error }: {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   const financialOverview = financialData?.overview;

@@ -42,7 +42,7 @@ export default function OrdersPage() {
     },
     {
       title: 'Total Value',
-      value: 'R 2.4M',
+      value: '$2.4M',
       change: '+18%',
       trend: 'up',
       icon: DollarSign,
@@ -131,10 +131,10 @@ export default function OrdersPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
-    }).format(amount);
+      currency: 'USD'
+    }).format(amount || 0);
   };
 
   const renderOverview = () => (

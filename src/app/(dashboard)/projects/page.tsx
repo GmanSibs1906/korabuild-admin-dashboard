@@ -11,6 +11,7 @@ import { FinancialControlPanel } from '@/components/mobile-control/FinancialCont
 import { CommunicationControlPanel } from '@/components/mobile-control/CommunicationControlPanel';
 import { MaterialOrdersControlPanel } from '@/components/mobile-control/MaterialOrdersControlPanel';
 import { Input } from '@/components/ui/input';
+import { MessageSquare } from 'lucide-react';
 
 // Project selection component with search
 interface ProjectSelectorProps {
@@ -121,11 +122,38 @@ function ProjectSelector({ selectedProjectId, onProjectSelect }: ProjectSelector
   );
 }
 
+// Temporary RequestsControlPanel component for Phase 2 completion
+function RequestsControlPanel({ projectId }: { projectId: string }) {
+  return (
+    <Card className="p-8 text-center">
+      <div className="max-w-md mx-auto">
+        <MessageSquare className="mx-auto h-12 w-12 text-orange-400" />
+        <h3 className="mt-2 text-sm font-medium text-gray-900">Requests Control Panel</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          ✅ Phase 2 Complete - Request integration in dashboard overview and main requests page
+        </p>
+        <p className="mt-2 text-sm text-orange-600">
+          🚧 Phase 3 Coming Soon - Detailed project-specific request management
+        </p>
+        <div className="mt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => window.open('/requests', '_blank')}
+            className="text-orange-600 border-orange-600 hover:bg-orange-50"
+          >
+            View All Requests
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function ProjectsPage() {
   const searchParams = useSearchParams();
   const projectIdFromUrl = searchParams.get('projectId');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectIdFromUrl);
-  const [activeTab, setActiveTab] = useState<'progress' | 'financial' | 'communication' | 'team' | 'materials'>('progress');
+  const [activeTab, setActiveTab] = useState<'progress' | 'financial' | 'communication' | 'team' | 'materials' | 'requests'>('progress');
   const [syncData, setSyncData] = useState<any>(null);
 
   // Update selected project when URL parameter changes
@@ -148,6 +176,7 @@ export default function ProjectsPage() {
     { id: 'communication', label: 'Communication Control', description: 'Manage messages and notifications' },
     { id: 'team', label: 'Team Control', description: 'Control contractor and team information' },
     { id: 'materials', label: 'Materials Control', description: 'Control material orders and deliveries' },
+    { id: 'requests', label: 'Requests Control', description: 'Manage service and material requests' },
   ];
 
   return (
@@ -246,6 +275,9 @@ export default function ProjectsPage() {
                     throw new Error('Function not implemented.');
                   } }                  
                 />
+              )}
+              {activeTab === 'requests' && (
+                <RequestsControlPanel projectId={selectedProjectId} />
               )}
             </div>
           </>

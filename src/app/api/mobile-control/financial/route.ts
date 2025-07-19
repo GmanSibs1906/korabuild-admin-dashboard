@@ -375,7 +375,6 @@ export async function POST(request: NextRequest) {
             .update({
               credit_limit: data.creditLimit,
               used_credit: data.creditUsed,
-              available_credit: data.creditAvailable,
               monthly_payment: data.monthlyPayment,
               next_payment_date: data.nextPaymentDate,
               interest_rate: data.interestRate,
@@ -409,7 +408,6 @@ export async function POST(request: NextRequest) {
               client_id: projectData.client_id,
               credit_limit: data.creditLimit,
               used_credit: data.creditUsed,
-              available_credit: data.creditAvailable,
               monthly_payment: data.monthlyPayment,
               next_payment_date: data.nextPaymentDate,
               interest_rate: data.interestRate,

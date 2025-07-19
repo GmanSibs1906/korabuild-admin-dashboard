@@ -257,11 +257,10 @@ export function OrderEditModal({ isOpen, onClose, order, suppliers, onOrderUpdat
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 2,
-    }).format(amount);
+      currency: 'USD',
+    }).format(amount || 0);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -601,7 +600,7 @@ export function OrderEditModal({ isOpen, onClose, order, suppliers, onOrderUpdat
                       {/* Line Total Display */}
                       <div className="mt-2 text-right">
                         <span className="text-sm text-gray-600">Line Total: </span>
-                        <span className="font-medium">R{formatCurrency(item.line_total || 0)}</span>
+                        <span className="font-medium">{formatCurrency(item.line_total || 0)}</span>
                       </div>
 
                       {/* Item Notes */}
@@ -625,15 +624,15 @@ export function OrderEditModal({ isOpen, onClose, order, suppliers, onOrderUpdat
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal:</span>
-                        <span>R{formatCurrency(calculateTotals().subtotal)}</span>
+                        <span>{formatCurrency(calculateTotals().subtotal)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span>VAT (15%):</span>
-                        <span>R{formatCurrency(calculateTotals().taxAmount)}</span>
+                        <span>Tax (15%):</span>
+                        <span>{formatCurrency(calculateTotals().taxAmount)}</span>
                       </div>
                       <div className="flex justify-between font-semibold text-lg border-t pt-2">
                         <span>Total:</span>
-                        <span>R{formatCurrency(calculateTotals().total)}</span>
+                        <span>{formatCurrency(calculateTotals().total)}</span>
                       </div>
                     </div>
                   </div>

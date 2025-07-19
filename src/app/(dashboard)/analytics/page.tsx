@@ -36,7 +36,7 @@ export default function AnalyticsPage() {
     },
     {
       title: 'Total Revenue',
-      value: 'R 8.4M',
+      value: '$8.4M',
       change: '+15%',
       trend: 'up',
       icon: DollarSign,

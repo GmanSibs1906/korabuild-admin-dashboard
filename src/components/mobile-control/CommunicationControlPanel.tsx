@@ -107,7 +107,6 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
         },
         body: JSON.stringify({
           projectId,
-          userId: 'admin-user', // Replace with actual admin user ID
           updateType,
           data
         })

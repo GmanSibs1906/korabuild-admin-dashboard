@@ -106,12 +106,11 @@ export function ScheduleTimeline({
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
-      month: 'short',
-      year: 'numeric'
     });
   };
 

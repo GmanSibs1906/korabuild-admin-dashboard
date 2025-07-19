@@ -241,16 +241,16 @@ export default function ContractorsPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR',
-    }).format(amount);
+      currency: 'USD',
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
     });
   };
@@ -626,7 +626,7 @@ export default function ContractorsPage() {
           <h4 className="text-lg font-medium text-gray-900">Rates and Terms</h4>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="hourly_rate">Hourly Rate (ZAR)</Label>
+              <Label htmlFor="hourly_rate">Hourly Rate (USD)</Label>
               <Input
                 id="hourly_rate"
                 type="number"
@@ -638,7 +638,7 @@ export default function ContractorsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="daily_rate">Daily Rate (ZAR)</Label>
+              <Label htmlFor="daily_rate">Daily Rate (USD)</Label>
               <Input
                 id="daily_rate"
                 type="number"
@@ -650,7 +650,7 @@ export default function ContractorsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="minimum_project_value">Minimum Project Value (ZAR)</Label>
+              <Label htmlFor="minimum_project_value">Minimum Project Value (USD)</Label>
               <Input
                 id="minimum_project_value"
                 type="number"
@@ -969,7 +969,7 @@ export default function ContractorsPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="contract_value" className="text-gray-700">Contract Value (ZAR)</Label>
+            <Label htmlFor="contract_value" className="text-gray-700">Contract Value (USD)</Label>
             <Input
               id="contract_value"
               type="number"
@@ -2141,7 +2141,7 @@ export default function ContractorsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="contract_value">Contract Value (ZAR)</Label>
+              <Label htmlFor="contract_value" className="text-gray-700">Contract Value (USD)</Label>
               <Input
                 id="contract_value"
                 type="number"
@@ -2149,11 +2149,13 @@ export default function ContractorsPage() {
                 min="0"
                 value={formData.contract_value}
                 onChange={(e) => setFormData(prev => ({ ...prev, contract_value: e.target.value }))}
+                placeholder="0.00"
                 disabled={isSubmitting}
+                className="text-gray-900 placeholder-gray-400"
               />
             </div>
             <div>
-              <Label htmlFor="work_completion_percentage">Work Completion (%)</Label>
+              <Label htmlFor="work_completion_percentage" className="text-gray-700">Work Completion (%)</Label>
               <Input
                 id="work_completion_percentage"
                 type="number"
@@ -2162,6 +2164,7 @@ export default function ContractorsPage() {
                 value={formData.work_completion_percentage}
                 onChange={(e) => setFormData(prev => ({ ...prev, work_completion_percentage: e.target.value }))}
                 disabled={isSubmitting}
+                className="text-gray-900"
               />
             </div>
           </div>

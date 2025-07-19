@@ -48,10 +48,10 @@ export function ProjectSelector({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
-      month: 'short',
-      year: 'numeric'
     });
   };
 

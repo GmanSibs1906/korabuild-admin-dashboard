@@ -3,6 +3,8 @@
 ## Project Context
 You are building KoraBuild Admin Dashboard, a comprehensive web-based admin interface for managing the KoraBuild construction project management system. This dashboard provides complete oversight and control over all mobile app users, projects, contractors, and system operations. The dashboard must be enterprise-grade, secure, and efficient for managing multiple construction projects simultaneously.
 
+- Ensure all prices on the app are in dollars $ and do not add vat
+
 ## 🚨 CRITICAL RULES - NEVER VIOLATE
 
 ### 1. NO HARDCODED DATA

@@ -85,31 +85,21 @@ export default function SchedulePage() {
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not set';
-    try {
-      return new Date(dateString).toLocaleDateString('en-ZA', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (error) {
-      return 'Invalid date';
-    }
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   const formatDateTime = (dateString: string) => {
-    if (!dateString) return 'Not set';
-    try {
-      return new Date(dateString).toLocaleString('en-ZA', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (error) {
-      return 'Invalid date';
-    }
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const getActivityIcon = (type: string) => {

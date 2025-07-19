@@ -173,11 +173,69 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { projectId, userId, updateType, data } = body;
+    const { projectId, updateType, data } = body;
 
     if (!projectId || !updateType || !data) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    // Get or create admin user (like the working communications API)
+    let adminUser;
+    
+    // First try to get existing admin user
+    const { data: existingAdmin } = await supabaseAdmin
+      .from('users')
+      .select('id, full_name, role')
+      .eq('role', 'admin')
+      .single();
+
+    if (existingAdmin) {
+      adminUser = existingAdmin;
+    } else {
+      // Use the existing user from mobile app logs as admin for this conversation
+      const { data: existingUser } = await supabaseAdmin
+        .from('users')
+        .select('id, full_name, role')
+        .eq('id', 'abefe861-97da-4556-8b39-18c5ddbce22c')
+        .single();
+
+      if (existingUser) {
+        // Update user to admin role
+        const { data: updatedUser, error: updateError } = await supabaseAdmin
+          .from('users')
+          .update({ role: 'admin' })
+          .eq('id', 'abefe861-97da-4556-8b39-18c5ddbce22c')
+          .select('id, full_name, role')
+          .single();
+
+        if (updateError) {
+          console.error('Error updating user to admin:', updateError);
+          adminUser = existingUser;
+        } else {
+          adminUser = updatedUser;
+        }
+      } else {
+        // Create new admin user
+        const { data: newAdmin, error: adminError } = await supabaseAdmin
+          .from('users')
+          .insert({
+            email: 'admin@korabuild.com',
+            full_name: 'KoraBuild Admin',
+            role: 'admin'
+          })
+          .select('id, full_name, role')
+          .single();
+
+        if (adminError) {
+          console.error('Error creating admin user:', adminError);
+          throw adminError;
+        }
+
+        adminUser = newAdmin;
+      }
+    }
+
+    const userId = adminUser.id;
 
     let result;
 
