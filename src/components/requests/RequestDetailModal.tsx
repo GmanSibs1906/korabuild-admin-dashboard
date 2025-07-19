@@ -370,10 +370,10 @@ export function RequestDetailModal({ request, isOpen, onClose, onUpdate }: Reque
                               <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="submitted">Submitted</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              {/* <SelectItem value="submitted">Submitted</SelectItem> */}
+                              {/* <SelectItem value="in_progress">In Progress</SelectItem> */}
                               <SelectItem value="completed">Completed</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                              {/* <SelectItem value="cancelled">Cancelled</SelectItem> */}
                             </SelectContent>
                           </Select>
                           <Button 
@@ -525,9 +525,9 @@ export function RequestDetailModal({ request, isOpen, onClose, onUpdate }: Reque
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
-            <Button>
+            {/* <Button>
               Mark as Resolved
-            </Button>
+            </Button> */}
           </div>
         </div>
       </DialogContent>

@@ -10,6 +10,7 @@ import { ProgressControlPanel } from '@/components/mobile-control/ProgressContro
 import { FinancialControlPanel } from '@/components/mobile-control/FinancialControlPanel';
 import { CommunicationControlPanel } from '@/components/mobile-control/CommunicationControlPanel';
 import { MaterialOrdersControlPanel } from '@/components/mobile-control/MaterialOrdersControlPanel';
+import { RequestsControlPanel } from '@/components/mobile-control/RequestsControlPanel';
 import { Input } from '@/components/ui/input';
 import { MessageSquare } from 'lucide-react';
 
@@ -119,33 +120,6 @@ function ProjectSelector({ selectedProjectId, onProjectSelect }: ProjectSelector
         ))}
       </div>
     </div>
-  );
-}
-
-// Temporary RequestsControlPanel component for Phase 2 completion
-function RequestsControlPanel({ projectId }: { projectId: string }) {
-  return (
-    <Card className="p-8 text-center">
-      <div className="max-w-md mx-auto">
-        <MessageSquare className="mx-auto h-12 w-12 text-orange-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">Requests Control Panel</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          ✅ Phase 2 Complete - Request integration in dashboard overview and main requests page
-        </p>
-        <p className="mt-2 text-sm text-orange-600">
-          🚧 Phase 3 Coming Soon - Detailed project-specific request management
-        </p>
-        <div className="mt-4">
-          <Button 
-            variant="outline" 
-            onClick={() => window.open('/requests', '_blank')}
-            className="text-orange-600 border-orange-600 hover:bg-orange-50"
-          >
-            View All Requests
-          </Button>
-        </div>
-      </div>
-    </Card>
   );
 }
 
@@ -277,7 +251,10 @@ export default function ProjectsPage() {
                 />
               )}
               {activeTab === 'requests' && (
-                <RequestsControlPanel projectId={selectedProjectId} />
+                <RequestsControlPanel 
+                  projectId={selectedProjectId} 
+                  onDataSync={handleDataSync}
+                />
               )}
             </div>
           </>

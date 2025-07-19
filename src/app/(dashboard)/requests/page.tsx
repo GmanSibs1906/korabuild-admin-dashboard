@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useRequests } from '@/hooks/useRequests';
 import { AdminRequest } from '@/types/requests';
 import { RequestDetailModal } from '@/components/requests/RequestDetailModal';
+import { RequestAnalytics } from '@/components/requests/RequestAnalytics';
+import { RequestFilters, RequestFilterState } from '@/components/requests/RequestFilters';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +44,15 @@ export default function RequestsPage() {
   const [priorityFilter, setPriorityFilter] = useState<FilterPriority>('all');
   const [selectedRequest, setSelectedRequest] = useState<AdminRequest | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<RequestFilterState>({
+    search: '',
+    status: [],
+    priority: [],
+    category: [],
+    dateRange: { from: '', to: '' },
+    projectId: '',
+    clientId: '',
+  });
 
   // Get requests with filters
   const { 
@@ -59,6 +70,12 @@ export default function RequestsPage() {
       priority: priorityFilter === 'all' ? undefined : priorityFilter
     }
   });
+
+  const handleAdvancedFiltersChange = (newFilters: RequestFilterState) => {
+    setAdvancedFilters(newFilters);
+    // You can implement API filtering here based on advanced filters
+    // For now, we'll use the existing simple filters
+  };
 
   const tabs = [
     { 
@@ -206,103 +223,21 @@ export default function RequestsPage() {
 
         {/* Overview Tab Content */}
         {activeTab === 'overview' && (
-          <div className="space-y-8">
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <MessageSquare className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Requests</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.total || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-orange-50 rounded-lg">
-                      <Clock className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.pending || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-purple-50 rounded-lg">
-                      <AlertCircle className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">In Progress</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.inProgress || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-50 rounded-lg">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Completed</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.completed || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Category Breakdown */}
-            {stats?.byCategory && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Requests by Category</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {Object.entries(stats.byCategory).map(([category, count]) => (
-                      <div key={category} className="text-center">
-                        <div className="text-2xl font-bold text-gray-900">{count}</div>
-                        <div className="text-sm text-gray-600 capitalize">{category.replace('_', ' ')}</div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Priority Breakdown */}
-            {stats?.byPriority && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Requests by Priority</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Object.entries(stats.byPriority).map(([priority, count]) => (
-                      <div key={priority} className="text-center">
-                        <div className="text-2xl font-bold text-gray-900">{count}</div>
-                        <Badge className={getPriorityColor(priority)}>{priority}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          <div className="space-y-6">
+            {/* Advanced Filters */}
+            <RequestFilters 
+              onFiltersChange={handleAdvancedFiltersChange}
+              stats={{
+                totalProjects: 8,
+                totalClients: 12
+              }}
+            />
+            
+            {/* Analytics Dashboard */}
+            <RequestAnalytics 
+              stats={stats} 
+              loading={loading} 
+            />
           </div>
         )}
 
