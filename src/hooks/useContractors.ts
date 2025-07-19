@@ -181,9 +181,15 @@ export function useContractors(): UseContractorsResult {
           verifiedContractors,
           averageRating,
           newAssignments: contractorNotifications.filter(n => n.type === 'new_assignment').length,
-          overdueReviews: 0, // Would calculate from review data
+          overdueReviews: contractorNotifications.filter(n => n.type === 'review_pending').length, // Calculate from real data
           documentsRequired: contractorNotifications.filter(n => n.type === 'document_required').length,
-          unreadNotifications: contractorNotifications.filter(n => !n.is_read).length,
+          unreadNotifications: contractorNotifications.filter(n => !n.is_read).length, // Dynamic count
+        });
+
+        console.log('🔍 Contractor notifications generated:', {
+          total: contractorNotifications.length,
+          unread: contractorNotifications.filter(n => !n.is_read).length,
+          notifications: contractorNotifications
         });
 
         setNotifications(contractorNotifications);

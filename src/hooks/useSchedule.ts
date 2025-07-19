@@ -16,13 +16,13 @@ export interface ScheduleNotification {
 }
 
 export interface ScheduleStats {
+  averageProgress: number;
+  delayedTasks: number;
   totalTasks: number;
-  overdueTasks: number;
-  upcomingDeadlines: number;
-  delayedMilestones: number;
-  resourceConflicts: number;
-  projectsAtRisk: number;
   unreadNotifications: number;
+  overdueTasks?: number; // Alias for delayedTasks
+  upcomingDeadlines?: number;
+  projectsAtRisk?: number; // Alias for delayedTasks
 }
 
 export interface UseScheduleResult {
@@ -35,13 +35,10 @@ export interface UseScheduleResult {
 
 export function useSchedule(): UseScheduleResult {
   const [stats, setStats] = useState<ScheduleStats>({
+    averageProgress: 0,
+    delayedTasks: 0,
     totalTasks: 0,
-    overdueTasks: 0,
-    upcomingDeadlines: 0,
-    delayedMilestones: 0,
-    resourceConflicts: 0,
-    projectsAtRisk: 0,
-    unreadNotifications: 0,
+    unreadNotifications: 0, // Will be calculated dynamically
   });
   
   const [notifications, setNotifications] = useState<ScheduleNotification[]>([]);
@@ -108,13 +105,16 @@ export function useSchedule(): UseScheduleResult {
         });
 
         setStats({
+          averageProgress: scheduleStats.averageProgress || 0,
+          delayedTasks: scheduleNotifications.filter(n => n.type === 'overdue_task').length,
           totalTasks: scheduleStats.totalTasks || 0,
-          overdueTasks: scheduleNotifications.filter(n => n.type === 'overdue_task').length,
-          upcomingDeadlines: scheduleNotifications.filter(n => n.type === 'upcoming_deadline').length,
-          delayedMilestones: scheduleStats.delayedProjects || 0,
-          resourceConflicts: 0, // Would be calculated from resource assignments
-          projectsAtRisk: scheduleStats.delayedProjects || 0,
           unreadNotifications: scheduleNotifications.filter(n => !n.is_read).length,
+        });
+
+        console.log('🔍 Schedule notifications generated:', {
+          total: scheduleNotifications.length,
+          unread: scheduleNotifications.filter(n => !n.is_read).length,
+          notifications: scheduleNotifications
         });
 
         setNotifications(scheduleNotifications);

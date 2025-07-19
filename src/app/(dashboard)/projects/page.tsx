@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -140,9 +140,9 @@ export default function ProjectsPage() {
     setSelectedProjectId(projectId);
   };
 
-  const handleDataSync = (data: any) => {
+  const handleDataSync = useCallback((data: any) => {
     setSyncData(data);
-  };
+  }, []);
 
   const tabs = [
     { id: 'progress', label: 'Progress Control', description: 'Control building progress and timeline data' },

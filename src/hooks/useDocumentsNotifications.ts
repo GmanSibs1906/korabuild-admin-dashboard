@@ -162,6 +162,12 @@ export function useDocumentsNotifications(): UseDocumentsNotificationsResult {
           unreadNotifications: documentNotifications.filter(n => !n.is_read).length,
         });
 
+        console.log('🔍 Document notifications generated:', {
+          total: documentNotifications.length,
+          unread: documentNotifications.filter(n => !n.is_read).length,
+          notifications: documentNotifications
+        });
+
         setNotifications(documentNotifications);
       } else {
         setError(result.error || 'Failed to fetch documents data');

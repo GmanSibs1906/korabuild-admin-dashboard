@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,47 @@ export function RequestsControlPanel({ projectId, onDataSync }: RequestsControlP
   const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'reviewing' | 'in_progress' | 'completed'>('all');
   const [selectedRequest, setSelectedRequest] = useState<AdminRequest | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [projectClientId, setProjectClientId] = useState<string | null>(null);
+  const [projectLoading, setProjectLoading] = useState(true);
+
+  // Fetch project data to get client_id
+  useEffect(() => {
+    const fetchProjectData = async () => {
+      if (!projectId) return;
+      
+      try {
+        setProjectLoading(true);
+        const response = await fetch(`/api/projects/${projectId}`);
+        const result = await response.json();
+        
+        if (result.project?.client_id || result.project?.client?.id) {
+          const clientId = result.project.client_id || result.project.client.id;
+          setProjectClientId(clientId);
+          console.log('✅ Found project client:', clientId);
+        } else {
+          console.error('❌ No client found for project:', projectId);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching project data:', error);
+      } finally {
+        setProjectLoading(false);
+      }
+    };
+
+    fetchProjectData();
+  }, [projectId]);
+
+  // Memoize the filters object to prevent unnecessary re-renders
+  const filters = useMemo(() => {
+    // Only filter by client_id if we have resolved it from the project
+    if (!projectClientId) return {};
+    
+    return {
+      client_id: projectClientId, // Use the actual client_id from the project
+      search: searchQuery || undefined,
+      status: statusFilter === 'all' ? undefined : statusFilter,
+    };
+  }, [projectClientId, searchQuery, statusFilter]);
 
   // Get requests filtered by project
   const { 
@@ -53,15 +94,36 @@ export function RequestsControlPanel({ projectId, onDataSync }: RequestsControlP
     refetch 
   } = useRequests({
     includeStats: true,
-    filters: {
-      project_id: projectId,
-      search: searchQuery || undefined,
-      status: statusFilter === 'all' ? undefined : statusFilter,
-    }
+    filters
   });
 
-  // Notify parent of data sync
+  // Only sync data on initial load and when explicitly needed
   useEffect(() => {
+    if (onDataSync && stats && requests.length >= 0) {
+      // Only sync once when data is first loaded
+      onDataSync({
+        type: 'requests',
+        projectId,
+        stats,
+        totalRequests: requests.length,
+        lastUpdated: new Date().toISOString()
+      });
+    }
+  }, [onDataSync, projectId]); // Remove stats and requests from dependencies to prevent loops
+
+  const handleRequestClick = useCallback((request: AdminRequest) => {
+    setSelectedRequest(request);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleModalClose = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedRequest(null);
+  }, []);
+
+  const handleRequestUpdate = useCallback(() => {
+    refetch();
+    // Optionally sync data after update
     if (onDataSync && stats) {
       onDataSync({
         type: 'requests',
@@ -71,21 +133,7 @@ export function RequestsControlPanel({ projectId, onDataSync }: RequestsControlP
         lastUpdated: new Date().toISOString()
       });
     }
-  }, [stats, requests, projectId, onDataSync]);
-
-  const handleRequestClick = (request: AdminRequest) => {
-    setSelectedRequest(request);
-    setIsModalOpen(true);
-  };
-
-  const handleModalClose = () => {
-    setIsModalOpen(false);
-    setSelectedRequest(null);
-  };
-
-  const handleRequestUpdate = () => {
-    refetch();
-  };
+  }, [refetch, onDataSync, projectId, stats, requests.length]);
 
   const viewOptions = [
     { id: 'list' as const, label: 'List View', icon: List, description: 'View all requests in a detailed list' },
@@ -101,12 +149,14 @@ export function RequestsControlPanel({ projectId, onDataSync }: RequestsControlP
     { value: 'completed', label: 'Completed', count: requests.filter(r => r.status === 'completed').length },
   ];
 
-  if (loading) {
+  if (projectLoading || loading) {
     return (
       <Card className="p-8">
         <div className="flex items-center justify-center">
           <LoadingSpinner />
-          <span className="ml-2 text-gray-600">Loading project requests...</span>
+          <span className="ml-2 text-gray-600">
+            {projectLoading ? 'Loading project data...' : 'Loading project requests...'}
+          </span>
         </div>
       </Card>
     );

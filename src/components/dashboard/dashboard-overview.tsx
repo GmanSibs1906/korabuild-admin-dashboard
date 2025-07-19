@@ -10,6 +10,8 @@ import { useContractors } from '@/hooks/useContractors';
 import { useSchedule } from '@/hooks/useSchedule';
 import { useDocumentsNotifications } from '@/hooks/useDocumentsNotifications';
 import { useRequests } from '@/hooks/useRequests';
+import { useRequestNotifications } from '@/hooks/useRequestNotifications';
+import { RequestNotificationPanel } from '@/components/notifications/RequestNotificationPanel';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
@@ -146,17 +148,34 @@ export default function DashboardOverview() {
   const { stats: contractorStats, notifications: contractorNotifications, loading: contractorsLoading } = useContractors();
   const { stats: scheduleStats, notifications: scheduleNotifications, loading: scheduleLoading } = useSchedule();
   const { stats: documentStats, notifications: documentNotifications, loading: documentsLoading } = useDocumentsNotifications();
-  const { stats: requestStats, notifications: requestNotifications, loading: requestsLoading } = useRequests({ includeStats: true, limit: 10 });
+  
+  // Enhanced request data and notifications
+  const { stats: requestStats, loading: requestsLoading, error: requestsError } = useRequests({ 
+    includeStats: true, 
+    limit: 10 
+  });
+  
+  const { 
+    notifications: requestNotifications, 
+    unreadCount: requestUnreadCount,
+    loading: notificationsLoading 
+  } = useRequestNotifications({
+    includeRead: false,
+    limit: 20
+  });
 
   // Aggregate all notifications
   const allNotifications = [
     ...contractorNotifications,
     ...scheduleNotifications,
     ...documentNotifications,
-    ...requestNotifications,
+    ...requestNotifications, // NEW: Request notifications
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const unreadNotificationsCount = allNotifications.filter(n => !n.is_read).length;
+  const totalUnreadNotifications = contractorNotifications.filter(n => !n.is_read).length + 
+                                   scheduleNotifications.filter(n => !n.is_read).length +
+                                   documentNotifications.filter(n => !n.is_read).length +
+                                   requestUnreadCount; // NEW: Include request unread count
 
   // Extract financial stats from financialData
   const financeStats = financialData?.overview ? {
@@ -177,7 +196,7 @@ export default function DashboardOverview() {
     { id: 'schedule', label: 'Schedule', icon: Calendar, badge: scheduleStats.unreadNotifications },
     { id: 'documents', label: 'Documents', icon: FileText, badge: documentStats.unreadNotifications },
     { id: 'requests', label: 'Requests', icon: MessageSquare, badge: requestNotifications.filter(n => !n.is_read).length },
-    { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotificationsCount },
+    { id: 'notifications', label: 'Notifications', icon: Bell, badge: totalUnreadNotifications },
   ];
 
   const formatTimeAgo = (dateString: string) => {
@@ -245,9 +264,9 @@ export default function DashboardOverview() {
             <CheckCircle className="h-3 w-3 mr-1" />
             System Online
           </Badge>
-          {unreadNotificationsCount > 0 && (
+          {totalUnreadNotifications > 0 && (
             <Badge variant="destructive" className="bg-red-500 text-white">
-              {unreadNotificationsCount} Notifications
+              {totalUnreadNotifications} Notifications
             </Badge>
           )}
           <span className="text-sm text-gray-500">
@@ -299,11 +318,6 @@ export default function DashboardOverview() {
                 color="blue"
                 loading={usersLoading}
                 onClick={() => router.push('/users')}
-                trend={{
-                  value: 12,
-                  isPositive: true,
-                  label: 'this month'
-                }}
               />
               
               <MetricCard
@@ -314,11 +328,6 @@ export default function DashboardOverview() {
                 color="green"
                 loading={projectsLoading}
                 onClick={() => router.push('/projects')}
-                trend={{
-                  value: 8,
-                  isPositive: true,
-                  label: 'this month'
-                }}
               />
               
               <MetricCard
@@ -329,11 +338,6 @@ export default function DashboardOverview() {
                 color="orange"
                 loading={financesLoading}
                 onClick={() => router.push('/finances')}
-                trend={{
-                  value: 15,
-                  isPositive: true,
-                  label: 'this month'
-                }}
               />
               
               <MetricCard
@@ -373,8 +377,8 @@ export default function DashboardOverview() {
               
               <MetricCard
                 title="Schedule"
-                value={scheduleStats.overdueTasks}
-                subtitle={`${scheduleStats.upcomingDeadlines} upcoming deadlines`}
+                value={scheduleStats.delayedTasks || 0}
+                subtitle={`${scheduleStats.totalTasks || 0} total tasks`}
                 icon={Calendar}
                 color="purple"
                 loading={scheduleLoading}
@@ -556,7 +560,7 @@ export default function DashboardOverview() {
                   <CardTitle className="text-sm font-medium text-gray-500">Overdue Tasks</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">{scheduleStats.overdueTasks}</div>
+                  <div className="text-2xl font-bold text-red-600">{scheduleStats.delayedTasks || 0}</div>
                   <p className="text-sm text-gray-600">Require attention</p>
                 </CardContent>
               </Card>
@@ -566,7 +570,7 @@ export default function DashboardOverview() {
                   <CardTitle className="text-sm font-medium text-gray-500">Upcoming Deadlines</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{scheduleStats.upcomingDeadlines}</div>
+                  <div className="text-2xl font-bold text-orange-600">{scheduleStats.totalTasks || 0}</div>
                   <p className="text-sm text-gray-600">Next 7 days</p>
                 </CardContent>
               </Card>
@@ -576,7 +580,7 @@ export default function DashboardOverview() {
                   <CardTitle className="text-sm font-medium text-gray-500">Projects at Risk</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-yellow-600">{scheduleStats.projectsAtRisk}</div>
+                  <div className="text-2xl font-bold text-yellow-600">{scheduleStats.delayedTasks || 0}</div>
                   <p className="text-sm text-gray-600">Behind schedule</p>
                 </CardContent>
               </Card>
@@ -794,13 +798,13 @@ export default function DashboardOverview() {
                   {allNotifications.length} Total
                 </Badge>
                 <Badge variant="destructive">
-                  {unreadNotificationsCount} Unread
+                  {totalUnreadNotifications} Unread
                 </Badge>
               </div>
             </div>
 
             {/* Notification Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-500 flex items-center">
@@ -839,75 +843,100 @@ export default function DashboardOverview() {
                   <p className="text-sm text-gray-600">{documentStats.unreadNotifications} unread</p>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500 flex items-center">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Requests
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-green-600">{requestNotifications.length}</div>
+                  <p className="text-sm text-gray-600">{requestUnreadCount} unread</p>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* All Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle>All Notifications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {allNotifications.map((notification) => {
-                    const Icon = getNotificationIcon(notification.type);
-                    return (
-                      <div 
-                        key={notification.id} 
-                        className={cn(
-                          'flex items-center space-x-3 p-4 rounded-lg border',
-                          notification.is_read ? 'bg-white border-gray-200' : 'bg-orange-50 border-orange-200'
-                        )}
-                      >
-                        <div className="flex-shrink-0">
-                          <Icon className={cn(
-                            'h-5 w-5',
-                            notification.is_read ? 'text-gray-500' : 'text-orange-600'
-                          )} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <p className={cn(
-                              'text-sm font-medium',
-                              notification.is_read ? 'text-gray-900' : 'text-orange-900'
-                            )}>
-                              {notification.title}
-                            </p>
-                            {!notification.is_read && (
-                              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                            )}
+            {/* Enhanced Notifications Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Request Notifications Panel */}
+              <RequestNotificationPanel
+                maxHeight="600px"
+                onNotificationClick={(notification) => {
+                  // Navigate to request detail or open modal
+                  router.push(`/requests?requestId=${notification.request_id}`);
+                }}
+              />
+
+              {/* All Other Notifications */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Bell className="h-5 w-5 mr-2 text-orange-600" />
+                    System Notifications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                    {allNotifications.filter(n => n.type !== 'new_request' && n.type !== 'status_update').map((notification) => {
+                      const Icon = getNotificationIcon(notification.type);
+                      return (
+                        <div 
+                          key={notification.id} 
+                          className={cn(
+                            'flex items-center space-x-3 p-4 rounded-lg border transition-all hover:shadow-md cursor-pointer',
+                            notification.is_read ? 'bg-white border-gray-200' : 'bg-orange-50 border-orange-200'
+                          )}
+                        >
+                          <div className="flex-shrink-0">
+                            <Icon className={cn(
+                              'h-5 w-5',
+                              notification.is_read ? 'text-gray-500' : 'text-orange-600'
+                            )} />
                           </div>
-                          <p className="text-sm text-gray-600">{notification.message}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <p className="text-xs text-gray-500">
-                              {'contractor_name' in notification ? notification.contractor_name :
-                               'project_name' in notification ? notification.project_name :
-                               'document_name' in notification ? notification.document_name : ''}
-                            </p>
-                            <span className="text-xs text-gray-400">•</span>
-                            <p className="text-xs text-gray-500">{formatTimeAgo(notification.created_at)}</p>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <p className={cn(
+                                'text-sm font-medium',
+                                notification.is_read ? 'text-gray-900' : 'text-orange-900'
+                              )}>
+                                {notification.title}
+                              </p>
+                              {!notification.is_read && (
+                                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600">{notification.message}</p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <p className="text-xs text-gray-500">
+                                {formatTimeAgo(notification.created_at)}
+                              </p>
+                              {notification.priority && (
+                                <span className={cn(
+                                  'text-xs px-2 py-1 rounded-full',
+                                  getPriorityColor(notification.priority)
+                                )}>
+                                  {notification.priority}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge className={getPriorityColor(notification.priority)}>
-                            {notification.priority}
-                          </Badge>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      );
+                    })}
+                    
+                    {allNotifications.filter(n => n.type !== 'new_request' && n.type !== 'status_update').length === 0 && (
+                      <div className="text-center py-8">
+                        <Bell className="mx-auto h-12 w-12 text-gray-400" />
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No System Notifications</h3>
+                        <p className="mt-1 text-sm text-gray-500">All caught up with system notifications!</p>
                       </div>
-                    );
-                  })}
-                  
-                  {allNotifications.length === 0 && (
-                    <div className="text-center py-8">
-                      <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">No notifications at this time</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
       </div>

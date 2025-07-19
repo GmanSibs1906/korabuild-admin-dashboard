@@ -78,7 +78,6 @@ const navigation: NavigationItem[] = [
     href: '/communications',
     icon: MessageCircle,
     requiredPermissions: [{ resource: 'communications', action: 'view_all' }],
-    badge: '3', // Example unread count
   },
   {
     name: 'Requests',
