@@ -173,7 +173,7 @@ export function useUserProfile(): UseUserProfileReturn {
     try {
       console.log('🔍 useUserProfile - Fetching user profile for:', userId);
       
-      const response = await fetch(`/api/users/${userId}`);
+      const response = await fetch(`/api/users/${userId}/profile`);
       console.log('🔍 useUserProfile - API response status:', response.status);
       console.log('🔍 useUserProfile - API response headers:', response.headers);
       

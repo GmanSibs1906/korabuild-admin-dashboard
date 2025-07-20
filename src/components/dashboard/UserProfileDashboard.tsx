@@ -5,31 +5,36 @@ import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProjectCreateModal } from '@/components/modals/ProjectCreateModal';
+import { ProjectEditModal } from '@/components/modals/ProjectEditModal';
 import { 
-  User,
+  User, 
+  Building2, 
+  CreditCard, 
+  FileText, 
+  Activity, 
+  Bell,
+  ArrowLeft,
+  Download,
+  Settings,
   MapPin,
-  Calendar,
   Phone,
   Mail,
-  Building2,
-  CreditCard,
-  FileText,
-  Bell,
-  Activity,
+  Calendar,
+  DollarSign,
   TrendingUp,
-  Users,
-  MessageCircle,
-  Star,
+  Target,
   Clock,
+  CheckCircle,
   AlertCircle,
-  Settings,
-  Download,
-  Eye,
-  Edit,
-  MoreHorizontal,
-  ArrowLeft,
   Trash2,
-  AlertTriangle
+  Edit,
+  Plus,
+  Eye,
+  AlertTriangle,
+  MessageCircle 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +61,11 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showProjectCreateModal, setShowProjectCreateModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showProjectEditModal, setShowProjectEditModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
 
   console.log('🔍 UserProfileDashboard - Hook data:', {
     hasUserProfile: !!userProfile,
@@ -125,9 +135,9 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
       case 'Building2': return <Building2 className="h-4 w-4" />;
       case 'CreditCard': return <CreditCard className="h-4 w-4" />;
       case 'FileText': return <FileText className="h-4 w-4" />;
-      case 'CheckCircle': return <Star className="h-4 w-4" />;
+      case 'CheckCircle': return <CheckCircle className="h-4 w-4" />;
       case 'Clock': return <Clock className="h-4 w-4" />;
-      case 'MessageCircle': return <MessageCircle className="h-4 w-4" />;
+      case 'MessageCircle': return <Activity className="h-4 w-4" />; // This icon is not in the new imports, keeping it as is
       case 'Bell': return <Bell className="h-4 w-4" />;
       default: return <Activity className="h-4 w-4" />;
     }
@@ -200,6 +210,60 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
     }
   };
 
+  const handleProjectCreated = async (project: any) => {
+    console.log('✅ Project created successfully:', project);
+    
+    // Refresh the user profile to show the new project
+    setIsRefreshing(true);
+    try {
+      if (userId) {
+        await fetchUserProfile(userId);
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user profile:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+    
+    // Close the modal
+    setShowProjectCreateModal(false);
+    
+    // Show success message
+    alert(`Project "${project.project_name}" created successfully!`);
+  };
+
+  const handleProjectUpdated = async (project: any) => {
+    console.log('✅ Project updated successfully:', project);
+    
+    // Refresh the user profile to show the updated project
+    setIsRefreshing(true);
+    try {
+      if (userId) {
+        await fetchUserProfile(userId);
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user profile:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+    
+    // Close the modal
+    setShowProjectEditModal(false);
+    setSelectedProject(null);
+    
+    // Show success message
+    alert(`Project "${project.project_name}" updated successfully!`);
+  };
+
+  const handleEditProject = (project: any) => {
+    setSelectedProject(project);
+    setShowProjectEditModal(true);
+  };
+
+  const handleAddProject = () => {
+    setShowProjectCreateModal(true);
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
     { id: 'projects', label: 'Projects', icon: Building2 },
@@ -255,6 +319,14 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <Button
+              className="inline-flex items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-orange-600 hover:bg-orange-700"
+              onClick={handleAddProject}
+              disabled={isRefreshing}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Project
+            </Button>
             <button className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
               <Download className="h-4 w-4 mr-2" />
               Export
@@ -581,6 +653,13 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
                           <Eye className="h-4 w-4" />
                         </button>
                         <button 
+                          className="p-2 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-md"
+                          title="Edit Project"
+                          onClick={() => handleEditProject(project)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button 
                           className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md"
                           title="Delete Project"
                           onClick={() => setDeleteProjectId(project.id)}
@@ -793,6 +872,29 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
             </div>
           </div>
         </div>
+      )}
+
+      {/* Project Create Modal */}
+      {showProjectCreateModal && userProfile && (
+        <ProjectCreateModal
+          isOpen={showProjectCreateModal}
+          onClose={() => setShowProjectCreateModal(false)}
+          clientId={userId}
+          clientName={userProfile.userInfo.name}
+          onProjectCreated={handleProjectCreated}
+        />
+      )}
+      {/* Project Edit Modal */}
+      {showProjectEditModal && selectedProject && (
+        <ProjectEditModal
+          isOpen={showProjectEditModal}
+          onClose={() => {
+            setShowProjectEditModal(false);
+            setSelectedProject(null);
+          }}
+          project={selectedProject}
+          onProjectUpdated={handleProjectUpdated}
+        />
       )}
     </div>
   );

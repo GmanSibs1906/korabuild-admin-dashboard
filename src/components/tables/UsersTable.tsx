@@ -9,6 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { EditUserModal } from '@/components/modals/EditUserModal';
+import { DeleteUserModal } from '@/components/modals/DeleteUserModal';
+import { UserDeletionSummaryModal } from '@/components/modals/UserDeletionSummaryModal';
+import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { 
   Search, 
   MoreHorizontal, 
@@ -49,6 +52,18 @@ export function UsersTable({ className }: UsersTableProps) {
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Summary modal state
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [deletionResult, setDeletionResult] = useState<any>(null);
+
+  // Create user modal state
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
@@ -108,11 +123,59 @@ export function UsersTable({ className }: UsersTableProps) {
     refetch();
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      // TODO: Implement user deletion API
-      console.log('Delete user:', userId);
+  const handleDeleteUser = (user: User) => {
+    setUserToDelete(user);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async (confirmationText: string) => {
+    if (!userToDelete) return;
+
+    setDeleteLoading(true);
+    try {
+      console.log('🗑️ Deleting user:', userToDelete.full_name, userToDelete.email);
+      
+      const response = await fetch(`/api/users/${userToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmationText
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete user');
+      }
+
+      const result = await response.json();
+      console.log('✅ User deleted successfully:', result);
+      
+      // Refresh the users list
+      refetch();
+      
+      // Close modal
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
+      
+      // Show success summary modal instead of alert
+      setDeletionResult(result);
+      setSummaryModalOpen(true);
+      
+    } catch (error) {
+      console.error('❌ Error deleting user:', error);
+      throw error; // Re-throw to be handled by the modal
+    } finally {
+      setDeleteLoading(false);
     }
+  };
+
+  const handleCreateUser = (user: any) => {
+    console.log('✅ User created successfully:', user);
+    // Refresh the users list to show the new user
+    refetch();
   };
 
   const refreshUsers = () => {
@@ -200,7 +263,10 @@ export function UsersTable({ className }: UsersTableProps) {
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </button>
-              <button className="flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">
+              <button 
+                onClick={() => setCreateModalOpen(true)}
+                className="flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600"
+              >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add User
               </button>
@@ -350,7 +416,7 @@ export function UsersTable({ className }: UsersTableProps) {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
-                          onClick={() => handleDeleteUser(user.id)}
+                          onClick={() => handleDeleteUser(user)}
                           className="text-red-600"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
@@ -399,6 +465,32 @@ export function UsersTable({ className }: UsersTableProps) {
           setSelectedUser(null);
         }}
         onSave={handleSaveUser}
+      />
+
+      {/* Delete User Modal */}
+      <DeleteUserModal
+        user={userToDelete}
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        loading={deleteLoading}
+      />
+
+      {/* User Deletion Summary Modal */}
+      <UserDeletionSummaryModal
+        isOpen={summaryModalOpen}
+        onClose={() => setSummaryModalOpen(false)}
+        result={deletionResult}
+      />
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onUserCreated={handleCreateUser}
       />
     </>
   );

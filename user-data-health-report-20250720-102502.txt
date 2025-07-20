@@ -1,0 +1,156 @@
+KoraBuild User Data Health Report
+Generated: 2025-07-20 10:20:20
+
+=== SYSTEM STATUS ===
+{
+    "message": "No orphaned users found",
+    "orphanedUsers": [],
+    "count": 0,
+    "status": "clean"
+}
+
+=== DETAILED ANALYSIS ===
+{
+    "message": "Found 5 users in Supabase Auth",
+    "authUsers": [
+        {
+            "id": "05ac528e-4144-48b0-9d30-f0b1310b9c66",
+            "email": "gladman@melsoftacademy.com",
+            "created_at": "2025-07-20T08:24:36.11547Z",
+            "has_public_profile": true,
+            "user_metadata": {
+                "created_by_admin": true,
+                "full_name": "Tom Moyo",
+                "phone": "0717392464",
+                "requires_password_reset": true
+            },
+            "app_metadata": {
+                "provider": "email",
+                "providers": [
+                    "email"
+                ]
+            }
+        },
+        {
+            "id": "9021dca2-2960-4bb5-b79a-dc3bb50247f4",
+            "email": "gmansibs@gmail.com",
+            "created_at": "2025-07-20T08:09:29.645934Z",
+            "has_public_profile": true,
+            "user_metadata": {
+                "created_by_admin": true,
+                "full_name": "Gman Sibs",
+                "phone": "0827491745",
+                "requires_password_reset": true
+            },
+            "app_metadata": {
+                "provider": "email",
+                "providers": [
+                    "email"
+                ]
+            }
+        },
+        {
+            "id": "9bf56f1f-2e62-4a2b-8bdd-7678956464ea",
+            "email": "testuser@example.com",
+            "created_at": "2025-07-20T07:56:14.893735Z",
+            "has_public_profile": true,
+            "user_metadata": {
+                "created_by_admin": true,
+                "full_name": "Test User",
+                "phone": "555-0123",
+                "requires_password_reset": true
+            },
+            "app_metadata": {
+                "provider": "email",
+                "providers": [
+                    "email"
+                ]
+            }
+        },
+        {
+            "id": "bce4d305-ca51-48bf-b495-c4d32cf66b27",
+            "email": "gladmansibanda848@gmail.com",
+            "email_confirmed_at": "2025-07-20T07:28:24.716308Z",
+            "created_at": "2025-07-20T07:27:50.6737Z",
+            "last_sign_in_at": "2025-07-20T07:28:24.719397Z",
+            "has_public_profile": true,
+            "user_metadata": {
+                "email": "gladmansibanda848@gmail.com",
+                "email_verified": true,
+                "full_name": "gladmansibanda848",
+                "phone": "0827491745",
+                "phone_verified": false,
+                "sub": "bce4d305-ca51-48bf-b495-c4d32cf66b27"
+            },
+            "app_metadata": {
+                "provider": "email",
+                "providers": [
+                    "email"
+                ]
+            }
+        },
+        {
+            "id": "baaa51a7-e59c-43ba-956e-9ea80a9837ff",
+            "email": "korabuild25@gmail.com",
+            "email_confirmed_at": "2025-07-19T22:14:26.696538Z",
+            "created_at": "2025-07-19T22:14:08.045688Z",
+            "last_sign_in_at": "2025-07-20T07:17:21.734059Z",
+            "has_public_profile": true,
+            "user_metadata": {
+                "email": "korabuild25@gmail.com",
+                "email_verified": true,
+                "full_name": "korabuild25",
+                "phone": "0828456719",
+                "phone_verified": false,
+                "sub": "baaa51a7-e59c-43ba-956e-9ea80a9837ff"
+            },
+            "app_metadata": {
+                "provider": "email",
+                "providers": [
+                    "email"
+                ]
+            }
+        }
+    ],
+    "publicUsers": [
+        {
+            "id": "9bf56f1f-2e62-4a2b-8bdd-7678956464ea",
+            "email": "testuser@example.com",
+            "full_name": "Test User",
+            "role": "client"
+        },
+        {
+            "id": "9021dca2-2960-4bb5-b79a-dc3bb50247f4",
+            "email": "gmansibs@gmail.com",
+            "full_name": "Gman Sibs",
+            "role": "admin"
+        },
+        {
+            "id": "05ac528e-4144-48b0-9d30-f0b1310b9c66",
+            "email": "gladman@melsoftacademy.com",
+            "full_name": "Tom Moyo",
+            "role": "client"
+        },
+        {
+            "id": "baaa51a7-e59c-43ba-956e-9ea80a9837ff",
+            "email": "korabuild25@gmail.com",
+            "full_name": "KoraBuild Admin",
+            "role": "admin"
+        },
+        {
+            "id": "bce4d305-ca51-48bf-b495-c4d32cf66b27",
+            "email": "gladmansibanda848@gmail.com",
+            "full_name": "Don Tom",
+            "role": "client"
+        }
+    ],
+    "comparison": {
+        "authCount": 5,
+        "publicCount": 5,
+        "orphanedInAuth": 0,
+        "orphanedInPublic": 0
+    }
+}
+
+=== RECOMMENDATIONS ===
+✅ No action required - system is healthy

@@ -456,3 +456,92 @@ export async function GET(
     );
   }
 } 
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const { projectId } = await params;
+    const body = await request.json();
+    
+    console.log(`🏗️ Admin API: Updating project ${projectId}...`, body);
+    
+    const {
+      project_name,
+      project_address,
+      contract_value,
+      start_date,
+      expected_completion,
+      actual_completion,
+      description,
+      current_phase,
+      status,
+      progress_percentage
+    } = body;
+
+    // Validate required fields
+    if (!project_name || !project_address || !contract_value || !start_date || !expected_completion) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Update project
+    const { data: updatedProject, error: updateError } = await supabaseAdmin
+      .from('projects')
+      .update({
+        project_name,
+        project_address,
+        contract_value,
+        start_date,
+        expected_completion,
+        actual_completion: actual_completion || null,
+        description,
+        current_phase,
+        status,
+        progress_percentage: progress_percentage || 0,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', projectId)
+      .select(`
+        *,
+        client:users!projects_client_id_fkey(
+          id,
+          email,
+          full_name,
+          phone
+        )
+      `)
+      .single();
+
+    if (updateError) {
+      console.error('❌ Admin API: Error updating project:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update project', details: updateError.message },
+        { status: 500 }
+      );
+    }
+
+    if (!updatedProject) {
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log(`✅ Admin API: Successfully updated project ${projectId}`);
+    
+    return NextResponse.json({
+      project: updatedProject,
+      message: 'Project updated successfully'
+    });
+  } catch (error: any) {
+    console.error('❌ Admin API: Error updating project:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error.message },
+      { status: 500 }
+    );
+  }
+} 

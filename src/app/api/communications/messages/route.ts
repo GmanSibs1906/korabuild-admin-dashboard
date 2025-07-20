@@ -104,7 +104,8 @@ export async function GET(request: NextRequest) {
     console.log('📊 [Messages API] Message counts:', {
       messagesTable: messages?.length || 0,
       communicationLog: conversationLogMessages.length,
-      total: (messages?.length || 0) + conversationLogMessages.length
+      total: (messages?.length || 0) + conversationLogMessages.length,
+      conversationHasProject: conversation.project_id !== null
     });
 
     // Format messages from messages table
@@ -389,7 +390,87 @@ export async function POST(request: NextRequest) {
         console.log('💾 [Messages API] Storing message in communication_log table...');
 
         try {
-          // Store message in communication_log table which works without trigger issues
+          // Handle case where conversation has no project (project_id is null)
+          // We need to either use the messages table directly or create a dummy project
+          
+          if (conversationExists.project_id === null) {
+            console.log('🔄 [Messages API] Conversation has no project - using messages table instead');
+            
+            // For conversations without projects, store in messages table
+            const { data: messageEntry, error: messageError } = await supabase
+              .from('messages')
+              .insert({
+                conversation_id: conversationId,
+                sender_id: adminUser.id,
+                message_text: content,
+                message_type: messageType || 'text',
+                attachment_urls: [],
+                reply_to_id: null,
+                is_edited: false,
+                is_pinned: false,
+                read_by: {},
+                reactions: {},
+                metadata: {
+                  source: 'admin_dashboard',
+                  no_project: true,
+                  sent_via: 'messages_table'
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .select('*')
+              .single();
+
+            if (messageError) {
+              console.error('❌ [Messages API] Failed to store message in messages table:', messageError);
+              return NextResponse.json(
+                { error: 'Failed to store message in messages table', details: messageError.message },
+                { status: 500 }
+              );
+            }
+
+            console.log('✅ [Messages API] Message stored in messages table:', messageEntry.id);
+
+            // Get sender details for response
+            const { data: senderDetails } = await supabase
+              .from('users')
+              .select('id, full_name, role, profile_photo_url')
+              .eq('id', adminUser.id)
+              .single();
+
+            // Create message response that matches frontend expectations
+            const messageResponse = {
+              id: messageEntry.id,
+              content: content,
+              sender_id: adminUser.id,
+              sender_name: senderDetails?.full_name || adminUser.full_name || 'KoraBuild Admin',
+              sender_role: senderDetails?.role || adminUser.role || 'admin',
+              sender_avatar: senderDetails?.profile_photo_url || null,
+              sent_at: messageEntry.created_at,
+              is_read: false,
+              message_type: messageType || 'text',
+              attachments: [],
+              reply_to: null,
+              is_edited: false,
+              edited_at: null,
+              reactions: {},
+              metadata: {
+                stored_in: 'messages_table',
+                source: 'admin_dashboard',
+                no_project: true
+              }
+            };
+
+            console.log(`🎉 [Messages API] Message response created for no-project conversation ${conversationId}`);
+
+            return NextResponse.json({
+              message: messageResponse,
+              success: true,
+              note: 'Message stored in messages table (no project associated)'
+            });
+          }
+
+          // For conversations with projects, use communication_log table
           const { data: logEntry, error: logError } = await supabase
             .from('communication_log')
             .insert({

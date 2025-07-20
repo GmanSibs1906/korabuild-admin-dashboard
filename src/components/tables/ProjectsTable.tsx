@@ -19,7 +19,8 @@ import {
   PlayCircle,
   PauseCircle,
   Building2,
-  MapPin
+  MapPin,
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +39,8 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
   const [selectedHealth, setSelectedHealth] = useState<HealthFilter>('all');
   const [sortField, setSortField] = useState<'name' | 'client' | 'value' | 'progress' | 'health' | 'start_date'>('start_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -50,6 +53,47 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
 
   const handleViewProject = (projectId: string) => {
     router.push(`/projects/${projectId}`);
+  };
+
+  const handleEditProject = (projectId: string) => {
+    router.push(`/projects/${projectId}/edit`);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    setDeleteLoading(true);
+    try {
+      console.log('🗑️ Deleting project:', projectId);
+      
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Project deletion failed:', errorData);
+        throw new Error(errorData.error || 'Failed to delete project');
+      }
+
+      console.log('✅ Project deleted successfully');
+      
+      // Refresh the projects list
+      refreshProjects();
+      
+      // Close the confirmation dialog
+      setDeleteProjectId(null);
+      
+      // Show success message
+      alert('Project deleted successfully!');
+      
+    } catch (error) {
+      console.error('❌ Error deleting project:', error);
+      alert(`Error deleting project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -484,17 +528,19 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
                         </button>
                         <button
                           type="button"
-                          className="text-gray-600 hover:text-gray-900"
+                          onClick={() => handleEditProject(project.id)}
+                          className="text-blue-600 hover:text-blue-900"
                           title="Edit project"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           type="button"
-                          className="text-gray-600 hover:text-gray-900"
-                          title="More actions"
+                          onClick={() => setDeleteProjectId(project.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete project"
                         >
-                          <MoreHorizontal className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -512,6 +558,65 @@ export function ProjectsTable({ className }: ProjectsTableProps) {
           <div className="text-sm text-gray-500">
             Showing {filteredAndSortedProjects.length} of {summary.totalProjects} projects
             {(searchTerm || selectedStatus !== 'all' || selectedHealth !== 'all') && ' (filtered)'}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteProjectId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="h-6 w-6 text-red-500 mr-3" />
+              <h3 className="text-lg font-medium text-gray-900">Delete Project</h3>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this project? This action will permanently remove:
+            </p>
+            
+            <ul className="text-sm text-gray-600 mb-6 space-y-1">
+              <li>• The project and all its data</li>
+              <li>• All project milestones and phases</li>
+              <li>• All project photos and documents</li>
+              <li>• All financial records and payments</li>
+              <li>• All contractor assignments</li>
+              <li>• All project communications</li>
+              <li>• All quality reports and inspections</li>
+              <li>• All material orders and deliveries</li>
+              <li>• All safety records and training</li>
+            </ul>
+            
+            <p className="text-sm text-red-600 font-medium mb-6">
+              This action cannot be undone. The project owner (user) will not be deleted.
+            </p>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                onClick={() => setDeleteProjectId(null)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                onClick={() => handleDeleteProject(deleteProjectId)}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Project
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

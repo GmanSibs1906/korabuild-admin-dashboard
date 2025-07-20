@@ -1,0 +1,22 @@
+[2025-07-20 10:20:20] \033[0;34m🚀 Starting KoraBuild User Data Health Check\033[0m
+[2025-07-20 10:20:20] Time: 2025-07-20 10:20:20
+[2025-07-20 10:20:20] \033[0;34m🔍 Checking API availability...\033[0m
+[2025-07-20 10:20:20] \033[0;32m✅ API is accessible\033[0m
+[2025-07-20 10:20:20] \033[0;34m🔍 Checking for orphaned user data...\033[0m
+[2025-07-20 10:20:20] \033[0;32m✅ No orphaned user data found\033[0m
+[2025-07-20 10:20:20] \033[0;34m📊 Getting system health summary...\033[0m
+[2025-07-20 10:20:20] 📈 System Health Summary:
+[2025-07-20 10:20:20]    • Auth users: 4
+[2025-07-20 10:20:20]    • Public users: 4
+[2025-07-20 10:20:20]    • Orphaned in auth: 0
+[2025-07-20 10:20:20]    • Orphaned in public: 0
+[2025-07-20 10:20:20] \033[0;32m✅ All user data is properly synchronized\033[0m
+[2025-07-20 10:20:20] \033[0;34m🧪 Testing user creation functionality...\033[0m
+[2025-07-20 10:20:20] \033[0;32m✅ User creation test passed\033[0m
+[2025-07-20 10:20:20] 🧹 Cleaned up test user
+[2025-07-20 10:20:20] \033[0;32m🎉 All checks passed - system is healthy!\033[0m
+[2025-07-20 10:20:20] \033[0;34m📋 Generating health report...\033[0m
+[2025-07-20 10:20:20] \033[0;34m🔍 Checking for orphaned user data...\033[0m
+[2025-07-20 10:20:20] \033[0;32m✅ No orphaned user data found\033[0m
+[2025-07-20 10:20:20] \033[0;32m📄 Report saved to: user-data-health-report-20250720-102502.txt\033[0m
+[2025-07-20 10:20:20] \033[0;34m✅ Health check completed\033[0m

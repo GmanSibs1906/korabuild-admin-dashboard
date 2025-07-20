@@ -1,346 +1,266 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
-// Use admin client to bypass RLS for admin access
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
-
-/*
- * 🚨 CRITICAL FIX: Data Consistency with Mobile App
- * 
- * This API now uses project_financials table as the AUTHORITATIVE source for financial data,
- * ensuring 100% consistency with what users see in the mobile app.
- * 
- * Key Changes:
- * - totalCashReceived: From project_financials.cash_received (matches mobile app)
- * - totalAmountUsed: From project_financials.amount_used (matches mobile app) 
- * - totalAmountRemaining: From project_financials.amount_remaining (matches mobile app)
- * - Added financial reconciliation logging to detect discrepancies
- * 
- * This prevents the serious data accuracy issues that could cause operational problems.
- */
-export async function GET(
-  request: NextRequest,
+export async function DELETE(
+  request: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const { userId } = await params;
-    console.log('🔍 API /users/[userId] - Fetching user profile for:', userId);
-    console.log('🔍 API /users/[userId] - Request URL:', request.url);
-    console.log('🔍 API /users/[userId] - Request method:', request.method);
-
-    // Get user basic information
+    const body = await request.json();
+    const { confirmationText } = body;
+    
+    console.log(`🗑️ Admin API: Starting deletion of user ${userId} and all related data...`);
+    
+    // Require admin to type "DELETE" for confirmation
+    if (confirmationText !== 'DELETE') {
+      return NextResponse.json(
+        { error: 'Confirmation text must be "DELETE" to proceed with user deletion' },
+        { status: 400 }
+      );
+    }
+    
+    // Get user info for logging
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('*')
+      .select('full_name, email, role')
       .eq('id', userId)
       .single();
-
-    console.log('🔍 API /users/[userId] - User query result:', { user: !!user, error: userError?.message });
-
+    
     if (userError || !user) {
-      console.error('❌ API /users/[userId] - User not found:', userError?.message);
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
-
-    // Get user's projects with more detailed information
-    const { data: projects, error: projectsError } = await supabaseAdmin
+    
+    console.log(`🗑️ Deleting user: ${user.full_name} (${user.email})`);
+    
+    // STEP 1: Delete all user projects and their data
+    const { data: userProjects } = await supabaseAdmin
       .from('projects')
-      .select(`
-        id,
-        project_name,
-        project_address,
-        contract_value,
-        start_date,
-        expected_completion,
-        actual_completion,
-        current_phase,
-        progress_percentage,
-        status,
-        description,
-        created_at,
-        updated_at
-      `)
-      .eq('client_id', userId)
-      .order('created_at', { ascending: false });
-
-    console.log('🔍 API /users/[userId] - Projects query result:', { 
-      projectsCount: projects?.length || 0, 
-      error: projectsError?.message,
-      projectIds: projects?.map(p => p.id) || []
-    });
-
-    // Get project milestones for user's projects
-    const projectIds = projects?.map(p => p.id) || [];
-    const { data: projectMilestones } = await supabaseAdmin
-      .from('project_milestones')
-      .select('id, project_id, status, progress_percentage')
-      .in('project_id', projectIds);
-
-    console.log('🔍 API /users/[userId] - Project milestones:', projectMilestones?.length || 0);
-
-    // Get ALL payments for user's projects (not just recent ones)
-    const { data: payments, error: paymentsError } = await supabaseAdmin
-      .from('payments')
-      .select(`
-        id,
-        project_id,
-        amount,
-        payment_date,
-        payment_method,
-        description,
-        status,
-        payment_category,
-        created_at,
-        projects(project_name)
-      `)
-      .in('project_id', projectIds)
-      .order('payment_date', { ascending: false });
-
-    console.log('🔍 API /users/[userId] - Payments query result:', { 
-      paymentsCount: payments?.length || 0, 
-      error: paymentsError?.message,
-      totalAmount: payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0
-    });
-
-    // Get user's messages/conversations
-    const { data: conversations } = await supabaseAdmin
-      .from('conversations')
-      .select(`
-        id,
-        project_id,
-        conversation_name,
-        conversation_type,
-        last_message_at,
-        message_count,
-        created_at
-      `)
-      .contains('participants', [userId])
-      .order('last_message_at', { ascending: false })
-      .limit(10);
-
-    // Get user's documents
-    const { data: documents } = await supabaseAdmin
-      .from('documents')
-      .select(`
-        *,
-        projects(project_name)
-      `)
-      .in('project_id', projects?.map(p => p.id) || [])
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    // Get user's notifications
-    const { data: notifications } = await supabaseAdmin
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    // Get user's contractor reviews (if they've left any)
-    const { data: contractorReviews } = await supabaseAdmin
-      .from('contractor_reviews')
-      .select(`
-        *,
-        contractors(contractor_name, company_name),
-        projects(project_name)
-      `)
-      .eq('reviewer_id', userId)
-      .order('review_date', { ascending: false });
-
-    // Get user's approval requests
-    const { data: approvalRequests } = await supabaseAdmin
-      .from('approval_requests')
-      .select(`
-        *,
-        projects(project_name)
-      `)
-      .eq('requested_by', userId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    // Get user's training certifications
-    const { data: certifications } = await supabaseAdmin
-      .from('training_certifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('issue_date', { ascending: false });
-
-    // Get additional financial data from project_financials table (AUTHORITATIVE SOURCE)
-    // 🚨 CRITICAL FIX: Get only the LATEST record per project using consistent ordering
-    const { data: projectFinancials, error: financialsError } = await supabaseAdmin
-      .from('project_financials')
-      .select('project_id, cash_received, amount_used, amount_remaining, created_at, updated_at, snapshot_date')
-      .in('project_id', projectIds)
-      .order('snapshot_date', { ascending: false })
-      .order('updated_at', { ascending: false })
-      .order('created_at', { ascending: false });
-
-    // Group by project_id and take only the latest record for each project (same logic as mobile-control API)
-    const latestFinancials = projectIds.map(projectId => {
-      const projectRecords = projectFinancials?.filter(pf => pf.project_id === projectId) || [];
-      return projectRecords.length > 0 ? projectRecords[0] : null; // Take the latest (first after sorting)
-    }).filter(Boolean);
-
-    console.log('🔍 API /users/[userId] - Project financials query:', { 
-      total_records: projectFinancials?.length || 0,
-      latest_records_used: latestFinancials.length,
-      error: financialsError?.message,
-      projects_with_duplicates: projectIds.filter(projectId => {
-        const records = projectFinancials?.filter(pf => pf.project_id === projectId) || [];
-        return records.length > 1;
-      }),
-      data: latestFinancials
-    });
-
-    // Calculate user statistics using AUTHORITATIVE financial data
-    const totalProjects = projects?.length || 0;
-    const activeProjects = projects?.filter(p => p.status === 'in_progress').length || 0;
-    const completedProjects = projects?.filter(p => p.status === 'completed').length || 0;
-    const onHoldProjects = projects?.filter(p => p.status === 'on_hold').length || 0;
-    const planningProjects = projects?.filter(p => p.status === 'planning').length || 0;
+      .select('id, project_name')
+      .eq('client_id', userId);
     
-    // 🚨 CRITICAL FIX: Use LATEST project_financials records only (same as mobile app)
-    const totalCashReceived = latestFinancials?.reduce((sum, pf) => sum + (pf?.cash_received || 0), 0) || 0;
-    const totalAmountUsed = latestFinancials?.reduce((sum, pf) => sum + (pf?.amount_used || 0), 0) || 0;
-    const totalAmountRemaining = latestFinancials?.reduce((sum, pf) => sum + (pf?.amount_remaining || 0), 0) || 0;
-    
-    // Calculate contract values from projects table (this should match mobile app contract values)
-    const totalContractValue = projects?.reduce((sum, project) => sum + (project.contract_value || 0), 0) || 0;
-    
-    // For backward compatibility, still calculate payment-based spending for comparison
-    const completedPayments = payments?.filter(p => p.status === 'completed') || [];
-    const paymentBasedSpent = completedPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-
-    console.log('🔍 API /users/[userId] - FINANCIAL RECONCILIATION:', {
-      'AUTHORITATIVE (project_financials)': {
-        totalCashReceived,
-        totalAmountUsed,
-        totalAmountRemaining,
-        totalContractValue
-      },
-      'LEGACY (payments table)': {
-        paymentBasedSpent,
-        paymentsCount: completedPayments.length
-      },
-      'DISCREPANCY CHECK': {
-        cashReceivedVsPayments: totalCashReceived - paymentBasedSpent,
-        isConsistent: Math.abs(totalCashReceived - paymentBasedSpent) < 100 // Allow $100 tolerance
+    if (userProjects && userProjects.length > 0) {
+      console.log(`🏗️ Found ${userProjects.length} projects to delete for user`);
+      
+      for (const project of userProjects) {
+        try {
+          // Use the existing project deletion endpoint logic
+          console.log(`🗑️ Deleting project: ${project.project_name} (${project.id})`);
+          
+          // Delete using internal API call
+          const projectDeleteResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/projects/${project.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!projectDeleteResponse.ok) {
+            console.error(`❌ Failed to delete project ${project.project_name}`);
+          } else {
+            console.log(`✅ Successfully deleted project: ${project.project_name}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error deleting project ${project.project_name}:`, error);
+        }
       }
-    });
+    }
     
-    // Calculate total messages from conversation message_count
-    const totalMessages = conversations?.reduce((sum, conv) => sum + (conv.message_count || 0), 0) || 0;
-    const unreadNotifications = notifications?.filter(n => !n.is_read).length || 0;
-
-    console.log('🔍 API /users/[userId] - Calculated stats:', {
-      totalProjects,
-      activeProjects,
-      completedProjects,
-      totalCashReceived,
-      totalAmountUsed,
-      totalContractValue,
-      totalMessages,
-      unreadNotifications
-    });
-
-    // Calculate user engagement score (0-100)
-    const baseScore = 50;
-    const projectScore = Math.min(totalProjects * 10, 30); // Max 30 points for projects
-    const messageScore = Math.min(totalMessages * 0.5, 15); // Max 15 points for messages
-    const reviewScore = contractorReviews?.length ? Math.min(contractorReviews.length * 5, 5) : 0; // Max 5 points
-    const engagementScore = Math.round(baseScore + projectScore + messageScore + reviewScore);
-
-    // Get user's last activity (most recent across all entities)
-    const lastActivityDates = [
-      user.updated_at,
-      projects?.[0]?.updated_at,
-      conversations?.[0]?.last_message_at,
-      payments?.[0]?.created_at,
-      documents?.[0]?.created_at
-    ].filter(Boolean);
-
-    const lastActivity = lastActivityDates.length > 0 
-      ? new Date(Math.max(...lastActivityDates.map(d => new Date(d!).getTime())))
-      : new Date(user.created_at);
-
-    const userProfile = {
-      // Basic user information
-      userInfo: {
-        id: user.id,
+    // STEP 2: Delete user from tables that might still reference them
+    const tablesToClean = [
+      // Core tables with direct user references
+      'contractors', // added_by_user_id constraint
+      'training_certifications', // user_id
+      'user_push_tokens', // user_id
+      
+      // Communication and requests
+      'conversations', // created_by
+      'messages', // sender_id
+      'communication_log', 
+      'requests', // client_id, assigned_to_user_id
+      'request_comments', // user_id
+      'request_status_history', // changed_by
+      
+      // Financial records
+      'payments',
+      'credit_accounts',
+      'enhanced_credit_accounts', // client_id, created_by
+      'financial_budgets', // created_by
+      
+      // Quality and safety
+      'quality_inspections', // inspector_id
+      'quality_reports', // generated_by
+      'safety_incidents', // reported_by_user_id, investigator_user_id
+      'safety_inspections', // inspector_user_id, corrective_actions_assigned_to
+      'safety_training_records', // trainee_user_id, trainer_user_id
+      
+      // Documents and uploads
+      'documents', // uploaded_by, approved_by
+      'project_photos',
+      'photo_comments', // user_id
+      'photo_albums', // created_by
+      
+      // Orders and deliveries  
+      'project_orders', // ordered_by, approved_by
+      'deliveries',
+      'inventory_transactions', // performed_by
+      
+      // Work and schedules
+      'work_sessions', // created_by, verified_by
+      'daily_updates',
+      'project_updates',
+      
+      // Admin and approvals
+      'approval_requests', // requested_by, assigned_to
+      'approval_responses', // responder_id
+      'meeting_records', // meeting_organizer
+      'compliance_documents'
+    ];
+    
+    for (const table of tablesToClean) {
+      try {
+        // Try different column names that might reference the user
+        const possibleColumns = [
+          'user_id', 
+          'client_id', 
+          'created_by', 
+          'uploaded_by', 
+          'approved_by',
+          'reported_by_user_id',
+          'inspector_id',
+          'investigator_user_id',
+          'assigned_to_user_id',
+          'generated_by',
+          'ordered_by',
+          'added_by_user_id', // contractors table
+          'sender_id', // messages table
+          'requested_by', // approval_requests
+          'assigned_to', // approval_requests
+          'responder_id', // approval_responses
+          'meeting_organizer', // meeting_records
+          'changed_by', // request_status_history
+          'inspector_user_id', // safety_inspections
+          'corrective_actions_assigned_to', // safety_inspections
+          'trainee_user_id', // safety_training_records
+          'trainer_user_id', // safety_training_records
+          'performed_by', // inventory_transactions
+          'verified_by' // work_sessions
+        ];
+        
+        for (const column of possibleColumns) {
+          const { error } = await supabaseAdmin
+            .from(table)
+            .delete()
+            .eq(column, userId);
+          
+          // Ignore errors for columns that don't exist
+          if (!error || !error.message.includes('column')) {
+            console.log(`✅ Cleaned ${table}.${column} for user ${userId}`);
+          }
+        }
+      } catch (error) {
+        console.log(`⚠️ Could not clean table ${table}:`, error);
+        // Continue with other tables
+      }
+    }
+    
+    // STEP 3: Delete user from auth.users (Supabase Auth)
+    try {
+      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      
+      if (authDeleteError) {
+        console.error('❌ Error deleting user from auth:', authDeleteError);
+        // Continue anyway as user might not exist in auth
+      } else {
+        console.log('✅ Successfully deleted user from Supabase Auth');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting user from auth:', error);
+      // Continue with public.users deletion
+    }
+    
+    // STEP 4: Delete user from public.users table
+    const { error: publicUserError } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', userId);
+    
+    if (publicUserError) {
+      console.error('❌ Error deleting user from public.users:', publicUserError);
+      return NextResponse.json(
+        { 
+          error: 'Failed to delete user from database', 
+          details: publicUserError.message 
+        },
+        { status: 500 }
+      );
+    }
+    
+    console.log(`✅ Successfully deleted user ${user.full_name} (${user.email}) and all related data`);
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: `User ${user.full_name} and all related data deleted successfully`,
+      deletedUser: {
+        id: userId,
         name: user.full_name,
         email: user.email,
-        phone: user.phone,
-        role: user.role,
-        profilePhotoUrl: user.profile_photo_url,
-        joinDate: user.created_at,
-        lastActivity: lastActivity.toISOString(),
+        role: user.role
       },
-
-      // Quick statistics (using AUTHORITATIVE financial data)
-      quickStats: {
-        totalProjects,
-        activeProjects,
-        completedProjects,
-        onHoldProjects,
-        planningProjects,
-        totalCashReceived,
-        totalAmountUsed,
-        totalAmountRemaining,
-        totalContractValue,
-        totalMessages,
-        unreadNotifications,
-        engagementScore,
-        lastActivity: lastActivity.toISOString(),
-        // Legacy field for backward compatibility
-        totalSpent: totalAmountUsed
-      },
-
-      // Related data
-      projects: projects || [],
-      conversations: conversations || [],
-      payments: completedPayments || [], // Only show completed payments
-      allPayments: payments || [], // Include all payments for reference
-      documents: documents || [],
-      notifications: notifications || [],
-      contractorReviews: contractorReviews || [],
-      approvalRequests: approvalRequests || [],
-      certifications: certifications || [],
-      projectFinancials: latestFinancials || [],
-      projectMilestones: projectMilestones || [],
-      
-      // Data consistency validation
-      dataValidation: {
-        isFinanciallyConsistent: Math.abs(totalCashReceived - paymentBasedSpent) < 100,
-        cashReceivedVsPayments: totalCashReceived - paymentBasedSpent,
-        hasProjectFinancials: (latestFinancials?.length || 0) > 0,
-        hasProjects: (projects?.length || 0) > 0,
-        lastValidationCheck: new Date().toISOString()
-      }
-    };
-
-    console.log('✅ API /users/[userId] - User profile data compiled successfully');
-    console.log('🔍 API /users/[userId] - Returning user profile with keys:', Object.keys(userProfile));
-    console.log('🔍 API /users/[userId] - UserInfo:', userProfile.userInfo);
-    return NextResponse.json(userProfile);
-
+      deletedProjects: userProjects?.length || 0
+    });
+    
   } catch (error) {
-    console.error('❌ API /users/[userId] - Error fetching user profile:', error);
+    console.error('❌ Admin API: Error deleting user:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch user profile' },
+      { error: 'Failed to delete user', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
-} 
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    const { userId } = await params;
+    
+    console.log(`🔍 Admin API: Fetching user ${userId} details...`);
+    
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (error) {
+      console.error('❌ Admin API: Error fetching user:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch user', details: error.message },
+        { status: 500 }
+      );
+    }
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    console.log(`✅ Admin API: Successfully fetched user ${userId}`);
+    
+    return NextResponse.json({ user });
+    
+  } catch (error) {
+    console.error('❌ Admin API: Error fetching user:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch user', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
