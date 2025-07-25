@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
-// TypeScript interfaces for payment operations
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Types
 interface PaymentCreateData {
   project_id: string;
   milestone_id?: string;
@@ -11,61 +16,85 @@ interface PaymentCreateData {
   reference: string;
   description: string;
   receipt_url?: string;
-  payment_category?: 'milestone' | 'materials' | 'labor' | 'permits' | 'other';
-  status?: 'pending' | 'completed' | 'failed' | 'refunded';
+  payment_category?: string;
+  status?: string;
 }
 
 interface PaymentUpdateData {
+  milestone_id?: string;
   amount?: number;
   payment_date?: string;
   payment_method?: string;
   reference?: string;
   description?: string;
   receipt_url?: string;
-  payment_category?: 'milestone' | 'materials' | 'labor' | 'permits' | 'other';
-  status?: 'pending' | 'completed' | 'failed' | 'refunded';
-}
-
-interface PaymentFilters {
-  project_id?: string;
-  milestone_id?: string;
-  status?: string;
   payment_category?: string;
-  start_date?: string;
-  end_date?: string;
-  min_amount?: number;
-  max_amount?: number;
-  search?: string;
-  page?: number;
-  limit?: number;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
+  status?: string;
 }
 
-// GET - Fetch payments with advanced filtering, search, and pagination
+interface PaymentCRUDResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+  details?: string;
+}
+
+// Helper function to update ONLY the calculated payments total (not cash_received)
+const updatePaymentsTotal = async (projectId: string) => {
+  try {
+    console.log('🔧 Updating payments total for project:', projectId);
+    
+    // Calculate total completed payments
+    const { data: allPayments } = await supabaseAdmin
+      .from('payments')
+      .select('amount')
+      .eq('project_id', projectId)
+      .eq('status', 'completed');
+
+    const totalPayments = allPayments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+    
+    console.log('💰 Calculated total payments:', totalPayments);
+
+    // Update ONLY the calculated field, leave cash_received untouched
+    const { error: updateError } = await supabaseAdmin
+      .from('project_financials')
+      .update({
+        total_payments_calculated: totalPayments,
+        updated_at: new Date().toISOString()
+      })
+      .eq('project_id', projectId);
+
+    if (updateError) {
+      console.error('❌ Error updating payments total:', updateError);
+    } else {
+      console.log('✅ Payments total updated successfully');
+    }
+  } catch (error) {
+    console.error('⚠️ Error updating payments total:', error);
+    // Don't throw - payment operations should still succeed
+  }
+};
+
+// GET - Fetch payments with filters and pagination
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    
-    const filters: PaymentFilters = {
-      project_id: searchParams.get('project_id') || undefined,
-      milestone_id: searchParams.get('milestone_id') || undefined,
-      status: searchParams.get('status') || undefined,
-      payment_category: searchParams.get('payment_category') || undefined,
-      start_date: searchParams.get('start_date') || undefined,
-      end_date: searchParams.get('end_date') || undefined,
-      min_amount: searchParams.get('min_amount') ? parseFloat(searchParams.get('min_amount')!) : undefined,
-      max_amount: searchParams.get('max_amount') ? parseFloat(searchParams.get('max_amount')!) : undefined,
-      search: searchParams.get('search') || undefined,
-      page: parseInt(searchParams.get('page') || '1'),
-      limit: parseInt(searchParams.get('limit') || '50'),
-      sort_by: searchParams.get('sort_by') || 'payment_date',
-      sort_order: (searchParams.get('sort_order') as 'asc' | 'desc') || 'desc'
-    };
+    const projectId = searchParams.get('project_id');
+    const status = searchParams.get('status');
+    const category = searchParams.get('category');
+    const milestoneId = searchParams.get('milestone_id');
+    const startDate = searchParams.get('start_date');
+    const endDate = searchParams.get('end_date');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const sortBy = searchParams.get('sort_by') || 'payment_date';
+    const sortOrder = searchParams.get('sort_order') || 'desc';
 
-    console.log('💰 Payments API - GET with filters:', filters);
+    console.log('💰 Payments API - GET with filters:', {
+      projectId, status, category, milestoneId, startDate, endDate, page, limit, sortBy, sortOrder
+    });
 
-    // Build query with joins for related data
+    // Build query
     let query = supabaseAdmin
       .from('payments')
       .select(`
@@ -97,60 +126,38 @@ export async function GET(request: NextRequest) {
           milestone_name,
           phase_category
         )
-      `);
+      `, { count: 'exact' });
 
     // Apply filters
-    if (filters.project_id) {
-      query = query.eq('project_id', filters.project_id);
+    if (projectId) {
+      query = query.eq('project_id', projectId);
     }
-
-    if (filters.milestone_id) {
-      query = query.eq('milestone_id', filters.milestone_id);
+    if (status) {
+      query = query.eq('status', status);
     }
-
-    if (filters.status) {
-      query = query.eq('status', filters.status);
+    if (category) {
+      query = query.eq('payment_category', category);
     }
-
-    if (filters.payment_category) {
-      query = query.eq('payment_category', filters.payment_category);
+    if (milestoneId) {
+      query = query.eq('milestone_id', milestoneId);
     }
-
-    if (filters.start_date) {
-      query = query.gte('payment_date', filters.start_date);
+    if (startDate) {
+      query = query.gte('payment_date', startDate);
     }
-
-    if (filters.end_date) {
-      query = query.lte('payment_date', filters.end_date);
-    }
-
-    if (filters.min_amount) {
-      query = query.gte('amount', filters.min_amount);
-    }
-
-    if (filters.max_amount) {
-      query = query.lte('amount', filters.max_amount);
-    }
-
-    // Text search across description and reference
-    if (filters.search) {
-      query = query.or(`description.ilike.%${filters.search}%,reference.ilike.%${filters.search}%`);
+    if (endDate) {
+      query = query.lte('payment_date', endDate);
     }
 
     // Apply sorting
-    const ascending = filters.sort_order === 'asc';
-    query = query.order(filters.sort_by!, { ascending });
-
-    // Get total count for pagination
-    const { count: totalCount } = await supabaseAdmin
-      .from('payments')
-      .select('*', { count: 'exact', head: true });
+    const sortDirection = sortOrder === 'desc' ? false : true;
+    query = query.order(sortBy, { ascending: sortDirection });
 
     // Apply pagination
-    const offset = ((filters.page || 1) - 1) * (filters.limit || 50);
-    query = query.range(offset, offset + (filters.limit || 50) - 1);
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
 
-    const { data: payments, error } = await query;
+    const { data: payments, error, count } = await query;
 
     if (error) {
       console.error('❌ Error fetching payments:', error);
@@ -162,37 +169,52 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate summary statistics
-    const totalAmount = payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
-    const statusCounts = payments?.reduce((counts, payment) => {
-      counts[payment.status] = (counts[payment.status] || 0) + 1;
-      return counts;
-    }, {} as Record<string, number>) || {};
+    let summary = null;
+    if (projectId) {
+      const { data: allPayments, error: summaryError } = await supabaseAdmin
+        .from('payments')
+        .select('amount, status, payment_category')
+        .eq('project_id', projectId);
 
-    const categoryCounts = payments?.reduce((counts, payment) => {
-      const category = payment.payment_category || 'other';
-      counts[category] = (counts[category] || 0) + 1;
-      return counts;
-    }, {} as Record<string, number>) || {};
+      if (!summaryError && allPayments) {
+        const totalAmount = allPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        const completedAmount = allPayments
+          .filter(p => p.status === 'completed')
+          .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        
+        const statusCounts = allPayments.reduce((acc, payment) => {
+          acc[payment.status] = (acc[payment.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
 
-    console.log(`✅ Payments API - Found ${payments?.length || 0} payments`);
+        const categoryCounts = allPayments.reduce((acc, payment) => {
+          acc[payment.payment_category] = (acc[payment.payment_category] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        summary = {
+          total_amount: totalAmount,
+          completed_amount: completedAmount,
+          payment_count: allPayments.length,
+          status_counts: statusCounts,
+          category_counts: categoryCounts
+        };
+      }
+    }
+
+    console.log('✅ Payments fetched successfully:', payments?.length || 0);
 
     return NextResponse.json({
       success: true,
       data: {
         payments: payments || [],
+        summary,
         pagination: {
-          current_page: filters.page || 1,
-          per_page: filters.limit || 50,
-          total_count: totalCount || 0,
-          total_pages: Math.ceil((totalCount || 0) / (filters.limit || 50))
-        },
-        summary: {
-          total_amount: totalAmount,
-          payment_count: payments?.length || 0,
-          status_counts: statusCounts,
-          category_counts: categoryCounts
-        },
-        filters: filters
+          page,
+          limit,
+          total: count || 0,
+          total_pages: Math.ceil((count || 0) / limit)
+        }
       }
     });
 
@@ -264,37 +286,6 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Verify milestone exists if provided
-    if (paymentData.milestone_id) {
-      const { data: milestone, error: milestoneError } = await supabaseAdmin
-        .from('project_milestones')
-        .select('id, milestone_name')
-        .eq('id', paymentData.milestone_id)
-        .eq('project_id', paymentData.project_id)
-        .single();
-
-      if (milestoneError || !milestone) {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Milestone not found or does not belong to this project' 
-        }, { status: 404 });
-      }
-    }
-
-    // Check for duplicate reference
-    const { data: existingPayment } = await supabaseAdmin
-      .from('payments')
-      .select('id')
-      .eq('reference', paymentData.reference)
-      .single();
-
-    if (existingPayment) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Payment reference already exists' 
-      }, { status: 409 });
-    }
-
     // Create payment
     const { data: newPayment, error: createError } = await supabaseAdmin
       .from('payments')
@@ -353,6 +344,9 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Payment created successfully:', newPayment.id);
 
+    // 🔧 UPDATE PAYMENTS TOTAL: Only update calculated field, leave cash_received alone
+    await updatePaymentsTotal(paymentData.project_id);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -379,7 +373,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const updateData: PaymentUpdateData = body;
 
-    console.log('💰 Payments API - PUT update payment:', { paymentId, updateData });
+    console.log('💰 Payments API - PUT update payment:', paymentId, updateData);
 
     if (!paymentId) {
       return NextResponse.json({ 
@@ -388,10 +382,10 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify payment exists
+    // Verify payment exists and get project_id
     const { data: existingPayment, error: fetchError } = await supabaseAdmin
       .from('payments')
-      .select('id, project_id, reference')
+      .select('id, project_id')
       .eq('id', paymentId)
       .single();
 
@@ -400,31 +394,6 @@ export async function PUT(request: NextRequest) {
         success: false, 
         error: 'Payment not found' 
       }, { status: 404 });
-    }
-
-    // Check for duplicate reference if being updated
-    if (updateData.reference && updateData.reference !== existingPayment.reference) {
-      const { data: duplicatePayment } = await supabaseAdmin
-        .from('payments')
-        .select('id')
-        .eq('reference', updateData.reference)
-        .neq('id', paymentId)
-        .single();
-
-      if (duplicatePayment) {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Payment reference already exists' 
-        }, { status: 409 });
-      }
-    }
-
-    // Validate amount if being updated
-    if (updateData.amount !== undefined && updateData.amount <= 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Amount must be greater than 0' 
-      }, { status: 400 });
     }
 
     // Update payment
@@ -477,6 +446,9 @@ export async function PUT(request: NextRequest) {
     }
 
     console.log('✅ Payment updated successfully:', updatedPayment.id);
+
+    // 🔧 UPDATE PAYMENTS TOTAL: Only update calculated field, leave cash_received alone
+    await updatePaymentsTotal(existingPayment.project_id);
 
     return NextResponse.json({
       success: true,
@@ -550,6 +522,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     console.log('✅ Payment deleted successfully:', paymentId);
+
+    // 🔧 UPDATE PAYMENTS TOTAL: Only update calculated field, leave cash_received alone
+    await updatePaymentsTotal(existingPayment.project_id);
 
     return NextResponse.json({
       success: true,

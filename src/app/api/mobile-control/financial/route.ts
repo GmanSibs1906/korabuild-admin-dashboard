@@ -117,17 +117,19 @@ export async function GET(request: NextRequest) {
     const contractValue = project.contract_value || 0;
     const totalPayments = payments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
     
-    // Use project financials if available, otherwise calculate from payments
-    let cashReceived = totalPayments;
+    // Use project financials if available - cash_received should NOT fall back to payments
+    let cashReceived = 0; // Default to 0, not totalPayments
     let amountUsed = 0;
-    let amountRemaining = contractValue - totalPayments;
+    let amountRemaining = contractValue;
 
     if (financials && financials.length > 0) {
       const latestFinancial = financials[0];
-      cashReceived = latestFinancial.cash_received || totalPayments;
+      cashReceived = latestFinancial.cash_received || 0; // No fallback to payments
       amountUsed = latestFinancial.amount_used || 0;
       amountRemaining = latestFinancial.amount_remaining || (contractValue - cashReceived);
     } else {
+      // If no project_financials record exists, use defaults
+      // cash_received remains 0 (admin must manually set this)
       // Calculate estimates based on project progress
       const progressPercentage = project.progress_percentage || 0;
       amountUsed = Math.round((contractValue * progressPercentage) / 100);

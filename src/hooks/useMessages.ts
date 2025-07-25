@@ -147,7 +147,7 @@ export function useMessages() {
       conversationsSubscription.unsubscribe();
       messagesSubscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dependency array - only run on mount to prevent infinite loops
 
   return {
     conversations,

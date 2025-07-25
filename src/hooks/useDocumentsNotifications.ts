@@ -182,7 +182,7 @@ export function useDocumentsNotifications(): UseDocumentsNotificationsResult {
 
   useEffect(() => {
     fetchDocumentsData();
-  }, [fetchDocumentsData]);
+  }, []); // Empty dependency array to prevent infinite re-renders
 
   return {
     stats,

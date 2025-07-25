@@ -227,7 +227,7 @@ export function DeliveryEditModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Status</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="delivery_status">Delivery Status</Label>
+                <Label htmlFor="delivery_status" className='text-gray-900'>Delivery Status</Label>
                 <Select 
                   value={formData.delivery_status} 
                   onValueChange={handleStatusChange}
@@ -271,7 +271,7 @@ export function DeliveryEditModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="delivery_date">Delivery Date *</Label>
+                <Label htmlFor="delivery_date" className='text-gray-900'>Delivery Date *</Label>
                 <Input
                   type="date"
                   value={formData.delivery_date}
@@ -284,7 +284,7 @@ export function DeliveryEditModal({
               </div>
 
               <div>
-                <Label htmlFor="delivery_time">Delivery Time *</Label>
+                <Label htmlFor="delivery_time" className='text-gray-900'>Delivery Time *</Label>
                 <Input
                   type="time"
                   value={formData.delivery_time}
@@ -303,7 +303,7 @@ export function DeliveryEditModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Driver & Vehicle</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="driver_name">Driver Name *</Label>
+                <Label htmlFor="driver_name" className='text-gray-900'>Driver Name *</Label>
                 <Input
                   value={formData.driver_name}
                   onChange={(e) => handleInputChange('driver_name', e.target.value)}
@@ -315,7 +315,7 @@ export function DeliveryEditModal({
               </div>
 
               <div>
-                <Label htmlFor="driver_phone">Driver Phone *</Label>
+                <Label htmlFor="driver_phone" className='text-gray-900'>Driver Phone *</Label>
                 <Input
                   value={formData.driver_phone}
                   onChange={(e) => handleInputChange('driver_phone', e.target.value)}
@@ -327,7 +327,7 @@ export function DeliveryEditModal({
               </div>
 
               <div>
-                <Label htmlFor="vehicle_type">Vehicle Type *</Label>
+                <Label htmlFor="vehicle_type" className='text-gray-900'>Vehicle Type *</Label>
                 <Select 
                   value={formData.vehicle_type} 
                   onValueChange={(value) => handleInputChange('vehicle_type', value)}
@@ -351,7 +351,7 @@ export function DeliveryEditModal({
               </div>
 
               <div>
-                <Label htmlFor="vehicle_registration">Vehicle Registration</Label>
+                <Label htmlFor="vehicle_registration" className='text-gray-900'>Vehicle Registration</Label>
                 <Input
                   value={formData.vehicle_registration}
                   onChange={(e) => handleInputChange('vehicle_registration', e.target.value)}
@@ -365,7 +365,7 @@ export function DeliveryEditModal({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delivery Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="delivery_address">Delivery Address (from Order)</Label>
+                <Label htmlFor="delivery_address" className='text-gray-900'>Delivery Address (from Order)</Label>
                 <Textarea
                   value={deliveryAddress}
                   readOnly
@@ -377,12 +377,13 @@ export function DeliveryEditModal({
               </div>
 
               <div>
-                <Label htmlFor="delivery_instructions">Special Handling Notes</Label>
+                <Label htmlFor="delivery_instructions" className='text-gray-900'>Special Handling Notes</Label>
                 <Textarea
                   value={formData.delivery_instructions}
                   onChange={(e) => handleInputChange('delivery_instructions', e.target.value)}
                   rows={3}
                   placeholder="Special handling instructions for this delivery"
+                  className='bg-white text-gray-900'
                 />
               </div>
             </div>
@@ -394,7 +395,7 @@ export function DeliveryEditModal({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Delivery Confirmation</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="recipient_name">Recipient Name *</Label>
+                  <Label htmlFor="recipient_name" className='text-gray-900'>Recipient Name *</Label>
                   <Input
                     value={formData.recipient_name}
                     onChange={(e) => handleInputChange('recipient_name', e.target.value)}
@@ -411,12 +412,13 @@ export function DeliveryEditModal({
 
           {/* Additional Notes */}
           <div>
-            <Label htmlFor="notes">Additional Notes</Label>
+            <Label htmlFor="notes" className='text-gray-900'>Additional Notes</Label>
             <Textarea
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
               placeholder="Additional notes about the delivery"
               rows={3}
+              className='bg-white text-gray-900'
             />
           </div>
 

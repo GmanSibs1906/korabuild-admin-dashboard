@@ -20,9 +20,11 @@ export interface ScheduleStats {
   delayedTasks: number;
   totalTasks: number;
   unreadNotifications: number;
-  overdueTasks?: number; // Alias for delayedTasks
-  upcomingDeadlines?: number;
-  projectsAtRisk?: number; // Alias for delayedTasks
+  overdueTasks: number; // Separate from delayedTasks
+  upcomingDeadlines: number; // Tasks due in next 7 days
+  projectsAtRisk: number; // Projects with overdue milestones
+  completedTasks: number;
+  inProgressTasks: number;
 }
 
 export interface UseScheduleResult {
@@ -38,7 +40,12 @@ export function useSchedule(): UseScheduleResult {
     averageProgress: 0,
     delayedTasks: 0,
     totalTasks: 0,
-    unreadNotifications: 0, // Will be calculated dynamically
+    unreadNotifications: 0,
+    overdueTasks: 0,
+    upcomingDeadlines: 0,
+    projectsAtRisk: 0,
+    completedTasks: 0,
+    inProgressTasks: 0,
   });
   
   const [notifications, setNotifications] = useState<ScheduleNotification[]>([]);
@@ -61,44 +68,37 @@ export function useSchedule(): UseScheduleResult {
         // Generate notifications based on schedule data
         const scheduleNotifications: ScheduleNotification[] = [];
         
-        // Check for overdue tasks
+        // Check for overdue tasks from actual schedule data
         const today = new Date();
         schedules.forEach((schedule: any) => {
-          if (schedule.projects?.status === 'in_progress') {
-            // Simulated overdue task detection
-            const daysSinceStart = Math.floor((today.getTime() - new Date(schedule.start_date).getTime()) / (1000 * 60 * 60 * 24));
-            
-            if (daysSinceStart > 30 && schedule.completion_percentage < 50) {
-              scheduleNotifications.push({
-                id: `overdue-${schedule.id}`,
-                type: 'overdue_task',
-                title: 'Project Behind Schedule',
-                message: `${schedule.projects.project_name} is behind schedule`,
-                priority: 'high',
-                project_id: schedule.project_id,
-                project_name: schedule.projects.project_name,
-                created_at: new Date().toISOString(),
-                is_read: false,
-                due_date: schedule.end_date,
-              });
-            }
+          if (schedule.planned_end && new Date(schedule.planned_end) < today && schedule.status !== 'completed') {
+            scheduleNotifications.push({
+              id: `overdue-${schedule.id}`,
+              type: 'overdue_task',
+              title: 'Task Overdue',
+              message: `${schedule.milestone_name || 'Task'} is overdue`,
+              priority: 'urgent',
+              project_id: schedule.project_id,
+              project_name: schedule.project?.project_name || 'Unknown Project',
+              created_at: new Date().toISOString(),
+              is_read: false,
+            });
+          }
 
-            // Check for upcoming deadlines (within 7 days)
-            const endDate = new Date(schedule.end_date);
-            const daysUntilDeadline = Math.floor((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
-            if (daysUntilDeadline <= 7 && daysUntilDeadline > 0 && schedule.completion_percentage < 90) {
+          // Check for upcoming deadlines (within 7 days)
+          if (schedule.planned_end) {
+            const daysUntilEnd = Math.ceil((new Date(schedule.planned_end).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysUntilEnd > 0 && daysUntilEnd <= 7 && schedule.status !== 'completed') {
               scheduleNotifications.push({
-                id: `deadline-${schedule.id}`,
+                id: `upcoming-${schedule.id}`,
                 type: 'upcoming_deadline',
                 title: 'Upcoming Deadline',
-                message: `${schedule.projects.project_name} deadline in ${daysUntilDeadline} days`,
-                priority: daysUntilDeadline <= 3 ? 'urgent' : 'high',
+                message: `${schedule.milestone_name || 'Task'} due in ${daysUntilEnd} days`,
+                priority: daysUntilEnd <= 3 ? 'high' : 'normal',
                 project_id: schedule.project_id,
-                project_name: schedule.projects.project_name,
+                project_name: schedule.project?.project_name || 'Unknown Project',
                 created_at: new Date().toISOString(),
                 is_read: false,
-                due_date: schedule.end_date,
               });
             }
           }
@@ -106,9 +106,14 @@ export function useSchedule(): UseScheduleResult {
 
         setStats({
           averageProgress: scheduleStats.averageProgress || 0,
-          delayedTasks: scheduleNotifications.filter(n => n.type === 'overdue_task').length,
-          totalTasks: scheduleStats.totalTasks || 0,
-          unreadNotifications: scheduleNotifications.filter(n => !n.is_read).length,
+          delayedTasks: scheduleNotifications.filter(n => n.type === 'overdue_task').length, // Dynamic count
+          totalTasks: scheduleStats.totalTasks || schedules.length,
+          unreadNotifications: scheduleNotifications.filter(n => !n.is_read).length, // Dynamic count
+          overdueTasks: scheduleNotifications.filter(n => n.type === 'overdue_task').length,
+          upcomingDeadlines: scheduleNotifications.filter(n => n.type === 'upcoming_deadline').length,
+          projectsAtRisk: [...new Set(scheduleNotifications.filter(n => n.type === 'overdue_task').map(n => n.project_id))].length,
+          completedTasks: schedules.filter((s: any) => s.status === 'completed').length,
+          inProgressTasks: schedules.filter((s: any) => s.status === 'in_progress').length,
         });
 
         console.log('🔍 Schedule notifications generated:', {

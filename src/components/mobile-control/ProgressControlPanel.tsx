@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { LoadingSpinner } from '../ui/loading-spinner';
-import { Plus, Edit, Trash2, Calendar, Target, TrendingUp, Clock, Image, CheckCircle, XCircle, Eye, Upload } from 'lucide-react';
+import { Plus, Edit, Trash2, Calendar, Target, TrendingUp, Clock, Image, CheckCircle, XCircle, Eye, Upload, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PhotoUploadModal } from '../modals/PhotoUploadModal';
 
 interface ProgressControlPanelProps {
@@ -29,6 +29,7 @@ interface Project {
   status: string;
   project_photo_urls: string[] | null;
   daysRemaining: number;
+  updated_at: string;
 }
 
 interface Milestone {
@@ -101,6 +102,18 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'milestones' | 'photos'>('overview');
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
+  
+  // 🔧 NEW: Form state for timeline updates
+  const [timelineForm, setTimelineForm] = useState({
+    progress_percentage: 0,
+    current_phase: '',
+    start_date: '',
+    expected_completion: '',
+    actual_completion: '',
+    hasChanges: false
+  });
+  const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Fetch progress data
   const fetchProgressData = async () => {
@@ -116,6 +129,18 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
       if (result.success) {
         console.log('✅ Progress data fetched:', result.data);
         setProgressData(result.data);
+        
+        // 🔧 NEW: Initialize form state with current data
+        if (result.data.project) {
+          setTimelineForm({
+            progress_percentage: result.data.project.progress_percentage || 0,
+            current_phase: result.data.project.current_phase || '',
+            start_date: result.data.project.start_date || '',
+            expected_completion: result.data.project.expected_completion || '',
+            actual_completion: result.data.project.actual_completion || '',
+            hasChanges: false
+          });
+        }
       } else {
         throw new Error(result.error || 'Failed to fetch progress data');
       }
@@ -133,7 +158,224 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
     }
   }, [projectId]);
 
-  // Project timeline update handlers
+  // 🔧 NEW: Handle form changes
+  const handleTimelineFormChange = (field: string, value: any) => {
+    setTimelineForm(prev => ({
+      ...prev,
+      [field]: value,
+      hasChanges: true
+    }));
+  };
+
+  // 🔧 NEW: Save timeline changes
+  const handleSaveTimelineChanges = async () => {
+    if (!timelineForm.hasChanges) return;
+
+    try {
+      setSaving(true);
+      console.log('💾 Saving timeline changes:', timelineForm);
+
+      // Prepare updates object
+      const updates: any = {};
+
+      // Only include changed fields
+      if (progressData?.project) {
+        if (timelineForm.progress_percentage !== progressData.project.progress_percentage) {
+          updates.progress_percentage = timelineForm.progress_percentage;
+        }
+        if (timelineForm.current_phase !== progressData.project.current_phase) {
+          updates.current_phase = timelineForm.current_phase;
+        }
+        if (timelineForm.start_date !== progressData.project.start_date) {
+          updates.start_date = timelineForm.start_date;
+        }
+        if (timelineForm.expected_completion !== progressData.project.expected_completion) {
+          updates.expected_completion = timelineForm.expected_completion;
+        }
+        if (timelineForm.actual_completion !== progressData.project.actual_completion) {
+          updates.actual_completion = timelineForm.actual_completion;
+        }
+      }
+
+      // 🔧 FIX: Send all updates together using timeline endpoint to avoid trigger issues
+      if (Object.keys(updates).length > 0) {
+        console.log('🔄 Sending combined timeline and progress updates:', updates);
+        
+        const response = await fetch('/api/mobile-control/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'updateProjectTimeline',
+            projectId,
+            updates,
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (!result.success) {
+          // 🔧 FALLBACK: Try updating fields individually
+          console.log('🔄 Primary update failed, trying timeline-only update...');
+          
+          // Remove progress_percentage and try timeline fields only
+          const timelineOnlyUpdates = { ...updates };
+          delete timelineOnlyUpdates.progress_percentage;
+          
+          if (Object.keys(timelineOnlyUpdates).length > 0) {
+            try {
+              const timelineResponse = await fetch('/api/mobile-control/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'updateProjectTimeline',
+                  projectId,
+                  updates: timelineOnlyUpdates,
+                }),
+              });
+
+              const timelineResult = await timelineResponse.json();
+              if (timelineResult.success) {
+                console.log('✅ Timeline fields updated successfully');
+                setSuccessMessage('Timeline dates updated successfully! Progress percentage cannot be saved due to database limitations.');
+              } else {
+                throw new Error(timelineResult.error || 'Failed to update timeline');
+              }
+            } catch (error) {
+              throw new Error(`Timeline update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+          }
+          
+          // Show message about progress percentage
+          if (updates.progress_percentage !== undefined) {
+            console.log('⚠️ Progress percentage could not be saved due to database constraints');
+            if (Object.keys(timelineOnlyUpdates).length === 0) {
+              throw new Error('Progress percentage cannot be saved due to database triggers. Please contact administrator.');
+            }
+          }
+        } else {
+          // 🔧 NEW: Handle successful responses with detailed feedback
+          const updatedFields = Object.keys(updates);
+          const hasProgressUpdate = updatedFields.includes('progress_percentage');
+          const hasTimelineUpdates = updatedFields.some(field => ['start_date', 'expected_completion', 'actual_completion', 'current_phase'].includes(field));
+          
+          if (result.warning) {
+            console.log('⚠️ API Warning:', result.warning);
+            if (hasTimelineUpdates) {
+              setSuccessMessage('Timeline dates updated successfully! Progress percentage was skipped due to database constraints.');
+            } else {
+              setError(result.warning);
+            }
+          } else {
+            // All updates successful
+            if (hasProgressUpdate && hasTimelineUpdates) {
+              setSuccessMessage(`Timeline and progress updated successfully! Progress set to ${updates.progress_percentage}%`);
+            } else if (hasProgressUpdate) {
+              setSuccessMessage(`Progress updated successfully to ${updates.progress_percentage}%`);
+            } else if (hasTimelineUpdates) {
+              setSuccessMessage('Timeline updated successfully!');
+            } else {
+              setSuccessMessage('Project updated successfully!');
+            }
+          }
+        }
+      }
+
+      // Reset form state
+      setTimelineForm(prev => ({ ...prev, hasChanges: false }));
+      
+      // Refresh data
+      await fetchProgressData();
+      
+      console.log('✅ Timeline changes saved successfully');
+      
+      // 🔧 NEW: Show success message
+      setError(null); // Clear any previous errors
+      setSuccessMessage('Timeline updated successfully!');
+      setTimeout(() => setSuccessMessage(null), 3000); // Clear after 3 seconds
+      
+    } catch (error) {
+      console.error('❌ Error saving timeline changes:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save timeline changes');
+      setSuccessMessage(null); // Clear success message on error
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 🔧 NEW: Reset form changes
+  const handleResetTimelineChanges = () => {
+    if (progressData?.project) {
+      setTimelineForm({
+        progress_percentage: progressData.project.progress_percentage || 0,
+        current_phase: progressData.project.current_phase || '',
+        start_date: progressData.project.start_date || '',
+        expected_completion: progressData.project.expected_completion || '',
+        actual_completion: progressData.project.actual_completion || '',
+        hasChanges: false
+      });
+    }
+  };
+
+  // 🔧 NEW: Recalculate progress based on milestones
+  const handleRecalculateProgress = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      console.log('🔄 Calculating project progress from milestones...');
+      
+      // Calculate progress locally from current milestone data
+      if (progressData?.milestones && progressData.milestones.length > 0) {
+        const totalProgress = progressData.milestones.reduce((sum, milestone) => {
+          return sum + (milestone.progress_percentage || 0);
+        }, 0);
+        
+        const calculatedProgress = Math.round(totalProgress / progressData.milestones.length);
+        
+        console.log('📊 Local progress calculation:', {
+          totalMilestones: progressData.milestones.length,
+          milestoneBreakdown: progressData.milestones.map(m => ({
+            name: m.milestone_name,
+            status: m.status,
+            progress: m.progress_percentage
+          })),
+          calculatedProgress
+        });
+        
+        // Update form with calculated progress
+        setTimelineForm(prev => ({
+          ...prev,
+          progress_percentage: calculatedProgress,
+          hasChanges: true // Mark as changed so user can save
+        }));
+        
+        // Show success message with breakdown
+        setSuccessMessage(
+          `Progress calculated: ${calculatedProgress}% (${progressData.milestones.filter(m => m.status === 'completed').length}/${progressData.milestones.length} milestones completed)`
+        );
+        setTimeout(() => setSuccessMessage(null), 7000);
+        
+      } else {
+        // No milestones found
+        setTimelineForm(prev => ({
+          ...prev,
+          progress_percentage: 0,
+          hasChanges: true
+        }));
+        
+        setSuccessMessage('No milestones found - progress set to 0%');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error calculating progress:', error);
+      setError(error instanceof Error ? error.message : 'Failed to calculate progress');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Project timeline update handlers (keeping existing for backward compatibility)
   const handleUpdateProjectTimeline = async (updates: any) => {
     try {
       setUpdating(true);
@@ -196,36 +438,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
     }
   };
 
-  const handleUpdateProjectProgress = async (progressPercentage: number) => {
-    try {
-      setUpdating(true);
-      console.log('📊 Updating project progress:', progressPercentage);
-
-      const response = await fetch('/api/mobile-control/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'updateProjectProgress',
-          projectId,
-          updates: { progress_percentage: progressPercentage },
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        await fetchProgressData(); // Refresh data
-        console.log('✅ Project progress updated successfully');
-      } else {
-        throw new Error(result.error || 'Failed to update project progress');
-      }
-    } catch (error) {
-      console.error('❌ Error updating project progress:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update project progress');
-    } finally {
-      setUpdating(false);
-    }
-  };
+  // 🔧 REMOVED: handleUpdateProjectProgress (replaced with form-based approach)
 
   // Photo management handlers
   const handleApprovePhoto = async (photoId: string) => {
@@ -601,10 +814,39 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
           {/* Project Timeline Controls */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Calendar className="h-5 w-5 mr-2 text-orange-500" />
-                Project Timeline Management
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-orange-500" />
+                  Project Timeline Management
+                </CardTitle>
+                {timelineForm.hasChanges && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleResetTimelineChanges}
+                      disabled={saving}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={handleSaveTimelineChanges}
+                      disabled={saving}
+                      className="px-4 py-1 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:opacity-50 flex items-center space-x-2"
+                    >
+                      {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+                      <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* 🔧 NEW: Success message display */}
+                {successMessage && (
+                  <div className="flex items-center space-x-2 text-green-600 bg-green-50 px-3 py-1 rounded-md">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-medium">{successMessage}</span>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Timeline Dates */}
@@ -616,14 +858,10 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                   <Input
                     id="start_date"
                     type="date"
-                    defaultValue={project.start_date?.split('T')[0]}
+                    value={timelineForm.start_date?.split('T')[0] || ''}
                     className="mt-1"
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleUpdateProjectTimeline({ start_date: e.target.value });
-                      }
-                    }}
-                    disabled={updating}
+                    onChange={(e) => handleTimelineFormChange('start_date', e.target.value)}
+                    disabled={saving}
                   />
                 </div>
 
@@ -634,14 +872,10 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                   <Input
                     id="expected_completion"
                     type="date"
-                    defaultValue={project.expected_completion?.split('T')[0]}
+                    value={timelineForm.expected_completion?.split('T')[0] || ''}
                     className="mt-1"
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleUpdateProjectTimeline({ expected_completion: e.target.value });
-                      }
-                    }}
-                    disabled={updating}
+                    onChange={(e) => handleTimelineFormChange('expected_completion', e.target.value)}
+                    disabled={saving}
                   />
                 </div>
 
@@ -652,14 +886,10 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                   <Input
                     id="actual_completion"
                     type="date"
-                    defaultValue={project.actual_completion?.split('T')[0] || ''}
+                    value={timelineForm.actual_completion?.split('T')[0] || ''}
                     className="mt-1"
-                    onChange={(e) => {
-                      handleUpdateProjectTimeline({ 
-                        actual_completion: e.target.value || null 
-                      });
-                    }}
-                    disabled={updating}
+                    onChange={(e) => handleTimelineFormChange('actual_completion', e.target.value)}
+                    disabled={saving}
                   />
                 </div>
               </div>
@@ -671,9 +901,9 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                     Current Project Phase
                   </Label>
                   <Select 
-                    value={project.current_phase} 
-                    onValueChange={handleUpdateProjectPhase}
-                    disabled={updating}
+                    value={timelineForm.current_phase} 
+                    onValueChange={(value) => handleTimelineFormChange('current_phase', value)}
+                    disabled={saving}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select current phase" />
@@ -694,47 +924,60 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                   </Select>
                 </div>
 
+                {/* Progress Percentage Control */}
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">
-                    Overall Progress Percentage
+                  <Label htmlFor="progress_percentage" className="text-sm font-medium text-gray-700">
+                    Progress Percentage
                   </Label>
                   <div className="mt-1 flex items-center space-x-3">
                     <Input
+                      id="progress_percentage"
                       type="number"
                       min="0"
                       max="100"
-                      defaultValue={project.progress_percentage}
-                      className="w-24"
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        if (!isNaN(value) && value >= 0 && value <= 100) {
-                          handleUpdateProjectProgress(value);
-                        }
-                      }}
-                      disabled={updating}
+                      value={timelineForm.progress_percentage}
+                      className="flex-1"
+                      onChange={(e) => handleTimelineFormChange('progress_percentage', parseInt(e.target.value) || 0)}
+                      disabled={saving}
                     />
-                    <span className="text-sm text-gray-600">%</span>
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${project.progress_percentage}%` }}
-                      />
-                    </div>
+                    <span className="text-sm text-gray-500">%</span>
+                    
+                    {/* 🔧 NEW: Auto-calculate progress button */}
+                    <button
+                      type="button"
+                      onClick={handleRecalculateProgress}
+                      disabled={saving || !projectId}
+                      className="px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 disabled:opacity-50 flex items-center space-x-1"
+                      title="Calculate progress based on milestone completion"
+                    >
+                      <TrendingUp className="h-3 w-3" />
+                      <span>Auto-Calculate</span>
+                    </button>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Manual override or use "Auto-Calculate" to compute from milestones
+                  </p>
                 </div>
               </div>
 
               {/* Timeline Summary */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-3">Timeline Summary</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-900">Timeline Summary</h4>
+                  {project?.updated_at && (
+                    <div className="text-xs text-gray-500">
+                      Last updated: {new Date(project.updated_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Started:</span>
-                    <div className="font-medium">{formatDate(project.start_date)}</div>
+                    <div className="font-medium">{formatDate(timelineForm.start_date || project.start_date)}</div>
                   </div>
                   <div>
                     <span className="text-gray-600">Expected Completion:</span>
-                    <div className="font-medium">{formatDate(project.expected_completion)}</div>
+                    <div className="font-medium">{formatDate(timelineForm.expected_completion || project.expected_completion)}</div>
                   </div>
                   <div>
                     <span className="text-gray-600">Days Remaining:</span>
@@ -747,6 +990,18 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                     </div>
                   </div>
                 </div>
+                
+                {timelineForm.hasChanges && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center text-blue-800">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      <span className="text-sm font-medium">You have unsaved changes</span>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Click "Save Changes" to apply your updates to the mobile app.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1347,7 +1602,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Label htmlFor="milestone_name">Milestone Name *</Label>
+              <Label htmlFor="milestone_name" className='text-gray-900'>Milestone Name *</Label>
               <Input
                 value={formData.milestone_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, milestone_name: e.target.value }))}
@@ -1359,16 +1614,17 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className='text-gray-900'>Description</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
+                className='bg-white text-gray-900'
               />
             </div>
 
             <div>
-              <Label htmlFor="phase_category">Phase Category</Label>
+              <Label htmlFor="phase_category" className='text-gray-900'>Phase Category</Label>
               <Select 
                 value={formData.phase_category} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, phase_category: value }))}
@@ -1393,7 +1649,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className='text-gray-900'>Status</Label>
               <Select 
                 value={formData.status} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}
@@ -1412,7 +1668,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="planned_start">Planned Start *</Label>
+              <Label htmlFor="planned_start" className='text-gray-900'>Planned Start *</Label>
               <Input
                 type="date"
                 value={formData.planned_start}
@@ -1425,7 +1681,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="planned_end">Planned End *</Label>
+              <Label htmlFor="planned_end" className='text-gray-900'>Planned End *</Label>
               <Input
                 type="date"
                 value={formData.planned_end}
@@ -1438,7 +1694,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="actual_start">Actual Start</Label>
+              <Label htmlFor="actual_start" className='text-gray-900'>Actual Start</Label>
               <Input
                 type="date"
                 value={formData.actual_start}
@@ -1447,7 +1703,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="actual_end">Actual End</Label>
+              <Label htmlFor="actual_end" className='text-gray-900'>Actual End</Label>
               <Input
                 type="date"
                 value={formData.actual_end}
@@ -1456,7 +1712,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="progress_percentage">Progress (%)</Label>
+              <Label htmlFor="progress_percentage" className='text-gray-900'>Progress (%)</Label>
               <Input
                 type="number"
                 min="0"
@@ -1467,7 +1723,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="order_index">Order Index</Label>
+              <Label htmlFor="order_index" className='text-gray-900'>Order Index</Label>
               <Input
                 type="number"
                 min="0"
@@ -1477,7 +1733,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="estimated_cost">Estimated Cost (USD)</Label>
+              <Label htmlFor="estimated_cost" className='text-gray-900'>Estimated Cost (USD)</Label>
               <Input
                 type="number"
                 min="0"
@@ -1488,7 +1744,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div>
-              <Label htmlFor="actual_cost">Actual Cost (USD)</Label>
+              <Label htmlFor="actual_cost" className='text-gray-900'>Actual Cost (USD)</Label>
               <Input
                 type="number"
                 min="0"
@@ -1499,7 +1755,7 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="responsible_contractor">Responsible Contractor</Label>
+              <Label htmlFor="responsible_contractor" className='text-gray-900'>Responsible Contractor</Label>
               <Input
                 value={formData.responsible_contractor}
                 onChange={(e) => setFormData(prev => ({ ...prev, responsible_contractor: e.target.value }))}
@@ -1507,11 +1763,12 @@ function MilestoneEditModal({ isOpen, onClose, milestone, onMilestoneUpdated }: 
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes" className='text-gray-900'>Notes</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 rows={3}
+                className='bg-white text-gray-900'
               />
             </div>
           </div>

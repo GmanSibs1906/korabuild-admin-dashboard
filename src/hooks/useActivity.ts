@@ -210,7 +210,7 @@ export function useActivity() {
       paymentsSubscription.unsubscribe();
       messagesSubscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dependency array - only run on mount to prevent infinite loops
 
   return {
     activities,

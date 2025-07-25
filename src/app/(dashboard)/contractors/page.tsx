@@ -400,7 +400,7 @@ export default function ContractorsPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <div className="space-y-4">
-          <h4 className="text-lg font-medium text-gray-900">Basic Information</h4>
+          <h4 className="text-lg font-medium text-white">Basic Information</h4>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="contractor_name">Contractor Name *</Label>
@@ -474,7 +474,7 @@ export default function ContractorsPage() {
 
         {/* Trade Specialization */}
         <div className="space-y-4">
-          <h4 className="text-lg font-medium text-gray-900">Trade Specialization</h4>
+          <h4 className="text-lg font-medium text-white">Trade Specialization</h4>
           <div>
             <Label htmlFor="trade_specialization">Primary Trade Specialization *</Label>
             <Select 
@@ -498,7 +498,7 @@ export default function ContractorsPage() {
 
         {/* Address Information */}
         <div className="space-y-4">
-          <h4 className="text-lg font-medium text-gray-900">Address Information</h4>
+          <h4 className="text-lg font-medium text-white">Address Information</h4>
           <div>
             <Label htmlFor="physical_address">Physical Address</Label>
             <Textarea
@@ -508,6 +508,7 @@ export default function ContractorsPage() {
               rows={2}
               placeholder="Street address, city, province"
               disabled={isSubmitting}
+              className="text-gray-900 placeholder-gray-400 bg-white"
             />
           </div>
           <div>
@@ -519,13 +520,14 @@ export default function ContractorsPage() {
               rows={2}
               placeholder="Postal address if different from physical"
               disabled={isSubmitting}
+              className="text-gray-900 placeholder-gray-400 bg-white"
             />
           </div>
         </div>
 
         {/* Business Information */}
         <div className="space-y-4">
-          <h4 className="text-lg font-medium text-gray-900">Business Information</h4>
+          <h4 className="text-lg font-medium text-white">Business Information</h4>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="years_in_business">Years in Business</Label>
@@ -598,7 +600,7 @@ export default function ContractorsPage() {
 
         {/* Insurance Information */}
         <div className="space-y-4">
-          <h4 className="text-lg font-medium text-gray-900">Insurance Information</h4>
+          <h4 className="text-lg font-medium text-white">Insurance Information</h4>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="insurance_provider">Insurance Provider</Label>
@@ -623,7 +625,7 @@ export default function ContractorsPage() {
 
         {/* Rates and Terms */}
         <div className="space-y-4">
-          <h4 className="text-lg font-medium text-gray-900">Rates and Terms</h4>
+          <h4 className="text-lg font-medium text-white">Rates and Terms</h4>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="hourly_rate">Hourly Rate (USD)</Label>
@@ -700,7 +702,7 @@ export default function ContractorsPage() {
 
         {/* Additional Notes */}
         <div className="space-y-4">
-          <h4 className="text-lg font-medium text-gray-900">Additional Information</h4>
+          <h4 className="text-lg font-medium text-white">Additional Information</h4>
           <div>
             <Label htmlFor="notes">Notes</Label>
             <Textarea
@@ -709,7 +711,7 @@ export default function ContractorsPage() {
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               rows={3}
               placeholder="Additional notes about this contractor..."
-              className="text-white"
+              className="text-gray-900 placeholder-gray-400 bg-white"
               disabled={isSubmitting}
             />
           </div>
@@ -983,7 +985,7 @@ export default function ContractorsPage() {
             />
           </div>
           <div>
-            <Label htmlFor="work_completion_percentage" className="text-gray-700">Initial Progress (%)</Label>
+            <Label htmlFor="work_completion_percentage" className="text-gray-700">Work Completion (%)</Label>
             <Input
               id="work_completion_percentage"
               type="number"
@@ -1002,12 +1004,11 @@ export default function ContractorsPage() {
             <Label htmlFor="contract_status" className="text-gray-700">Contract Status</Label>
             <Select value={formData.contract_status} onValueChange={(value) => setFormData(prev => ({ ...prev, contract_status: value }))}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Select contract status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                <SelectItem value="user_approved">User Approved</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="terminated">Terminated</SelectItem>
@@ -1021,7 +1022,7 @@ export default function ContractorsPage() {
             <Label htmlFor="on_site_status" className="text-gray-700">On-Site Status</Label>
             <Select value={formData.on_site_status} onValueChange={(value) => setFormData(prev => ({ ...prev, on_site_status: value }))}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Select on-site status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="not_started">Not Started</SelectItem>
@@ -2082,15 +2083,11 @@ export default function ContractorsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                  <SelectItem value="user_approved">User Approved</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="terminated">Terminated</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
-                  <SelectItem value="on_hold">On Hold</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="blacklisted">Blacklisted</SelectItem>
+                  <SelectItem value="pending_approval">Pending Approval</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2111,7 +2108,6 @@ export default function ContractorsPage() {
                 <SelectContent>
                   <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                  <SelectItem value="user_approved">User Approved</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="terminated">Terminated</SelectItem>

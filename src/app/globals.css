@@ -88,10 +88,64 @@
 }
 
 @layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
   * {
     @apply border-border;
   }
-  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -201,6 +255,75 @@
     font-size: 16px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Professional Dashboard Styles */
+  .dashboard-card {
+    @apply bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .dashboard-metric {
+    @apply text-2xl font-bold text-slate-900 tracking-tight;
+  }
+  
+  .dashboard-subtitle {
+    @apply text-sm text-slate-600 font-medium;
+  }
+  
+  .clean-button {
+    @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .clean-button-primary {
+    @apply clean-button bg-orange-600 text-white hover:bg-orange-700 focus:ring-orange-500;
+  }
+  
+  .clean-button-secondary {
+    @apply clean-button bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-500;
+  }
+
+  /* Typography improvements */
+  .heading-1 {
+    @apply text-3xl font-bold text-slate-900 tracking-tight;
+  }
+  
+  .heading-2 {
+    @apply text-xl font-semibold text-slate-900 tracking-tight;
+  }
+  
+  .heading-3 {
+    @apply text-lg font-semibold text-slate-900;
+  }
+  
+  .body-large {
+    @apply text-lg text-slate-700;
+  }
+  
+  .body-regular {
+    @apply text-base text-slate-600;
+  }
+  
+  .body-small {
+    @apply text-sm text-slate-500;
+  }
+
+  /* Status indicators */
+  .status-success {
+    @apply bg-green-50 text-green-700 border-green-200;
+  }
+  
+  .status-warning {
+    @apply bg-orange-50 text-orange-700 border-orange-200;
+  }
+  
+  .status-error {
+    @apply bg-red-50 text-red-700 border-red-200;
+  }
+  
+  .status-info {
+    @apply bg-blue-50 text-blue-700 border-blue-200;
   }
 }
 

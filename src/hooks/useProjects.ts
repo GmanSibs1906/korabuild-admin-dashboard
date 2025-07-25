@@ -158,7 +158,7 @@ export function useProjects(): UseProjectsReturn {
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, []); // Empty dependency array - only run on mount to prevent infinite loops
 
   return {
     projects,

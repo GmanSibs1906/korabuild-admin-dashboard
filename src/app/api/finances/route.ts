@@ -1,23 +1,100 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const projectId = searchParams.get('projectId');
-  const userId = searchParams.get('userId');
-  const type = searchParams.get('type'); // 'overview', 'payments', 'budgets', 'credit'
-
+// Helper function to update ONLY the calculated payments total (not cash_received)
+const updatePaymentsTotal = async (projectId: string) => {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  
   try {
+    console.log('🔧 Updating payments total for project:', projectId);
+    
+    // Calculate total completed payments
+    const { data: allPayments } = await supabaseAdmin
+      .from('payments')
+      .select('amount')
+      .eq('project_id', projectId)
+      .eq('status', 'completed');
+
+    const totalPayments = allPayments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+    
+    console.log('💰 Calculated total payments:', totalPayments);
+
+    // Update ONLY the calculated field, leave cash_received untouched
+    const { error: updateError } = await supabaseAdmin
+      .from('project_financials')
+      .update({
+        total_payments_calculated: totalPayments,
+        updated_at: new Date().toISOString()
+      })
+      .eq('project_id', projectId);
+
+    if (updateError) {
+      console.error('❌ Error updating payments total:', updateError);
+    } else {
+      console.log('✅ Payments total updated successfully');
+    }
+  } catch (error) {
+    console.error('⚠️ Error updating payments total:', error);
+    // Don't throw - payment operations should still succeed
+  }
+};
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+
+    console.log('💰 Financial API - GET request type:', type);
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Get comprehensive financial data
-    const financialData: any = {
-      timestamp: new Date().toISOString(),
+    const response = {
+      success: true,
       type: type || 'overview'
     };
+
+    // Get all projects with their contract values and financial data
+    const { data: projects, error: projectsError } = await supabase
+      .from('projects')
+      .select(`
+        id,
+        project_name,
+        client_id,
+        contract_value,
+        status
+      `)
+      .order('created_at', { ascending: false });
+
+    if (projectsError) {
+      console.error('Error fetching projects:', projectsError);
+      throw projectsError;
+    }
+
+    // Get project financials data
+    const { data: projectFinancials, error: financialsError } = await supabase
+      .from('project_financials')
+      .select(`
+        project_id,
+        cash_received,
+        amount_used,
+        amount_remaining,
+        total_payments_calculated,
+        snapshot_date,
+        updated_at
+      `)
+      .order('updated_at', { ascending: false });
+
+    if (financialsError) {
+      console.error('Error fetching project financials:', financialsError);
+      // Don't throw - continue without financials data
+      console.warn('⚠️ Continuing without project financials data');
+    }
 
     // Get all payments with project and user info
     const { data: payments, error: paymentsError } = await supabase
@@ -112,8 +189,9 @@ export async function GET(request: Request) {
       throw categoriesError;
     }
 
-    // Get receipt metadata
-    const { data: receipts, error: receiptsError } = await supabase
+    // Get receipt metadata (handle broken foreign key gracefully)
+    let receipts = [];
+    const { data: receiptsData, error: receiptsError } = await supabase
       .from('receipt_metadata')
       .select(`
         *,
@@ -132,119 +210,131 @@ export async function GET(request: Request) {
 
     if (receiptsError) {
       console.error('Error fetching receipts:', receiptsError);
-      throw receiptsError;
+      // Don't throw error - just continue without receipts data
+      console.warn('⚠️ Continuing without receipt metadata due to relationship error');
+    } else {
+      receipts = receiptsData || [];
     }
 
-    // Calculate financial analytics
+    // Calculate comprehensive financial metrics
+    const totalExpected = projects?.reduce((sum, project) => sum + (project.contract_value || 0), 0) || 0;
+    
+    // Calculate total received from project_financials.cash_received
+    const financialsMap = new Map();
+    projectFinancials?.forEach(pf => {
+      const existing = financialsMap.get(pf.project_id);
+      if (!existing || new Date(pf.updated_at) > new Date(existing.updated_at)) {
+        financialsMap.set(pf.project_id, pf);
+      }
+    });
+    
+    const totalReceived = Array.from(financialsMap.values())
+      .reduce((sum, pf) => sum + (pf.cash_received || 0), 0);
+    
+    // Calculate total outstanding
+    const totalOutstanding = totalExpected - totalReceived;
+    
+    // Calculate total expenditure from completed payments
+    const totalExpenditure = payments?.reduce((sum, payment) => {
+      return payment.status === 'completed' ? sum + (payment.amount || 0) : sum;
+    }, 0) || 0;
+    
+    // Calculate total available
+    const totalAvailable = totalReceived - totalExpenditure;
+
+    // Legacy calculations for backward compatibility
     const totalPayments = payments?.reduce((sum: number, payment: any) => sum + Number(payment.amount), 0) || 0;
     const totalBudget = budgets?.reduce((sum: number, budget: any) => sum + Number(budget.budgeted_amount), 0) || 0;
     const totalActual = budgets?.reduce((sum: number, budget: any) => sum + Number(budget.actual_amount), 0) || 0;
-    const totalCreditLimit = creditAccounts?.reduce((sum: number, account: any) => sum + Number(account.credit_limit), 0) || 0;
-    const totalCreditUsed = creditAccounts?.reduce((sum: number, account: any) => sum + Number(account.used_credit), 0) || 0;
+    const totalVariance = totalActual - totalBudget;
 
-    // Calculate payment status distribution
-    const paymentStatusCounts = payments?.reduce((acc, payment) => {
-      acc[payment.status] = (acc[payment.status] || 0) + 1;
+    // Payment status breakdown
+    const paymentStats = payments?.reduce((acc: any, payment: any) => {
+      acc.total += Number(payment.amount);
+      acc.count += 1;
+      acc.statusBreakdown[payment.status] = (acc.statusBreakdown[payment.status] || 0) + 1;
+      acc.categoryBreakdown[payment.payment_category] = (acc.categoryBreakdown[payment.payment_category] || 0) + Number(payment.amount);
       return acc;
-    }, {} as Record<string, number>) || {};
+    }, {
+      total: 0,
+      count: 0,
+      statusBreakdown: {},
+      categoryBreakdown: {}
+    }) || { total: 0, count: 0, statusBreakdown: {}, categoryBreakdown: {} };
 
-    // Calculate budget variance
-    const budgetVariance = totalBudget > 0 ? ((totalActual - totalBudget) / totalBudget) * 100 : 0;
+    // Monthly trends
+    const monthlyData = payments?.reduce((acc: any, payment: any) => {
+      const month = new Date(payment.payment_date).toISOString().substring(0, 7); // YYYY-MM
+      if (!acc[month]) {
+        acc[month] = { amount: 0, count: 0 };
+      }
+      acc[month].amount += Number(payment.amount);
+      acc[month].count += 1;
+      return acc;
+    }, {}) || {};
 
-    // Calculate credit utilization
-    const creditUtilization = totalCreditLimit > 0 ? (totalCreditUsed / totalCreditLimit) * 100 : 0;
+    // Calculate current month payments dynamically
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    const monthlyPayments = monthlyData[currentMonth]?.amount || 0;
 
-    // Get recent payment activities
-    const recentPayments = payments?.slice(0, 10) || [];
-
-    // Get pending approvals (payments with pending status)
-    const pendingApprovals = payments?.filter(payment => payment.status === 'pending') || [];
-
-    // Get overdue payments (this would require due date logic)
-    const currentDate = new Date();
-    const overduePayments = payments?.filter(payment => {
-      // Add your overdue logic here based on due dates
-      return payment.status === 'pending' && payment.payment_date < currentDate.toISOString().split('T')[0];
-    }) || [];
-
-    // Financial health scoring
-    const getFinancialHealthScore = () => {
-      let score = 70; // Base score
-      
-      // Budget variance impact
-      if (budgetVariance < -10) score += 10; // Under budget
-      else if (budgetVariance > 10) score -= 15; // Over budget
-      
-      // Credit utilization impact
-      if (creditUtilization < 30) score += 10; // Low utilization
-      else if (creditUtilization > 80) score -= 20; // High utilization
-      
-      // Payment status impact
-      const pendingRatio = pendingApprovals.length / (payments?.length || 1);
-      if (pendingRatio > 0.3) score -= 15; // Too many pending
-      
-      return Math.max(0, Math.min(100, score));
+    // Build comprehensive response
+    const responseData = {
+      overview: {
+        // New comprehensive financial metrics
+        totalExpected,
+        totalReceived,
+        totalOutstanding,
+        totalExpenditure,
+        totalAvailable,
+        monthlyPayments, // Dynamic current month payments
+        cashFlowHealth: totalAvailable > 0 ? 'positive' : 'negative',
+        collectionProgress: totalExpected > 0 ? ((totalReceived / totalExpected) * 100).toFixed(1) : '0',
+        expenditureRate: totalReceived > 0 ? ((totalExpenditure / totalReceived) * 100).toFixed(1) : '0',
+        
+        // Legacy metrics for backward compatibility
+        totalPayments,
+        totalBudget,
+        totalActual,
+        totalVariance,
+        variancePercentage: totalBudget > 0 ? ((totalVariance / totalBudget) * 100).toFixed(1) : '0',
+        paymentStats,
+        monthlyTrends: Object.entries(monthlyData).map(([month, data]: [string, any]) => ({
+          month,
+          amount: data.amount,
+          count: data.count
+        })).sort((a, b) => a.month.localeCompare(b.month))
+      },
+      projects: projects || [],
+      projectFinancials: projectFinancials || [],
+      payments: payments || [],
+      budgets: budgets || [],
+      creditAccounts: creditAccounts || [],
+      paymentCategories: paymentCategories || [],
+      receipts: receipts || [],
+      analytics: {
+        totalProjects: projects?.length || 0,
+        projectsWithFinancials: financialsMap.size,
+        averagePaymentAmount: paymentStats.count > 0 ? (paymentStats.total / paymentStats.count).toFixed(2) : '0',
+        largestPayment: payments?.length > 0 ? Math.max(...payments.map((p: any) => Number(p.amount))) : 0,
+        recentPayments: payments?.slice(0, 5) || []
+      }
     };
 
-    const financialHealthScore = getFinancialHealthScore();
+    console.log('✅ Financial data fetched successfully with comprehensive metrics');
 
-    // Determine financial health status
-    const getFinancialHealthStatus = (score: number) => {
-      if (score >= 80) return 'excellent';
-      if (score >= 60) return 'good';
-      if (score >= 40) return 'fair';
-      return 'poor';
-    };
-
-    // Build response based on type
-    financialData.overview = {
-      totalPayments,
-      totalBudget,
-      totalActual,
-      totalCreditLimit,
-      totalCreditUsed,
-      budgetVariance,
-      creditUtilization,
-      financialHealthScore,
-      financialHealthStatus: getFinancialHealthStatus(financialHealthScore),
-      paymentStatusCounts,
-      pendingApprovalsCount: pendingApprovals.length,
-      overduePaymentsCount: overduePayments.length,
-      recentPaymentsCount: recentPayments.length
-    };
-
-    financialData.payments = payments || [];
-    financialData.budgets = budgets || [];
-    financialData.creditAccounts = creditAccounts || [];
-    financialData.paymentCategories = paymentCategories || [];
-    financialData.receipts = receipts || [];
-    financialData.recentPayments = recentPayments;
-    financialData.pendingApprovals = pendingApprovals;
-    financialData.overduePayments = overduePayments;
-
-    // Add counts for summary
-    financialData.counts = {
-      totalPayments: payments?.length || 0,
-      totalBudgets: budgets?.length || 0,
-      totalCreditAccounts: creditAccounts?.length || 0,
-      totalCategories: paymentCategories?.length || 0,
-      totalReceipts: receipts?.length || 0
-    };
-
-    console.log('✅ Financial data fetched successfully:', {
-      paymentsCount: financialData.counts.totalPayments,
-      budgetsCount: financialData.counts.totalBudgets,
-      creditAccountsCount: financialData.counts.totalCreditAccounts,
-      financialHealth: financialData.overview.financialHealthStatus,
-      totalValue: financialData.overview.totalPayments
+    return NextResponse.json({
+      success: true,
+      data: responseData
     });
-
-    return NextResponse.json(financialData);
 
   } catch (error) {
     console.error('❌ Error in financial API:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch financial data', details: error },
+      { 
+        success: false, 
+        error: 'Failed to fetch financial data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -269,6 +359,10 @@ export async function POST(request: Request) {
           .single();
 
         if (paymentError) throw paymentError;
+
+        // 🔧 UPDATE PAYMENTS TOTAL: Only update calculated field, leave cash_received alone
+        await updatePaymentsTotal(data.project_id);
+
         return NextResponse.json({ success: true, payment: newPayment });
 
       case 'create_budget':
@@ -293,6 +387,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, account: updatedAccount });
 
       case 'approve_payment':
+        // Get payment details first to get project_id
+        const { data: paymentDetails, error: fetchError } = await supabase
+          .from('payments')
+          .select('project_id')
+          .eq('id', data.paymentId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
         const { data: approvedPayment, error: approvalError } = await supabase
           .from('payments')
           .update({ status: 'completed' })
@@ -301,6 +404,10 @@ export async function POST(request: Request) {
           .single();
 
         if (approvalError) throw approvalError;
+
+        // 🔧 UPDATE PAYMENTS TOTAL: Only update calculated field, leave cash_received alone
+        await updatePaymentsTotal(paymentDetails.project_id);
+
         return NextResponse.json({ success: true, payment: approvedPayment });
 
       default:

@@ -308,7 +308,7 @@ export function useRequestNotifications(
         }
       }
     };
-  }, [fetchNotifications, limit]);
+  }, [limit]); // Only depend on limit, remove fetchNotifications
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {

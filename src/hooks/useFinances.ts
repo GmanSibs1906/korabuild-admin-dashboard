@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 
 // Financial data interfaces
 interface FinancialOverview {
+  // Legacy properties
   totalPayments: number;
   totalBudget: number;
   totalActual: number;
@@ -17,6 +18,21 @@ interface FinancialOverview {
   pendingApprovalsCount: number;
   overduePaymentsCount: number;
   recentPaymentsCount: number;
+  
+  // New comprehensive financial metrics
+  totalExpected: number;
+  totalReceived: number;
+  totalOutstanding: number;
+  totalExpenditure: number;
+  totalAvailable: number;
+  monthlyPayments: number; // Dynamic current month payments
+  cashFlowHealth: string;
+  collectionProgress: string;
+  expenditureRate: string;
+  totalVariance: number;
+  variancePercentage: string;
+  paymentStats: any;
+  monthlyTrends: any[];
 }
 
 interface Payment {
@@ -30,7 +46,7 @@ interface Payment {
   description: string;
   receipt_url?: string;
   status: 'pending' | 'completed' | 'failed' | 'refunded';
-  payment_category: string;
+  payment_category: 'milestone' | 'materials' | 'labor' | 'permits' | 'other';
   created_at: string;
   updated_at: string;
   project?: {
@@ -49,7 +65,7 @@ interface Payment {
 
 interface Budget {
   id: string;
-  project_id: string;
+  project_id?: string;
   milestone_id?: string;
   category_id?: string;
   budget_name: string;
@@ -57,11 +73,12 @@ interface Budget {
   actual_amount: number;
   variance_amount: number;
   variance_percentage: number;
-  budget_period: string;
+  budget_period: 'monthly' | 'quarterly' | 'milestone' | 'project';
   start_date?: string;
   end_date?: string;
-  status: string;
+  status: 'active' | 'completed' | 'exceeded' | 'cancelled';
   notes?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   project?: {
@@ -80,20 +97,20 @@ interface Budget {
     category_name: string;
     category_code: string;
     color_hex: string;
-    icon_name: string;
+    icon_name?: string;
   };
 }
 
 interface CreditAccount {
   id: string;
-  project_id: string;
-  client_id: string;
+  project_id?: string;
+  client_id?: string;
   credit_limit: number;
   used_credit: number;
   available_credit: number;
   interest_rate: number;
   credit_terms: string;
-  credit_status: string;
+  credit_status: 'active' | 'suspended' | 'closed' | 'pending';
   monthly_payment: number;
   next_payment_date?: string;
   last_payment_date?: string;
@@ -101,8 +118,14 @@ interface CreditAccount {
   approval_date: string;
   expiry_date: string;
   notes?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
+  milestone_id?: string;
+  payment_amount: number;
+  payment_sequence: number;
+  total_payments: number;
+  total_amount: number;
   project?: {
     id: string;
     project_name: string;
@@ -113,7 +136,7 @@ interface CreditAccount {
     id: string;
     full_name: string;
     email: string;
-    phone: string;
+    phone?: string;
   };
 }
 
@@ -131,13 +154,13 @@ interface PaymentCategory {
 
 interface Receipt {
   id: string;
-  payment_id: string;
+  payment_id?: string;
   file_name: string;
   file_path: string;
-  file_size_bytes: number;
-  file_type: string;
+  file_size_bytes?: number;
+  file_type?: string;
   upload_date: string;
-  processing_status: string;
+  processing_status: 'pending' | 'processing' | 'completed' | 'failed';
   ocr_data: any;
   thumbnail_url?: string;
   page_count: number;
@@ -146,6 +169,7 @@ interface Receipt {
   extracted_vendor?: string;
   confidence_score?: number;
   manual_verification: boolean;
+  uploaded_by?: string;
   created_at: string;
   updated_at: string;
   payment?: {
@@ -172,6 +196,8 @@ interface FinancialData {
   recentPayments: Payment[];
   pendingApprovals: Payment[];
   overduePayments: Payment[];
+  projectFinancials: any[]; // Add missing property
+  analytics: any; // Add missing property
   counts: {
     totalPayments: number;
     totalBudgets: number;
@@ -190,11 +216,11 @@ interface UseFinancesReturn {
   financialData: FinancialData | null;
   isLoading: boolean;
   error: FinancialError | null;
-  refetch: () => void;
-  createPayment: (paymentData: any) => Promise<void>;
-  createBudget: (budgetData: any) => Promise<void>;
-  updateCreditAccount: (accountData: any) => Promise<void>;
-  approvePayment: (paymentId: string) => Promise<void>;
+  refetch: () => Promise<void>;
+  createPayment: (paymentData: any) => Promise<any>;
+  approvePayment: (paymentId: string) => Promise<any>;
+  createBudget: (budgetData: any) => Promise<any>;
+  updateCreditAccount: (accountData: any) => Promise<any>;
 }
 
 export const useFinances = (options?: { 
@@ -224,18 +250,20 @@ export const useFinances = (options?: {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const apiResponse = await response.json();
       
-      if (data.error) {
-        throw new Error(data.error);
+      if (apiResponse.error) {
+        throw new Error(apiResponse.error);
       }
+
+      // 🔧 FIX: Extract data from the new API response structure
+      const data = apiResponse.data || apiResponse;
 
       setFinancialData(data);
       console.log('✅ Financial data loaded successfully:', {
-        paymentsCount: data.counts?.totalPayments || 0,
-        budgetsCount: data.counts?.totalBudgets || 0,
-        creditAccountsCount: data.counts?.totalCreditAccounts || 0,
-        financialHealth: data.overview?.financialHealthStatus || 'unknown',
+        paymentsCount: data.payments?.length || 0,
+        budgetsCount: data.budgets?.length || 0,
+        creditAccountsCount: data.creditAccounts?.length || 0,
         totalValue: data.overview?.totalPayments || 0
       });
 
@@ -273,12 +301,45 @@ export const useFinances = (options?: {
         throw new Error(result.error);
       }
 
-      // Refetch data after successful creation
+      // Refresh data after creating payment
       await fetchFinancialData();
       
-      console.log('✅ Payment created successfully:', result.payment);
+      return result;
     } catch (err) {
       console.error('❌ Error creating payment:', err);
+      throw err;
+    }
+  };
+
+  const approvePayment = async (paymentId: string) => {
+    try {
+      const response = await fetch('/api/finances', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'approve_payment',
+          data: { paymentId }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Refresh data after approval
+      await fetchFinancialData();
+      
+      return result;
+    } catch (err) {
+      console.error('❌ Error approving payment:', err);
       throw err;
     }
   };
@@ -306,10 +367,10 @@ export const useFinances = (options?: {
         throw new Error(result.error);
       }
 
-      // Refetch data after successful creation
+      // Refresh data after creating budget
       await fetchFinancialData();
       
-      console.log('✅ Budget created successfully:', result.budget);
+      return result;
     } catch (err) {
       console.error('❌ Error creating budget:', err);
       throw err;
@@ -339,59 +400,22 @@ export const useFinances = (options?: {
         throw new Error(result.error);
       }
 
-      // Refetch data after successful update
+      // Refresh data after updating account
       await fetchFinancialData();
       
-      console.log('✅ Credit account updated successfully:', result.account);
+      return result;
     } catch (err) {
       console.error('❌ Error updating credit account:', err);
       throw err;
     }
   };
 
-  const approvePayment = async (paymentId: string) => {
-    try {
-      const response = await fetch('/api/finances', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'approve_payment',
-          data: { paymentId }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      // Refetch data after successful approval
-      await fetchFinancialData();
-      
-      console.log('✅ Payment approved successfully:', result.payment);
-    } catch (err) {
-      console.error('❌ Error approving payment:', err);
-      throw err;
-    }
-  };
-
-  const refetch = () => {
-    fetchFinancialData();
-  };
-
   // Initial fetch
   useEffect(() => {
     fetchFinancialData();
-  }, [options?.projectId, options?.userId, options?.type]);
+  }, []); // Empty dependency array to prevent infinite loops - options changes trigger separate useEffect
 
-  // Auto-refetch interval
+  // Auto-refetch if enabled - separate useEffect for options changes
   useEffect(() => {
     if (options?.autoRefetch && options?.refetchInterval) {
       const interval = setInterval(fetchFinancialData, options.refetchInterval);
@@ -399,14 +423,19 @@ export const useFinances = (options?: {
     }
   }, [options?.autoRefetch, options?.refetchInterval]);
 
+  // Refetch when key options change
+  useEffect(() => {
+    fetchFinancialData();
+  }, [options?.projectId, options?.userId, options?.type]);
+
   return {
     financialData,
     isLoading,
     error,
-    refetch,
+    refetch: fetchFinancialData,
     createPayment,
+    approvePayment,
     createBudget,
-    updateCreditAccount,
-    approvePayment
+    updateCreditAccount
   };
 }; 

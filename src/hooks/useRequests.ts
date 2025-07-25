@@ -159,7 +159,17 @@ export function useRequests(options: UseRequestsOptions = {}): UseRequestsResult
 
   useEffect(() => {
     fetchRequests();
-  }, [fetchRequests]);
+  }, [
+    options.page,
+    options.limit,
+    options.filters?.status,
+    options.filters?.category,
+    options.filters?.priority,
+    options.filters?.project_id,
+    options.filters?.client_id,
+    options.filters?.search,
+    options.includeStats
+  ]); // Remove fetchRequests dependency to prevent infinite loop
 
   const refetch = useCallback(() => {
     fetchRequests();
