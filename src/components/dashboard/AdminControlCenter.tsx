@@ -40,6 +40,7 @@ import {
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { MessageDetailModal } from '@/components/communications/MessageDetailModal';
 
 interface NotificationAction {
   id: string;
@@ -67,6 +68,11 @@ export function AdminControlCenter() {
 
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedConversation, setSelectedConversation] = useState<{
+    id: string;
+    name: string;
+    projectName?: string;
+  } | null>(null);
 
   // Ensure client-side rendering for dynamic content
   useEffect(() => {
@@ -132,16 +138,35 @@ export function AdminControlCenter() {
             label: 'View',
             variant: 'outline',
             icon: Eye,
-            action: () => {
-              // Navigate to the specific conversation using the conversation_id or action_url
+                        action: async () => {
+              console.log('🔍 [Control Center] Opening message conversation modal:', {
+                notificationId: notification.id,
+                conversationId: notification.conversation_id,
+                metadata: notification.metadata
+              });
+              
+              // Mark as read first
+              await markAsRead(notification.id);
+              
+              // Extract conversation details from notification metadata
+              const metadata = notification.metadata || {};
+              const conversationName = metadata.conversation_name || 
+                                     notification.title?.replace('New message in ', '')?.replace('New message from ', '') ||
+                                     'Conversation';
+              const projectName = metadata.project_name;
+              
+              // Open the modal directly with conversation details
               if (notification.conversation_id) {
-                router.push(`/communications?conversation=${notification.conversation_id}`);
-              } else if (notification.action_url) {
-                router.push(notification.action_url);
+                console.log('💬 [Control Center] Opening chat modal for conversation:', conversationName);
+                setSelectedConversation({
+                  id: notification.conversation_id,
+                  name: conversationName,
+                  projectName: projectName
+                });
               } else {
-                router.push('/communications');
+                console.log('⚠️ [Control Center] No conversation_id found, falling back to communications page');
+                window.location.href = '/communications';
               }
-              markAsRead(notification.id);
             }
           },
           {
@@ -149,16 +174,40 @@ export function AdminControlCenter() {
             label: 'Reply',
             variant: 'primary',
             icon: Reply,
-            action: () => {
-              // Navigate to reply in the conversation
+                        action: async () => {
+              console.log('💬 [Control Center] Opening reply modal:', {
+                notificationId: notification.id,
+                conversationId: notification.conversation_id,
+                metadata: notification.metadata
+              });
+              
+              // Mark as read first
+              await markAsRead(notification.id);
+              
+              // Extract conversation details from notification metadata
+              const metadata = notification.metadata || {};
+              const conversationName = metadata.conversation_name || 
+                                     notification.title?.replace('New message in ', '')?.replace('New message from ', '') ||
+                                     'Conversation';
+              const projectName = metadata.project_name;
+              
+              // Open the modal directly for reply
               if (notification.conversation_id) {
-                router.push(`/communications?conversation=${notification.conversation_id}&reply=true`);
-              } else if (notification.action_url) {
-                router.push(notification.action_url);
+                console.log('💬 [Control Center] Opening reply modal for conversation:', conversationName);
+                setSelectedConversation({
+                  id: notification.conversation_id,
+                  name: conversationName,
+                  projectName: projectName
+                });
+                
+                // Add reply flag to URL for auto-focus
+                const url = new URL(window.location.href);
+                url.searchParams.set('reply', 'true');
+                window.history.replaceState({}, '', url.toString());
               } else {
-                router.push('/communications');
+                console.log('⚠️ [Control Center] No conversation_id found for reply, falling back to communications page');
+                window.location.href = '/communications';
               }
-              markAsRead(notification.id);
             }
           }
         );
@@ -653,6 +702,27 @@ export function AdminControlCenter() {
           </Tabs>
         </div>
       </Card>
+
+      {/* Message Detail Modal */}
+      {selectedConversation && (
+        <MessageDetailModal
+          isOpen={!!selectedConversation}
+          onClose={() => {
+            setSelectedConversation(null);
+            // Clear reply parameter from URL when closing
+            const url = new URL(window.location.href);
+            url.searchParams.delete('reply');
+            window.history.replaceState({}, '', url.toString());
+          }}
+          conversationId={selectedConversation.id}
+          conversationName={selectedConversation.name}
+          projectName={selectedConversation.projectName}
+          onMessageSent={() => {
+            console.log('✅ [Control Center] Message sent from modal');
+            // Optionally refresh notifications or update counts
+          }}
+        />
+      )}
     </div>
   );
 } 

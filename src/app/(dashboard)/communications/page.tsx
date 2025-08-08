@@ -38,6 +38,7 @@ export default function CommunicationsPage() {
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [senderBasedConversations, setSenderBasedConversations] = useState<ConversationWithSender[]>([]);
+  const [processedConversationId, setProcessedConversationId] = useState<string | null>(null);
   
   const { data, isLoading, error, refetch, markConversationRead } = useCommunications({
     autoRefresh: false,
@@ -47,17 +48,26 @@ export default function CommunicationsPage() {
   // Handle URL parameters to open specific conversations
   useEffect(() => {
     const conversationId = searchParams.get('conversation');
-    if (conversationId && data?.conversations) {
+    
+    // Prevent processing the same conversation multiple times
+    if (conversationId && conversationId !== processedConversationId && data?.conversations) {
+      console.log('📨 [Communications] Processing URL conversation:', conversationId);
       const conversation = data.conversations.find(c => c.id === conversationId);
       if (conversation) {
+        console.log('📨 [Communications] Found conversation, opening modal:', conversation.conversation_name);
+        setProcessedConversationId(conversationId);
         handleOpenConversation(
           conversation.id,
           conversation.conversation_name,
           conversation.project?.project_name
         );
       }
+    } else if (!conversationId && processedConversationId) {
+      // Reset when conversation is cleared from URL
+      console.log('📨 [Communications] Conversation cleared from URL, resetting');
+      setProcessedConversationId(null);
     }
-  }, [searchParams, data?.conversations]);
+  }, [searchParams, data?.conversations, processedConversationId]);
 
   // Transform conversations to be sender-based
   useEffect(() => {
@@ -125,7 +135,9 @@ export default function CommunicationsPage() {
   };
 
   const handleCloseConversation = () => {
+    console.log('📨 [Communications] Closing conversation modal');
     setSelectedConversation(null);
+    setProcessedConversationId(null); // Reset processed ID
     // Remove conversation parameter from URL
     const url = new URL(window.location.href);
     url.searchParams.delete('conversation');

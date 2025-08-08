@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,8 @@ export function MessageDetailModal({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const searchParams = useSearchParams();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -82,6 +85,17 @@ export function MessageDetailModal({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Auto-focus on reply input when modal opens with reply=true
+  useEffect(() => {
+    if (isOpen && searchParams.get('reply') === 'true') {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+        console.log('💬 [MessageModal] Auto-focused on reply input');
+      }, 300);
+    }
+  }, [isOpen, searchParams]);
 
   const fetchConversationMessages = async () => {
     setIsLoading(true);
@@ -392,6 +406,7 @@ export function MessageDetailModal({
           <div className="flex space-x-3">
             <div className="flex-1">
               <Textarea
+                ref={messageInputRef}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
