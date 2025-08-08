@@ -8,6 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { EditUserModal } from '@/components/modals/EditUserModal';
 import { DeleteUserModal } from '@/components/modals/DeleteUserModal';
 import { UserDeletionSummaryModal } from '@/components/modals/UserDeletionSummaryModal';
@@ -26,7 +29,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
-  Eye
+  Eye,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInitials } from '@/lib/utils';
@@ -64,6 +68,12 @@ export function UsersTable({ className }: UsersTableProps) {
 
   // Create user modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Message modal state
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [userToMessage, setUserToMessage] = useState<User | null>(null);
+  const [messageContent, setMessageContent] = useState('');
+  const [messageSending, setMessageSending] = useState(false);
 
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
@@ -172,10 +182,51 @@ export function UsersTable({ className }: UsersTableProps) {
     }
   };
 
-  const handleCreateUser = (user: any) => {
-    console.log('✅ User created successfully:', user);
-    // Refresh the users list to show the new user
-    refetch();
+  const handleCreateUser = () => {
+    setCreateModalOpen(true);
+  };
+
+  const handleMessageUser = (user: User) => {
+    setUserToMessage(user);
+    setMessageModalOpen(true);
+    setMessageContent('');
+  };
+
+  const handleSendMessage = async () => {
+    if (!userToMessage || !messageContent.trim() || messageSending) return;
+
+    setMessageSending(true);
+    try {
+      // Create or find conversation with the user
+      const response = await fetch('/api/communications/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'send_direct_message',
+          recipientId: userToMessage.id,
+          content: messageContent.trim(),
+          messageType: 'text'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      // Close modal and reset state
+      setMessageModalOpen(false);
+      setMessageContent('');
+      setUserToMessage(null);
+      
+      console.log('✅ Message sent successfully to user:', userToMessage.full_name);
+    } catch (error) {
+      console.error('❌ Error sending message:', error);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setMessageSending(false);
+    }
   };
 
   const refreshUsers = () => {
@@ -264,7 +315,7 @@ export function UsersTable({ className }: UsersTableProps) {
                 Export
               </button>
               <button 
-                onClick={() => setCreateModalOpen(true)}
+                onClick={handleCreateUser}
                 className="flex items-center px-3 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -410,6 +461,11 @@ export function UsersTable({ className }: UsersTableProps) {
                           View Profile
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleMessageUser(user)}>
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          Send Message
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleEditUser(user)}>
                           <Edit className="w-4 h-4 mr-2" />
                           Edit User
@@ -490,8 +546,63 @@ export function UsersTable({ className }: UsersTableProps) {
       <CreateUserModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onUserCreated={handleCreateUser}
+        onUserCreated={(user) => {
+          console.log('✅ User created successfully:', user);
+          // Refresh the users list to show the new user
+          refetch();
+        }}
       />
+
+      {/* Message Modal */}
+      <Dialog open={messageModalOpen} onOpenChange={setMessageModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Message to {userToMessage?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={userToMessage?.profile_photo_url || undefined} />
+                <AvatarFallback className="bg-orange-500 text-white text-sm">
+                  {userToMessage ? getInitials(userToMessage.full_name || userToMessage.email) : '?'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-medium text-gray-900">{userToMessage?.full_name}</div>
+                <div className="text-sm text-gray-500">{userToMessage?.email}</div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message
+              </label>
+              <Textarea
+                value={messageContent}
+                onChange={(e) => setMessageContent(e.target.value)}
+                placeholder="Type your message here..."
+                rows={4}
+                className=" bg-white w-full"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setMessageModalOpen(false)}
+              disabled={messageSending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim() || messageSending}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {messageSending ? 'Sending...' : 'Send Message'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
