@@ -411,7 +411,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </button>
 
               {/* Help */}
-              <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+              <button 
+                onClick={() => router.push('/help')}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                title="Help & Documentation"
+              >
                 <HelpCircle className="w-5 h-5" />
               </button>
 
