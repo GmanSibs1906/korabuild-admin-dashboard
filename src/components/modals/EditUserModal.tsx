@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, Phone, Shield, Save, X } from 'lucide-react';
+import { User, Mail, Phone, Shield, Save, X, MapPin } from 'lucide-react';
 import { Database } from '@/types/database';
 import { getInitials } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 type UserType = Database['public']['Tables']['users']['Row'];
 

@@ -33,7 +33,13 @@ interface ConversationWithDetails {
   last_message?: {
     message_text: string;
     sender_id: string;
+    sender_name?: string;
     created_at: string;
+  };
+  sender_info?: {
+    id: string;
+    name: string;
+    role: string;
   };
   unread_count: number;
   days_since_last_message?: number;
@@ -51,283 +57,301 @@ interface ApprovalRequestWithDetails {
   status: string;
   due_date: string;
   estimated_cost_impact: number;
-  estimated_time_impact: number;
+  supporting_documents: string[];
   created_at: string;
   updated_at: string;
   project?: {
     project_name: string;
-    client_name?: string;
   };
   requester?: {
     full_name: string;
-    email: string;
   };
   assignee?: {
     full_name: string;
-    email: string;
   };
-  days_pending: number;
+  days_pending?: number;
 }
 
 interface NotificationWithDetails {
   id: string;
-  user_id: string;
   project_id: string;
   notification_type: string;
   title: string;
   message: string;
   priority_level: string;
   is_read: boolean;
-  read_at: string;
-  action_url: string;
   created_at: string;
   project?: {
     project_name: string;
   };
-  user?: {
-    full_name: string;
-    email: string;
+}
+
+interface RecentCommunication {
+  id: string;
+  project_id: string;
+  communication_type: string;
+  subject: string;
+  from_person: string;
+  to_person: string;
+  communication_date: string;
+  priority: string;
+  projects?: {
+    project_name: string;
   };
 }
 
-interface CommunicationData {
+interface CommunicationsData {
   stats: CommunicationStats;
   conversations: ConversationWithDetails[];
   approvalRequests: ApprovalRequestWithDetails[];
   notifications: NotificationWithDetails[];
-  recentCommunications: any[];
-  messagesByType: { [key: string]: number };
-  responseTimeByUser: { [key: string]: number };
+  recentCommunications: RecentCommunication[];
 }
 
 interface UseCommunicationsOptions {
-  limit?: number;
-  offset?: number;
-  type?: 'conversations' | 'approvals' | 'notifications' | 'all';
   autoRefresh?: boolean;
   refreshInterval?: number;
 }
 
 interface UseCommunicationsResult {
-  data: CommunicationData | null;
+  data: CommunicationsData | null;
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
-  sendMessage: (messageData: any) => Promise<void>;
-  respondToApproval: (approvalData: any) => Promise<void>;
-  markNotificationRead: (notificationId: string) => Promise<void>;
-  createBroadcast: (broadcastData: any) => Promise<void>;
+  markConversationRead: (conversationId: string) => Promise<void>;
 }
 
+const initialData: CommunicationsData = {
+  stats: {
+    totalConversations: 0,
+    totalMessages: 0,
+    unreadMessages: 0,
+    pendingApprovals: 0,
+    urgentRequests: 0,
+    averageResponseTime: 0,
+    responseRate: 0,
+    escalatedRequests: 0,
+  },
+  conversations: [],
+  approvalRequests: [],
+  notifications: [],
+  recentCommunications: [],
+};
+
 export function useCommunications(options: UseCommunicationsOptions = {}): UseCommunicationsResult {
-  const [data, setData] = useState<CommunicationData | null>(null);
+  const { autoRefresh = false, refreshInterval = 300000 } = options;
+  const [data, setData] = useState<CommunicationsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    limit = 50,
-    offset = 0,
-    type = 'all',
-    autoRefresh = false,  // Default to false to prevent aggressive refreshing
-    refreshInterval = 300000 // 5 minutes (300 seconds) - more reasonable default
-  } = options;
-
-  const fetchCommunicationData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('🔍 [useCommunications] Fetching communication data...');
+      console.log('🔄 [useCommunications] Fetching communications data...');
       
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-        offset: offset.toString(),
-        type: type
+      const response = await fetch('/api/communications', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
-      const response = await fetch(`/api/communications?${params}`);
-      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const result = await response.json();
       
-      const communicationData = await response.json();
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      console.log('✅ [useCommunications] Communications data fetched successfully');
       
-      console.log('✅ [useCommunications] Communication data fetched successfully');
-      console.log('📊 [useCommunications] Data summary:', {
-        totalConversations: communicationData.stats.totalConversations,
-        totalMessages: communicationData.stats.totalMessages,
-        pendingApprovals: communicationData.stats.pendingApprovals,
-        unreadMessages: communicationData.stats.unreadMessages
+      // Enhance conversations with better sender information
+      console.log('🔄 [useCommunications] Enhancing conversations with sender info...');
+      const enhancedConversations = await Promise.all(
+        result.conversations.map(async (conversation: ConversationWithDetails) => {
+          // First, establish a fallback sender name from the conversation's project/client data
+          let fallbackSenderName = 'Unknown User';
+          let fallbackSenderId = '';
+          
+          if (conversation.project?.client_name) {
+            fallbackSenderName = conversation.project.client_name;
+            fallbackSenderId = conversation.project.client_id || '';
+          } else if (conversation.participants && conversation.participants.length > 0) {
+            fallbackSenderId = conversation.participants[0];
+          }
+          
+          console.log(`📨 Processing conversation ${conversation.conversation_name}:`, {
+            conversationId: conversation.id,
+            projectClientName: conversation.project?.client_name,
+            fallbackSenderName,
+            fallbackSenderId
+          });
+
+          try {
+            // Fetch recent messages to get actual sender info
+            const messagesResponse = await fetch(`/api/communications/messages?conversationId=${conversation.id}&limit=1`);
+            
+            if (messagesResponse.ok) {
+              const messagesData = await messagesResponse.json();
+              
+              if (messagesData.messages && messagesData.messages.length > 0) {
+                const lastMessage = messagesData.messages[0];
+                console.log(`✅ Got last message for ${conversation.conversation_name}:`, {
+                  senderId: lastMessage.sender_id,
+                  senderName: lastMessage.sender_name,
+                  senderRole: lastMessage.sender_role
+                });
+                
+                // Use the fetched sender info if available
+                const senderInfo = {
+                  id: lastMessage.sender_id,
+                  name: lastMessage.sender_name && lastMessage.sender_name !== 'Unknown User' 
+                    ? lastMessage.sender_name 
+                    : fallbackSenderName,
+                  role: lastMessage.sender_role || 'client'
+                };
+
+                return {
+                  ...conversation,
+                  sender_info: senderInfo,
+                  last_message: {
+                    ...conversation.last_message,
+                    sender_name: senderInfo.name
+                  }
+                };
+              } else {
+                console.log(`⚠️ No messages found for conversation ${conversation.conversation_name}`);
+              }
+            } else {
+              console.error(`❌ Failed to fetch messages for conversation ${conversation.conversation_name}:`, messagesResponse.status);
+            }
+          } catch (err) {
+            console.error('Error fetching sender info for conversation:', conversation.conversation_name, err);
+          }
+          
+          // Fallback to conversation with improved sender info
+          console.log(`🔄 Using fallback sender info for ${conversation.conversation_name}:`, {
+            name: fallbackSenderName,
+            id: fallbackSenderId
+          });
+          
+          return {
+            ...conversation,
+            sender_info: {
+              id: fallbackSenderId,
+              name: fallbackSenderName,
+              role: 'client'
+            },
+            last_message: {
+              ...conversation.last_message,
+              sender_name: fallbackSenderName
+            }
+          };
+        })
+      );
+
+      console.log('✅ [useCommunications] Conversations enhanced with sender info:', {
+        total: enhancedConversations.length,
+        withSenderInfo: enhancedConversations.filter(c => c.sender_info?.name !== 'Unknown User').length
       });
-      
-      setData(communicationData);
+
+      const enhancedData = {
+        ...result,
+        conversations: enhancedConversations
+      };
+
+      setData(enhancedData);
     } catch (err) {
-      console.error('❌ [useCommunications] Error fetching communication data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch communication data');
+      console.error('❌ [useCommunications] Error fetching data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch communications data');
     } finally {
       setIsLoading(false);
     }
-  }, [limit, offset, type]);
+  }, []);
 
-  const sendMessage = useCallback(async (messageData: any) => {
+  const markConversationRead = useCallback(async (conversationId: string) => {
     try {
-      console.log('📝 [useCommunications] Sending message...');
+      console.log('📖 [useCommunications] Marking conversation as read:', conversationId);
       
-      const response = await fetch('/api/communications', {
+      const response = await fetch('/api/communications/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'send_message',
-          data: messageData
+          action: 'mark_conversation_read',
+          conversationId: conversationId
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`Failed to mark conversation as read: ${response.status}`);
       }
 
       const result = await response.json();
       
-      console.log('✅ [useCommunications] Message sent successfully');
-      
-      // Refresh data after sending message
-      await fetchCommunicationData();
-      
-      return result;
-    } catch (err) {
-      console.error('❌ [useCommunications] Error sending message:', err);
-      throw err;
-    }
-  }, [fetchCommunicationData]);
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
-  const respondToApproval = useCallback(async (approvalData: any) => {
-    try {
-      console.log('✅ [useCommunications] Responding to approval...');
+      console.log('✅ [useCommunications] Conversation marked as read successfully');
       
-      const response = await fetch('/api/communications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'respond_to_approval',
-          data: approvalData
-        }),
+      // Optimistically update local state
+      setData(prevData => {
+        if (!prevData) return prevData;
+        
+        return {
+          ...prevData,
+          conversations: prevData.conversations.map(conv => 
+            conv.id === conversationId 
+              ? { ...conv, unread_count: 0 }
+              : conv
+          ),
+          stats: {
+            ...prevData.stats,
+            unreadMessages: Math.max(0, prevData.stats.unreadMessages - 1)
+          }
+        };
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      // Refresh data to get updated counts
+      setTimeout(() => {
+        fetchData();
+      }, 500);
       
-      console.log('✅ [useCommunications] Approval response submitted successfully');
-      
-      // Refresh data after responding to approval
-      await fetchCommunicationData();
-      
-      return result;
     } catch (err) {
-      console.error('❌ [useCommunications] Error responding to approval:', err);
+      console.error('❌ [useCommunications] Error marking conversation as read:', err);
       throw err;
     }
-  }, [fetchCommunicationData]);
-
-  const markNotificationRead = useCallback(async (notificationId: string) => {
-    try {
-      console.log('👀 [useCommunications] Marking notification as read...');
-      
-      const response = await fetch('/api/communications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'mark_notification_read',
-          data: { notification_id: notificationId }
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      console.log('✅ [useCommunications] Notification marked as read');
-      
-      // Refresh data after marking notification as read
-      await fetchCommunicationData();
-      
-      return result;
-    } catch (err) {
-      console.error('❌ [useCommunications] Error marking notification as read:', err);
-      throw err;
-    }
-  }, [fetchCommunicationData]);
-
-  const createBroadcast = useCallback(async (broadcastData: any) => {
-    try {
-      console.log('📢 [useCommunications] Creating broadcast...');
-      
-      const response = await fetch('/api/communications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'create_broadcast',
-          data: broadcastData
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      console.log('✅ [useCommunications] Broadcast created successfully');
-      
-      // Refresh data after creating broadcast
-      await fetchCommunicationData();
-      
-      return result;
-    } catch (err) {
-      console.error('❌ [useCommunications] Error creating broadcast:', err);
-      throw err;
-    }
-  }, [fetchCommunicationData]);
+  }, [fetchData]);
 
   // Initial fetch
   useEffect(() => {
-    fetchCommunicationData();
-  }, [fetchCommunicationData]);
+    fetchData();
+  }, [fetchData]);
 
-  // Auto-refresh interval
+  // Auto-refresh setup
   useEffect(() => {
     if (!autoRefresh) return;
-    
+
     const interval = setInterval(() => {
-      fetchCommunicationData();
+      console.log('🔄 [useCommunications] Auto-refreshing data...');
+      fetchData();
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, fetchCommunicationData]);
+  }, [autoRefresh, refreshInterval, fetchData]);
 
   return {
     data,
     isLoading,
     error,
-    refetch: fetchCommunicationData,
-    sendMessage,
-    respondToApproval,
-    markNotificationRead,
-    createBroadcast
+    refetch: fetchData,
+    markConversationRead,
   };
-}
-
-export default useCommunications; 
+} 

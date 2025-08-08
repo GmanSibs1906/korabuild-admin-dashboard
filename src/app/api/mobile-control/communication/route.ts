@@ -113,22 +113,97 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculate communication metrics
+    // Calculate communication metrics with accurate unread count
     const totalConversations = conversations?.length || 0;
-    const unreadMessages = messages?.filter(m => !m.is_read).length || 0;
+    
+    // Get admin user ID for checking read status (used for both unread count and individual message status)
+    let adminUser: any = null;
+    try {
+      const { data: admin } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('role', 'admin')
+        .single();
+      adminUser = admin;
+    } catch (error) {
+      console.warn('Could not fetch admin user for read status calculation:', error);
+    }
+    
+    // Calculate accurate unread messages count using same logic as communications API
+    let unreadMessages = 0;
+    
+    try {
+      if (adminUser && messages) {
+        // Count unread messages - messages are unread if admin ID is not in read_by JSON field
+        unreadMessages = messages.filter(message => {
+          const readBy = message.read_by || {};
+          return !readBy[adminUser.id]; // Message is unread if admin ID is not in read_by
+        }).length;
+        
+        // Also count unread messages from communication_log for this project
+        const { data: logMessages } = await supabaseAdmin
+          .from('communication_log')
+          .select('id, created_by')
+          .eq('project_id', projectId)
+          .eq('communication_type', 'instruction')
+          .eq('subject', 'Admin Message')
+          .neq('created_by', adminUser.id); // Don't count admin's own messages as unread
+        
+        if (logMessages) {
+          unreadMessages += logMessages.length;
+        }
+      } else {
+        // Fallback to simple calculation if no admin user found
+        unreadMessages = messages?.filter(m => {
+          const readBy = m.read_by || {};
+          return Object.keys(readBy).length === 0;
+        }).length || 0;
+      }
+    } catch (error) {
+      console.error(`Error calculating accurate unread count for project ${projectId}:`, error);
+      // Fallback to simple calculation
+      unreadMessages = messages?.filter(m => {
+        const readBy = m.read_by || {};
+        return Object.keys(readBy).length === 0;
+      }).length || 0;
+    }
+    
     const pendingApprovals = approvals?.length || 0;
 
-    // Prepare mobile message data
-    const mobileMessages: MobileMessageData[] = messages?.map(message => ({
+    console.log('📱 [Mobile Control] Accurate unread count calculated:', {
+      projectId,
+      unreadMessages,
+      methodUsed: 'admin_specific_read_tracking'
+    });
+
+    // Prepare mobile message data with accurate read status
+    const mobileMessages: MobileMessageData[] = messages?.map(message => {
+      let isRead = false;
+      
+      try {
+        // Use same admin-specific read logic for individual messages
+        const readBy = message.read_by || {};
+        if (adminUser) {
+          isRead = !!readBy[adminUser.id]; // Message is read if admin ID is in read_by
+        } else {
+          isRead = Object.keys(readBy).length > 0; // Fallback to any read status
+        }
+      } catch (error) {
+        console.error(`Error determining read status for message ${message.id}:`, error);
+        isRead = false; // Default to unread on error
+      }
+      
+      return {
       id: message.id,
       conversationId: message.conversation_id,
       senderName: message.sender?.full_name || 'Unknown Sender',
       messageText: message.message_text || '',
       timestamp: message.created_at,
-      isRead: message.read_by ? Object.keys(message.read_by).length > 0 : false,
+        isRead,
       messageType: message.message_type || 'text',
       attachments: message.attachment_urls || []
-    })) || [];
+      };
+    }) || [];
 
     // Prepare mobile communication data
     const mobileCommunicationData: MobileCommunicationData = {
@@ -287,10 +362,105 @@ export async function POST(request: NextRequest) {
             message_type: data.type || 'text',
             attachment_urls: data.attachments || [],
             created_at: new Date().toISOString()
-          });
+          })
+          .select()
+          .single();
 
         if (messageError) {
           throw messageError;
+        }
+
+        // Create notifications for admin users when message is sent from mobile app
+        console.log('🔔 [Mobile Communication] Creating notifications for admin users...');
+        
+        // Get sender information
+        const { data: senderInfo, error: senderError } = await supabaseAdmin
+          .from('users')
+          .select('id, full_name, role')
+          .eq('id', userId)
+          .single();
+
+        if (senderError) {
+          console.error('❌ [Mobile Communication] Error fetching sender info:', senderError);
+        }
+
+        // Get conversation information for notification context
+        const { data: conversationInfo, error: conversationInfoError } = await supabaseAdmin
+          .from('conversations')
+          .select('conversation_name, project_id')
+          .eq('id', conversationId)
+          .single();
+
+        if (conversationInfoError) {
+          console.error('❌ [Mobile Communication] Error fetching conversation info:', conversationInfoError);
+        }
+
+        // Get project name if available
+        let projectName = null;
+        if (conversationInfo?.project_id) {
+          const { data: projectInfo, error: projectError } = await supabaseAdmin
+            .from('projects')
+            .select('project_name')
+            .eq('id', conversationInfo.project_id)
+            .single();
+
+          if (!projectError && projectInfo) {
+            projectName = projectInfo.project_name;
+          }
+        }
+
+        // Only create notifications if sender is not an admin
+        if (senderInfo && senderInfo.role !== 'admin') {
+          // Get all admin users
+          const { data: adminUsers, error: adminError } = await supabaseAdmin
+            .from('users')
+            .select('id')
+            .eq('role', 'admin');
+
+          if (adminError) {
+            console.error('❌ [Mobile Communication] Error fetching admin users:', adminError);
+          } else if (adminUsers && adminUsers.length > 0) {
+            // Create notifications for each admin user
+            const notifications = adminUsers.map(admin => ({
+              user_id: admin.id,
+              project_id: conversationInfo?.project_id || null,
+              notification_type: 'message',
+              title: projectName 
+                ? `New message in ${projectName} - ${conversationInfo?.conversation_name || 'General'}`
+                : `New message from ${senderInfo.full_name || 'Unknown User'}`,
+              message: data.message.length > 100 ? data.message.substring(0, 100) + '...' : data.message,
+              entity_id: messageResult.id,
+              entity_type: 'message',
+              priority_level: 'normal',
+              is_read: false,
+              action_url: `/communications?conversation=${conversationId}`,
+              conversation_id: conversationId,
+              metadata: {
+                message_id: messageResult.id,
+                sender_id: userId,
+                sender_name: senderInfo.full_name || 'Unknown User',
+                conversation_id: conversationId,
+                conversation_name: conversationInfo?.conversation_name || 'General',
+                project_id: conversationInfo?.project_id,
+                project_name: projectName,
+                message_type: data.type || 'text',
+                source: 'mobile_app_message'
+              },
+              priority: 'normal',
+              is_pushed: false,
+              is_sent: false
+            }));
+
+            const { data: notificationResult, error: notificationError } = await supabaseAdmin
+              .from('notifications')
+              .insert(notifications);
+
+            if (notificationError) {
+              console.error('❌ [Mobile Communication] Error creating notifications:', notificationError);
+            } else {
+              console.log(`✅ [Mobile Communication] Created ${notifications.length} notifications for admin users`);
+            }
+          }
         }
 
         result = messageResult;

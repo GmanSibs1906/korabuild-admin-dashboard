@@ -273,20 +273,6 @@ export async function GET(request: Request) {
       avgResponseTime = responseTimes.reduce((a: number, b: number) => a + b, 0) / responseTimes.length;
     }
 
-    const stats: CommunicationStats = {
-      totalConversations: conversationsCount.count || 0,
-      totalMessages: messagesCount.count || 0,
-      unreadMessages: unreadMessagesCount.count || 0,
-      pendingApprovals: pendingApprovalsCount.count || 0,
-      urgentRequests: urgentRequestsCount.count || 0,
-      averageResponseTime: Math.round(avgResponseTime),
-      responseRate: pendingApprovalsCount.count ? 
-        Math.round(((averageResponseTime.data?.length || 0) / pendingApprovalsCount.count) * 100) : 100,
-      escalatedRequests: escalatedRequestsCount.count || 0
-    };
-
-    console.log('📈 [Communications API] Communication statistics:', stats);
-
     // Fetch conversations with details
     const { data: conversationsData, error: conversationsError } = await supabase
       .from('conversations')
@@ -357,11 +343,58 @@ export async function GET(request: Request) {
       throw notificationsError;
     }
 
-    // Process conversations with additional data
-    const conversations: ConversationWithDetails[] = (conversationsData || []).map((conv: ConversationData) => {
+    // Process conversations with additional data first to calculate accurate unread counts
+    const conversations: ConversationWithDetails[] = await Promise.all(
+      (conversationsData || []).map(async (conv: ConversationData) => {
       const daysSinceLastMessage = Math.floor(
         (new Date().getTime() - new Date(conv.last_message_at).getTime()) / (1000 * 60 * 60 * 24)
       );
+        
+        // Calculate actual unread count for this conversation
+        let unreadCount = 0;
+        
+        try {
+          // Get admin user ID for checking read status
+          const { data: adminUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('role', 'admin')
+            .single();
+          
+          if (adminUser) {
+            // Count unread messages in this conversation
+            // Messages are considered unread if the admin user ID is not in the read_by JSON field
+            const { data: messages } = await supabase
+              .from('messages')
+              .select('id, read_by')
+              .eq('conversation_id', conv.id);
+            
+            if (messages) {
+              unreadCount = messages.filter(message => {
+                const readBy = message.read_by || {};
+                return !readBy[adminUser.id]; // Message is unread if admin ID is not in read_by
+              }).length;
+            }
+            
+            // Also count unread messages from communication_log for this project
+            if (conv.project_id) {
+              const { data: logMessages } = await supabase
+                .from('communication_log')
+                .select('id, created_by')
+                .eq('project_id', conv.project_id)
+                .eq('communication_type', 'instruction')
+                .eq('subject', 'Admin Message')
+                .neq('created_by', adminUser.id); // Don't count admin's own messages as unread
+              
+              if (logMessages) {
+                unreadCount += logMessages.length;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error calculating unread count for conversation ${conv.id}:`, error);
+          unreadCount = 0; // Default to 0 if calculation fails
+        }
       
       return {
         ...conv,
@@ -370,10 +403,26 @@ export async function GET(request: Request) {
           client_id: conv.projects.client_id,
           client_name: conv.projects.users?.full_name || 'Unknown Client'
         } : undefined,
-        unread_count: Math.floor(Math.random() * 5), // Simplified - would need proper read tracking
+          unread_count: unreadCount,
         days_since_last_message: daysSinceLastMessage
       };
-    });
+      })
+    );
+
+    // Now calculate stats with accurate unread count
+    const stats: CommunicationStats = {
+      totalConversations: conversationsCount.count || 0,
+      totalMessages: messagesCount.count || 0,
+      unreadMessages: conversations.reduce((total, conv) => total + conv.unread_count, 0),
+      pendingApprovals: pendingApprovalsCount.count || 0,
+      urgentRequests: urgentRequestsCount.count || 0,
+      averageResponseTime: Math.round(avgResponseTime),
+      responseRate: pendingApprovalsCount.count ? 
+        Math.round(((averageResponseTime.data?.length || 0) / pendingApprovalsCount.count) * 100) : 100,
+      escalatedRequests: escalatedRequestsCount.count || 0
+    };
+
+    console.log('📈 [Communications API] Communication statistics:', stats);
 
     // Process approval requests with additional data
     const approvalRequests: ApprovalRequestWithDetails[] = (approvalRequestsData || []).map((req: ApprovalRequestData) => {
@@ -459,6 +508,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     console.log('📝 [Communications API] POST request received');
+    console.log('📱 [Communications API] *** MOBILE APP MIGHT BE USING THIS ENDPOINT ***');
     
     const supabase = supabaseAdmin;
     const body = await request.json();
@@ -491,6 +541,89 @@ export async function POST(request: Request) {
             message_count: supabase.rpc('increment_message_count', { conversation_id: data.conversation_id })
           })
           .eq('id', data.conversation_id);
+
+        // 🚨 FIX: Create notifications for admin users when message is sent from mobile app
+        console.log('🔔 [Communications API] Creating notifications for admin users...');
+        
+        // Get sender information
+        const { data: senderInfo, error: senderError } = await supabase
+          .from('users')
+          .select('id, full_name, role')
+          .eq('id', data.sender_id)
+          .single();
+
+        if (senderError) {
+          console.error('❌ [Communications API] Error fetching sender info:', senderError);
+        }
+
+        // Get conversation information for notification context
+        const { data: conversationInfo, error: conversationInfoError } = await supabase
+          .from('conversations')
+          .select('conversation_name, project_id, project:projects(project_name)')
+          .eq('id', data.conversation_id)
+          .single();
+
+        if (conversationInfoError) {
+          console.error('❌ [Communications API] Error fetching conversation info:', conversationInfoError);
+        }
+
+        // Only create notifications if sender is not an admin
+        if (senderInfo && senderInfo.role !== 'admin') {
+          // Get all admin users
+          const { data: adminUsers, error: adminError } = await supabase
+            .from('users')
+            .select('id, full_name')
+            .eq('role', 'admin');
+
+          if (adminError) {
+            console.error('❌ [Communications API] Error fetching admin users:', adminError);
+          } else if (adminUsers && adminUsers.length > 0) {
+            // Create notifications for each admin user
+            const notifications = adminUsers.map(admin => ({
+              user_id: admin.id,
+              project_id: conversationInfo?.project_id || null,
+              notification_type: 'message' as const,
+              title: (conversationInfo?.project as any)?.project_name 
+                ? `New message in ${(conversationInfo?.project as any).project_name} - ${conversationInfo?.conversation_name || 'General'}`
+                : `New message from ${senderInfo.full_name || 'Mobile User'}`,
+              message: data.message_text.length > 100 
+                ? data.message_text.substring(0, 100) + '...' 
+                : data.message_text,
+              entity_id: messageData.id,
+              entity_type: 'message',
+              priority_level: 'normal' as const,
+              is_read: false,
+              action_url: `/communications?conversation=${data.conversation_id}`,
+              conversation_id: data.conversation_id,
+              metadata: {
+                message_id: messageData.id,
+                sender_id: data.sender_id,
+                sender_name: senderInfo.full_name || 'Mobile User',
+                conversation_id: data.conversation_id,
+                conversation_name: conversationInfo?.conversation_name || 'General',
+                project_id: conversationInfo?.project_id,
+                project_name: (conversationInfo?.project as any)?.project_name,
+                message_type: data.message_type || 'text',
+                source: 'mobile_app_via_communications_api'
+              },
+              priority: 'normal' as const,
+              is_pushed: false,
+              is_sent: false
+            }));
+
+            console.log(`📝 [Communications API] Creating ${notifications.length} notifications for admin users...`);
+
+            const { data: notificationResult, error: notificationError } = await supabase
+              .from('notifications')
+              .insert(notifications);
+
+            if (notificationError) {
+              console.error('❌ [Communications API] Error creating notifications:', notificationError);
+            } else {
+              console.log(`✅ [Communications API] Created notifications for ${adminUsers.length} admin users`);
+            }
+          }
+        }
 
         console.log('✅ [Communications API] Message sent successfully');
         return NextResponse.json({ success: true, message: messageData });
@@ -540,25 +673,78 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
 
       case 'create_broadcast':
-        // Create a broadcast message/notification
-        const { data: broadcastData, error: broadcastError } = await supabase
+        console.log('📢 [Communications API] Creating broadcast message...', data);
+        
+        // Get recipients based on target audience
+        let recipients: string[] = [];
+        
+        try {
+          // Get admin user for sender (use limit(1) to handle multiple admin users)
+          const { data: adminUsers } = await supabase
+            .from('users')
+            .select('id')
+            .eq('role', 'admin')
+            .limit(1);
+
+          if (!adminUsers || adminUsers.length === 0) {
+            throw new Error('Admin user not found');
+          }
+
+          const adminUser = adminUsers[0];
+
+          // Get users based on target audience
+          let userQuery = supabase.from('users').select('id');
+          
+          if (data.targetAudience && data.targetAudience !== 'all') {
+            userQuery = userQuery.eq('role', data.targetAudience.replace(/s$/, '')); // Remove 's' from plural
+          }
+          
+          const { data: users, error: usersError } = await userQuery;
+          
+          if (usersError) {
+            console.error('Error fetching users for broadcast:', usersError);
+            throw usersError;
+          }
+          
+          recipients = users?.map(user => user.id) || [];
+          
+          console.log(`📢 [Communications API] Sending to ${recipients.length} users (${data.targetAudience || 'all'})`);
+
+          // Create notifications for all recipients
+          const notifications = recipients.map(recipientId => ({
+            user_id: recipientId,
+            project_id: null, // Broadcast messages don't need project_id
+            notification_type: 'general', // Changed from 'broadcast' to 'general' (valid type)
+            title: data.subject, // Changed from data.title to data.subject
+            message: data.message,
+            priority_level: data.priority || 'normal',
+            is_read: false,
+            created_at: data.scheduleDate || new Date().toISOString() // Changed from scheduledTime to scheduleDate
+          }));
+
+          const { data: notificationResults, error: notificationError } = await supabase
           .from('notifications')
-          .insert(
-            data.recipients.map((recipient: string) => ({
-              user_id: recipient,
-              project_id: data.project_id,
-              notification_type: 'system',
-              title: data.title,
-              message: data.message,
-              priority_level: data.priority_level || 'normal'
-            }))
-          )
+            .insert(notifications)
           .select();
 
-        if (broadcastError) throw broadcastError;
+          if (notificationError) {
+            console.error('Error creating broadcast notifications:', notificationError);
+            throw notificationError;
+          }
 
-        console.log('✅ [Communications API] Broadcast sent successfully');
-        return NextResponse.json({ success: true, notifications: broadcastData });
+          console.log('✅ [Communications API] Broadcast sent successfully to', recipients.length, 'users');
+          
+          return NextResponse.json({ 
+            success: true, 
+            message: `Broadcast sent to ${recipients.length} users`,
+            recipients: recipients.length,
+            notifications: notificationResults 
+          });
+
+        } catch (broadcastError) {
+          console.error('❌ [Communications API] Broadcast error:', broadcastError);
+          throw broadcastError;
+        }
 
       default:
         console.log('❌ [Communications API] Unknown action:', action);

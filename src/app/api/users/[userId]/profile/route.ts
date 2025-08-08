@@ -138,6 +138,7 @@ export async function GET(
         name: user.full_name,
         email: user.email,
         phone: user.phone,
+        address: user.address,
         role: user.role,
         profilePhotoUrl: user.profile_photo_url, // Convert snake_case to camelCase
         joinDate: user.created_at,

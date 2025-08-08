@@ -65,55 +65,61 @@ export function useMessages() {
       setLoading(true);
       setError(null);
 
-      // Fetch conversations
-      const { data: conversationsData, error: conversationsError } = await supabase
-        .from('conversations')
-        .select('*')
-        .order('last_message_at', { ascending: false });
-
-      if (conversationsError) {
-        console.error('Error fetching conversations:', conversationsError);
-        setError(conversationsError.message);
-        return;
+      // Use the communications API for accurate unread counts
+      console.log('🔍 [useMessages] Fetching from communications API...');
+      
+      const response = await fetch('/api/communications?limit=1000');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const communicationData = await response.json();
+      
+      console.log('✅ [useMessages] Communications data received:', {
+        conversations: communicationData.conversations?.length,
+        totalMessages: communicationData.stats?.totalMessages,
+        unreadMessages: communicationData.stats?.unreadMessages
+      });
 
-      // Fetch messages
+      // Extract conversations and calculate stats from communications API
+      const conversationsArray = communicationData.conversations || [];
+      
+      // Also fetch raw messages for backward compatibility
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (messagesError) {
-        console.error('Error fetching messages:', messagesError);
-        setError(messagesError.message);
-        return;
+        console.warn('Warning fetching raw messages:', messagesError);
+        // Don't fail completely, just use empty array
       }
 
-      const conversationsArray = conversationsData || [];
       const messagesArray = messagesData || [];
 
       setConversations(conversationsArray);
       setMessages(messagesArray);
 
-      // Calculate stats
-      const activeConversations = conversationsArray.filter(c => !c.is_archived).length;
-      
-      // Count unread messages (messages without read_by data or empty read_by)
-      const unreadMessages = messagesArray.filter(m => {
-        const readBy = m.read_by as any;
-        return !readBy || Object.keys(readBy).length === 0;
-      }).length;
+      // Use accurate stats from communications API
+      const activeConversations = conversationsArray.filter((c: any) => !c.is_archived).length;
 
       setStats({
-        totalConversations: conversationsArray.length,
-        totalMessages: messagesArray.length,
-        unreadMessages,
+        totalConversations: communicationData.stats?.totalConversations || conversationsArray.length,
+        totalMessages: communicationData.stats?.totalMessages || messagesArray.length,
+        unreadMessages: communicationData.stats?.unreadMessages || 0, // Use accurate count from communications API
+        activeConversations
+      });
+
+      console.log('📊 [useMessages] Stats updated:', {
+        totalConversations: communicationData.stats?.totalConversations || conversationsArray.length,
+        totalMessages: communicationData.stats?.totalMessages || messagesArray.length,
+        unreadMessages: communicationData.stats?.unreadMessages || 0,
         activeConversations
       });
 
     } catch (err) {
-      console.error('Unexpected error fetching messages:', err);
-      setError('Failed to load messages');
+      console.error('❌ [useMessages] Error fetching messages:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load messages');
     } finally {
       setLoading(false);
     }
@@ -128,6 +134,7 @@ export function useMessages() {
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'conversations' },
         () => {
+          console.log('🔄 [useMessages] Conversations changed, refetching...');
           fetchMessages();
         }
       )
@@ -138,6 +145,19 @@ export function useMessages() {
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'messages' },
         () => {
+          console.log('🔄 [useMessages] Messages changed, refetching...');
+          fetchMessages();
+        }
+      )
+      .subscribe();
+
+    // Also listen for communication_log changes for accurate unread counts
+    const communicationLogSubscription = supabase
+      .channel('communication_log_changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'communication_log' },
+        () => {
+          console.log('🔄 [useMessages] Communication log changed, refetching...');
           fetchMessages();
         }
       )
@@ -146,6 +166,7 @@ export function useMessages() {
     return () => {
       conversationsSubscription.unsubscribe();
       messagesSubscription.unsubscribe();
+      communicationLogSubscription.unsubscribe();
     };
   }, []); // Empty dependency array - only run on mount to prevent infinite loops
 

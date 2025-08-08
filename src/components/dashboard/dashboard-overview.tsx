@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CreateUserModal } from '@/components/modals/CreateUserModal';
+import { BroadcastModal } from '@/components/communications/BroadcastModal';
 
 import { 
   Users, 
@@ -134,6 +136,8 @@ function CleanMetricCard({ title, value, subtitle, icon: Icon, trend, color = 'b
 export default function DashboardOverview() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'control-center' | 'contractors' | 'schedule' | 'documents' | 'requests' | 'notifications'>('control-center'); // Changed default to control-center
+  const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   
   // Stabilize hook options to prevent infinite re-renders
   const requestsOptions = useMemo(() => ({ 
@@ -153,7 +157,7 @@ export default function DashboardOverview() {
   } = useAdminNotifications({ includeRead: false });
 
   // Data hooks
-  const { users, loading: usersLoading, error: usersError, stats: userStats } = useUsers();
+  const { users, loading: usersLoading, error: usersError, stats: userStats, refetch: refetchUsers } = useUsers();
   const { projects, loading: projectsLoading, error: projectsError, summary: projectSummary } = useProjects();
   const { financialData, isLoading: financesLoading, error: financesError } = useFinances();
   const { loading: messagesLoading, error: messagesError, stats: messageStats } = useMessages();
@@ -171,6 +175,19 @@ export default function DashboardOverview() {
     unreadCount: requestUnreadCount,
     loading: requestNotificationsLoading 
   } = useRequestNotifications(requestNotificationsOptions);
+
+  // Handle user creation success
+  const handleCreateUser = (user: any) => {
+    console.log('✅ User created successfully:', user);
+    // Refresh the users list to show the new user
+    refetchUsers();
+  };
+
+  // Handle broadcast success
+  const handleBroadcastSent = () => {
+    console.log('✅ Broadcast sent successfully');
+    // Could refresh messages or notifications if needed
+  };
 
   // Extract financial stats from financialData - ALL DYNAMIC FROM DATABASE
   const financeStats = financialData?.overview ? {
@@ -266,7 +283,7 @@ export default function DashboardOverview() {
             {/* Key Metrics */}
             <div>
               <h2 className="text-lg font-semibold text-slate-900 mb-6">Key Metrics</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <CleanMetricCard
                   title="Total Users"
                   value={userStats.totalUsers}
@@ -287,7 +304,7 @@ export default function DashboardOverview() {
                   onClick={() => router.push('/projects')}
                 />
                 
-                <CleanMetricCard
+                {/* <CleanMetricCard
                   title="Total Revenue"
                   value={formatCurrency(financeStats.totalRevenue)}
                   subtitle={`${formatCurrency(financeStats.monthlyRevenue)} this month`}
@@ -295,7 +312,7 @@ export default function DashboardOverview() {
                   color="orange"
                   loading={financesLoading}
                   onClick={() => router.push('/finances')}
-                />
+                /> */}
                 
                 <CleanMetricCard
                   title="Unread Messages"
@@ -312,7 +329,7 @@ export default function DashboardOverview() {
             {/* Activity Overview */}
             <div>
               <h2 className="text-lg font-semibold text-slate-900 mb-6">Activity Overview</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <CleanMetricCard
                   title="Pending Requests"
                   value={requestStats?.pending || 0}
@@ -324,7 +341,7 @@ export default function DashboardOverview() {
                   badge={requestNotifications.filter(n => !n.is_read).length}
                 />
                 
-                <CleanMetricCard
+                {/* <CleanMetricCard
                   title="Contractors"
                   value={contractorStats.activeContractors}
                   subtitle={`${contractorStats.pendingApproval} pending approval`}
@@ -333,7 +350,7 @@ export default function DashboardOverview() {
                   loading={contractorsLoading}
                   onClick={() => setActiveTab('contractors')}
                   badge={contractorStats.unreadNotifications}
-                />
+                /> */}
                 
                 <CleanMetricCard
                   title="Upcoming Deadlines"
@@ -364,7 +381,7 @@ export default function DashboardOverview() {
               <h2 className="text-lg font-semibold text-slate-900 mb-6">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button 
-                  onClick={() => router.push('/users')}
+                  onClick={() => setCreateUserModalOpen(true)}
                   className="group bg-white rounded-xl border border-slate-200 p-6 text-left hover:border-slate-300 hover:shadow-lg transition-all duration-200"
                 >
                   <div className="flex items-center space-x-4">
@@ -380,23 +397,7 @@ export default function DashboardOverview() {
                 </button>
                 
                 <button 
-                  onClick={() => router.push('/projects')}
-                  className="group bg-white rounded-xl border border-slate-200 p-6 text-left hover:border-slate-300 hover:shadow-lg transition-all duration-200"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-                      <Building2 className="w-6 h-6" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-slate-900">Create Project</h3>
-                      <p className="text-sm text-slate-600">Start new construction project</p>
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => router.push('/communications')}
+                  onClick={() => setBroadcastModalOpen(true)}
                   className="group bg-white rounded-xl border border-slate-200 p-6 text-left hover:border-slate-300 hover:shadow-lg transition-all duration-200"
                 >
                   <div className="flex items-center space-x-4">
@@ -415,6 +416,18 @@ export default function DashboardOverview() {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <CreateUserModal
+        isOpen={createUserModalOpen}
+        onClose={() => setCreateUserModalOpen(false)}
+        onUserCreated={handleCreateUser}
+      />
+      <BroadcastModal
+        isOpen={broadcastModalOpen}
+        onClose={() => setBroadcastModalOpen(false)}
+        onBroadcastSent={handleBroadcastSent}
+      />
     </div>
   );
 }

@@ -43,6 +43,7 @@ interface UnifiedNotification {
   project_name?: string;
   client_name?: string;
   document_name?: string;
+  conversation_name?: string;
   raw_data: any;
 }
 
@@ -208,6 +209,14 @@ export default function NotificationDetailModal({
                   <FileText className="h-4 w-4 text-slate-500" />
                   <span className="text-slate-600">Document:</span>
                   <span className="font-medium">{notification.document_name}</span>
+                </div>
+              )}
+
+              {notification.conversation_name && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <MessageCircle className="h-4 w-4 text-slate-500" />
+                  <span className="text-slate-600">Conversation:</span>
+                  <span className="font-medium">{notification.conversation_name}</span>
                 </div>
               )}
             </div>

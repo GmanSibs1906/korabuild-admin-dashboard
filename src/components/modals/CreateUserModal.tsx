@@ -21,7 +21,8 @@ import {
   Info,
   AlertTriangle,
   CheckCircle,
-  Key
+  Key,
+  MapPin
 } from 'lucide-react';
 import { Database } from '@/types/database';
 
@@ -37,7 +38,7 @@ interface FormData {
   full_name: string;
   email: string;
   phone: string;
-  role: UserRole;
+  role: 'client' | 'admin' | 'contractor' | 'inspector';
   generatePassword: boolean;
   customPassword: string;
 }

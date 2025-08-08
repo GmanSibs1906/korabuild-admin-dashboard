@@ -34,6 +34,80 @@ export interface Database {
           updated_at?: string
         }
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string | null
+          project_id: string | null
+          notification_type: 'message' | 'project_update' | 'payment_due' | 'milestone_complete' | 'document_upload' | 'emergency' | 'general' | 'system'
+          title: string
+          message: string
+          entity_id: string | null
+          entity_type: string | null
+          priority_level: 'low' | 'normal' | 'high' | 'urgent'
+          is_read: boolean
+          read_at: string | null
+          action_url: string | null
+          expires_at: string | null
+          metadata: any
+          created_at: string
+          priority: 'low' | 'normal' | 'high' | 'urgent'
+          is_pushed: boolean
+          conversation_id: string | null
+          is_sent: boolean
+          sent_at: string | null
+          error_message: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          project_id?: string | null
+          notification_type: 'message' | 'project_update' | 'payment_due' | 'milestone_complete' | 'document_upload' | 'emergency' | 'general' | 'system'
+          title: string
+          message: string
+          entity_id?: string | null
+          entity_type?: string | null
+          priority_level?: 'low' | 'normal' | 'high' | 'urgent'
+          is_read?: boolean
+          read_at?: string | null
+          action_url?: string | null
+          expires_at?: string | null
+          metadata?: any
+          created_at?: string
+          priority?: 'low' | 'normal' | 'high' | 'urgent'
+          is_pushed?: boolean
+          conversation_id?: string | null
+          is_sent?: boolean
+          sent_at?: string | null
+          error_message?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          project_id?: string | null
+          notification_type?: 'message' | 'project_update' | 'payment_due' | 'milestone_complete' | 'document_upload' | 'emergency' | 'general' | 'system'
+          title?: string
+          message?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          priority_level?: 'low' | 'normal' | 'high' | 'urgent'
+          is_read?: boolean
+          read_at?: string | null
+          action_url?: string | null
+          expires_at?: string | null
+          metadata?: any
+          created_at?: string
+          priority?: 'low' | 'normal' | 'high' | 'urgent'
+          is_pushed?: boolean
+          conversation_id?: string | null
+          is_sent?: boolean
+          sent_at?: string | null
+          error_message?: string | null
+          updated_at?: string
+        }
+      }
       projects: {
         Row: {
           id: string

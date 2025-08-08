@@ -1,6 +1,110 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
+// Helper function to create notifications for admin users
+async function createNotificationsForMessage({
+  messageId,
+  conversationId,
+  senderId,
+  messageText,
+  messageType
+}: {
+  messageId: string;
+  conversationId: string;
+  senderId: string;
+  messageText: string;
+  messageType: string;
+}) {
+  try {
+    console.log('🔔 [Direct Insert] Creating notifications for admin users...');
+    
+    const supabase = supabaseAdmin;
+    
+    // Get sender information
+    const { data: senderInfo, error: senderError } = await supabase
+      .from('users')
+      .select('id, full_name, role')
+      .eq('id', senderId)
+      .single();
+
+    if (senderError) {
+      console.error('❌ [Direct Insert] Error fetching sender info:', senderError);
+      return;
+    }
+
+    // Only create notifications if sender is not an admin
+    if (senderInfo && senderInfo.role !== 'admin') {
+      // Get conversation information
+      const { data: conversationInfo, error: conversationInfoError } = await supabase
+        .from('conversations')
+        .select('conversation_name, project_id, project:projects(project_name)')
+        .eq('id', conversationId)
+        .single();
+
+      if (conversationInfoError) {
+        console.error('❌ [Direct Insert] Error fetching conversation info:', conversationInfoError);
+      }
+
+      // Get all admin users
+      const { data: adminUsers, error: adminError } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .eq('role', 'admin');
+
+      if (adminError) {
+        console.error('❌ [Direct Insert] Error fetching admin users:', adminError);
+      } else if (adminUsers && adminUsers.length > 0) {
+        // Create notifications for each admin user
+        const notifications = adminUsers.map(admin => ({
+          user_id: admin.id,
+          project_id: conversationInfo?.project_id || null,
+          notification_type: 'message' as const,
+          title: (conversationInfo?.project as any)?.project_name 
+            ? `New message in ${(conversationInfo?.project as any).project_name} - ${conversationInfo?.conversation_name || 'General'}`
+            : `New message from ${senderInfo.full_name || 'Mobile User'}`,
+          message: messageText.length > 100 
+            ? messageText.substring(0, 100) + '...' 
+            : messageText,
+          entity_id: messageId,
+          entity_type: 'message',
+          priority_level: 'normal' as const,
+          is_read: false,
+          action_url: `/communications?conversation=${conversationId}`,
+          conversation_id: conversationId,
+          metadata: {
+            message_id: messageId,
+            sender_id: senderId,
+            sender_name: senderInfo.full_name || 'Mobile User',
+            conversation_id: conversationId,
+            conversation_name: conversationInfo?.conversation_name || 'General',
+            project_id: conversationInfo?.project_id,
+            project_name: (conversationInfo?.project as any)?.project_name,
+            message_type: messageType,
+            source: 'mobile_app_via_direct_insert'
+          },
+          priority: 'normal' as const,
+          is_pushed: false,
+          is_sent: false
+        }));
+
+        console.log(`📝 [Direct Insert] Creating ${notifications.length} notifications for admin users...`);
+
+        const { data: notificationResult, error: notificationError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+
+        if (notificationError) {
+          console.error('❌ [Direct Insert] Error creating notifications:', notificationError);
+        } else {
+          console.log(`✅ [Direct Insert] Created notifications for ${adminUsers.length} admin users`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ [Direct Insert] Error in notification creation:', error);
+  }
+}
+
 /**
  * Direct message insert API - bypasses all triggers and constraints
  * This is a workaround for the conversation_name ambiguity trigger issue
@@ -18,6 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🔧 [Direct Insert] Starting direct message insert bypass...');
+    console.log('📱 [Direct Insert] *** MOBILE APP MIGHT BE USING THIS ENDPOINT ***');
     
     const supabase = supabaseAdmin;
     
@@ -143,6 +248,15 @@ export async function POST(request: NextRequest) {
 
         console.log('✅ [Direct Insert] Message saved via communication_log:', messageFromLog.id);
         
+        // Create notifications for this message too
+        await createNotificationsForMessage({
+          messageId: messageFromLog.id,
+          conversationId: conversationId,
+          senderId: senderId,
+          messageText: content,
+          messageType: messageType
+        });
+        
         return NextResponse.json({
           success: true,
           message: messageFromLog,
@@ -152,6 +266,16 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('✅ [Direct Insert] Temp table insert successful');
+      
+      // Create notifications for this message too
+      await createNotificationsForMessage({
+        messageId: tempResult.id,
+        conversationId: conversationId,
+        senderId: senderId,
+        messageText: content,
+        messageType: messageType
+      });
+      
       return NextResponse.json({
         success: true,
         message: tempResult,
@@ -160,6 +284,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ [Direct Insert] Raw SQL insert successful');
+    
+    // 🚨 FIX: Create notifications for admin users when message is sent from mobile app
+    await createNotificationsForMessage({
+      messageId: messageId,
+      conversationId: conversationId,
+      senderId: senderId,
+      messageText: content,
+      messageType: messageType
+    });
     
     return NextResponse.json({
       success: true,

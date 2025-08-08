@@ -1,717 +1,660 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAdminNotifications } from '@/hooks/useAdminNotifications';
-import { useRequestNotifications } from '@/hooks/useRequestNotifications';
-import { useDocumentsNotifications } from '@/hooks/useDocumentsNotifications';
-import { useMessages } from '@/hooks/useMessages';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import NotificationDetailModal from './NotificationDetailModal';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { 
-  Shield, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock,
-  DollarSign,
-  FileText,
-  Users,
-  Settings,
-  Database,
-  ExternalLink,
-  Zap,
-  TrendingUp,
-  MessageCircle,
-  MessageSquare,
   Bell,
-  UserCheck,
-  Eye
+  Search,
+  Filter,
+  MoreHorizontal,
+  CheckCheck,
+  X,
+  ThumbsUp,
+  ThumbsDown,
+  Reply,
+  ExternalLink,
+  Eye,
+  Package,
+  CreditCard,
+  Users,
+  AlertTriangle, 
+  Info,
+  MessageSquare,
+  ShoppingCart,
+  FileText,
+  Clock,
+  User,
+  Settings,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
-interface CleanStatsCardProps {
-  title: string;
-  value: number;
-  icon: React.ComponentType<{ className?: string }>;
-  color: 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'slate';
-  description: string;
+interface NotificationAction {
+  id: string;
+  label: string;
+  variant: 'primary' | 'destructive' | 'outline' | 'secondary';
+  icon?: React.ComponentType<{ className?: string }>;
+  action: () => void;
 }
 
-function CleanStatsCard({ title, value, icon: Icon, color, description }: CleanStatsCardProps) {
-  const colorClasses = {
-    blue: 'text-blue-600 bg-blue-50',
-    green: 'text-green-600 bg-green-50',
-    orange: 'text-orange-600 bg-orange-50',
-    purple: 'text-purple-600 bg-purple-50',
-    red: 'text-red-600 bg-red-50',
-    slate: 'text-slate-600 bg-slate-50',
+export function AdminControlCenter() {
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    soundEnabled,
+    markAsRead,
+    markAllAsRead,
+    clearNotifications,
+    toggleSound,
+    testRealtime,
+    testSound,
+  } = useRealtimeNotifications();
+
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Ensure client-side rendering for dynamic content
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Filter notifications based on active tab and search
+  const filteredNotifications = notifications.filter(notification => {
+    const matchesSearch = searchQuery === '' || 
+      notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      notification.message.toLowerCase().includes(searchQuery.toLowerCase());
+
+    switch (activeTab) {
+      case 'inbox':
+        return !notification.is_read && matchesSearch;
+      case 'orders':
+        return notification.notification_type === 'payment_due' && matchesSearch;
+      case 'archived':
+        return notification.is_read && matchesSearch;
+      default:
+        return matchesSearch;
+    }
+  });
+
+  // Get user initials for avatar fallback
+  const getUserInitials = (title: string) => {
+    const words = title.split(' ');
+    return words.length > 1 ? 
+      `${words[0][0]}${words[1][0]}`.toUpperCase() : 
+      title.substring(0, 2).toUpperCase();
   };
 
+  // Get notification icon based on type
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'system':
+        return <User className="w-4 h-4 text-blue-500" />;
+      case 'project_update':
+        return <FileText className="w-4 h-4 text-green-500" />;
+      case 'payment_due':
+        return <CreditCard className="w-4 h-4 text-orange-500" />;
+      case 'milestone_complete':
+        return <CheckCheck className="w-4 h-4 text-green-500" />;
+      case 'message':
+        return <MessageSquare className="w-4 h-4 text-purple-500" />;
+      case 'emergency':
+        return <AlertTriangle className="w-4 h-4 text-red-500" />;
+          default:
+        return <Bell className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  // Get contextual actions based on notification type
+  const getNotificationActions = (notification: any): NotificationAction[] => {
+    const actions: NotificationAction[] = [];
+
+    switch (notification.notification_type) {
+      case 'message':
+        // Message notifications should have view and reply actions
+        actions.push(
+          {
+            id: 'view-message',
+            label: 'View',
+            variant: 'outline',
+            icon: Eye,
+            action: () => {
+              // Navigate to the specific conversation using the conversation_id or action_url
+              if (notification.conversation_id) {
+                router.push(`/communications?conversation=${notification.conversation_id}`);
+              } else if (notification.action_url) {
+                router.push(notification.action_url);
+              } else {
+                router.push('/communications');
+              }
+              markAsRead(notification.id);
+            }
+          },
+          {
+            id: 'reply',
+            label: 'Reply',
+            variant: 'primary',
+            icon: Reply,
+            action: () => {
+              // Navigate to reply in the conversation
+              if (notification.conversation_id) {
+                router.push(`/communications?conversation=${notification.conversation_id}&reply=true`);
+              } else if (notification.action_url) {
+                router.push(notification.action_url);
+              } else {
+                router.push('/communications');
+              }
+              markAsRead(notification.id);
+            }
+          }
+        );
+        break;
+
+      case 'payment_due':
+        actions.push(
+          {
+            id: 'approve',
+            label: 'Approve',
+            variant: 'primary',
+            icon: ThumbsUp,
+            action: () => handleApprove(notification)
+          },
+          {
+            id: 'decline',
+            label: 'Decline',
+            variant: 'destructive',
+            icon: ThumbsDown,
+            action: () => handleDecline(notification)
+          },
+          {
+            id: 'view-payment',
+            label: 'View Order',
+            variant: 'outline',
+            icon: ExternalLink,
+            action: () => {
+              if (notification.entity_id) {
+                router.push(`/finances?payment=${notification.entity_id}`);
+              } else {
+                router.push('/finances');
+              }
+              markAsRead(notification.id);
+            }
+          }
+        );
+        break;
+
+      case 'project_update':
+        actions.push(
+          {
+            id: 'view-project',
+            label: 'View Project',
+            variant: 'outline',
+            icon: Eye,
+            action: () => {
+              if (notification.entity_id) {
+                router.push(`/projects/${notification.entity_id}`);
+              } else if (notification.project_id) {
+                router.push(`/projects/${notification.project_id}`);
+              } else {
+                router.push('/projects');
+              }
+              markAsRead(notification.id);
+            }
+          }
+        );
+        break;
+
+      case 'system':
+        if (notification.entity_type === 'user' && notification.entity_id) {
+          actions.push(
+            {
+              id: 'view-user',
+              label: 'View User',
+              variant: 'outline',
+              icon: User,
+              action: () => {
+                router.push(`/users/${notification.entity_id}`);
+                markAsRead(notification.id);
+              }
+            }
+          );
+        } else if (notification.entity_type === 'return_request') {
+          actions.push(
+            {
+              id: 'view-request',
+              label: 'View Request',
+              variant: 'outline',
+              icon: Eye,
+              action: () => {
+                router.push('/orders');
+                markAsRead(notification.id);
+              }
+            }
+          );
+        } else {
+          actions.push(
+            {
+              id: 'view-users',
+              label: 'View Users',
+              variant: 'outline',
+              icon: Users,
+              action: () => {
+                router.push('/users');
+                markAsRead(notification.id);
+              }
+            }
+          );
+        }
+        break;
+
+      case 'emergency':
+        actions.push(
+          {
+            id: 'view-safety',
+            label: 'Safety Center',
+            variant: 'destructive',
+            icon: AlertTriangle,
+            action: () => {
+              router.push('/safety');
+              markAsRead(notification.id);
+            }
+          }
+        );
+        break;
+
+      default:
+        actions.push(
+          {
+            id: 'view',
+            label: 'View',
+            variant: 'outline',
+            icon: Eye,
+            action: () => handleView(notification)
+          }
+        );
+    }
+
+    return actions;
+  };
+
+  // Action handlers
+  const handleApprove = (notification: any) => {
+    console.log('Approving:', notification);
+    markAsRead(notification.id);
+    // Add approval logic here
+  };
+
+  const handleDecline = (notification: any) => {
+    console.log('Declining:', notification);
+    markAsRead(notification.id);
+    // Add decline logic here
+  };
+
+  const handleView = (notification: any) => {
+    console.log('Viewing:', notification);
+    markAsRead(notification.id);
+    
+    // Navigate based on notification type and available data
+    if (notification.action_url) {
+      router.push(notification.action_url);
+    } else {
+      // Fallback navigation based on type
+      switch (notification.notification_type) {
+        case 'payment_due':
+          router.push('/finances');
+          break;
+        case 'project_update':
+        case 'milestone_complete':
+          router.push('/projects');
+          break;
+        case 'message':
+          if (notification.conversation_id) {
+            router.push(`/communications?conversation=${notification.conversation_id}`);
+          } else {
+            router.push('/communications');
+          }
+          break;
+        case 'system':
+          if (notification.entity_type === 'user') {
+            router.push('/users');
+          } else {
+            router.push('/dashboard');
+          }
+          break;
+        case 'emergency':
+          router.push('/safety');
+          break;
+        default:
+          router.push('/dashboard');
+      }
+    }
+  };
+
+  // Get tab counts
+  const getTabCount = (tab: string) => {
+    switch (tab) {
+      case 'inbox':
+        return notifications.filter(n => !n.is_read).length;
+      case 'orders':
+        return notifications.filter(n => n.notification_type === 'payment_due').length;
+      case 'archived':
+        return notifications.filter(n => n.is_read).length;
+      default:
+        return notifications.length;
+    }
+  };
+
+  // Safe date formatting that works during SSR
+  const formatNotificationTime = (dateString: string) => {
+    if (!isClient) {
+      return 'just now'; // Fallback for SSR
+    }
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch {
+      return 'just now';
+    }
+  };
+
+  // Don't render time-sensitive content until client-side
+  if (!isClient) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
-      <div className="flex items-center space-x-4">
-        <div className={cn("p-3 rounded-lg", colorClasses[color])}>
-          <Icon className="w-6 h-6" />
-        </div>
-        <div className="flex-1">
-          <h3 className="text-sm font-medium text-slate-600">{title}</h3>
-          <div className="text-2xl font-bold text-slate-900 mt-1">{value}</div>
-          <p className="text-sm text-slate-500 mt-1">{description}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface UnifiedNotification {
-  id: string;
-  source: 'admin' | 'request' | 'document' | 'message';
-  type: string;
-  title: string;
-  message: string;
-  priority: 'critical' | 'high' | 'medium' | 'low' | 'urgent' | 'normal';
-  category?: string;
-  entity_type?: string;
-  created_at: string;
-  is_read: boolean;
-  action_required?: boolean;
-  project_name?: string;
-  client_name?: string;
-  document_name?: string;
-  raw_data: any; // Store original notification for type-specific actions
-}
-
-export default function AdminControlCenter() {
-  const router = useRouter();
-  const [selectedNotification, setSelectedNotification] = useState<UnifiedNotification | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const { 
-    notifications: adminNotifications, 
-    stats: adminStats, 
-    loading: adminLoading, 
-    error: adminError,
-    markAsRead: markAdminAsRead,
-    markAsAcknowledged: markAdminAsAcknowledged,
-    dismissNotification: dismissAdminNotification,
-    getCriticalAlerts,
-    getActionableNotifications 
-  } = useAdminNotifications({ includeRead: false });
-
-  const {
-    notifications: requestNotifications,
-    unreadCount: requestUnreadCount,
-    loading: requestLoading,
-    markAsRead: markRequestAsRead
-  } = useRequestNotifications({ includeRead: false, limit: 50 });
-
-  const {
-    notifications: documentNotifications,
-    stats: documentStats,
-    loading: documentLoading
-  } = useDocumentsNotifications();
-
-  const {
-    stats: messageStats,
-    loading: messageLoading
-  } = useMessages();
-
-  // Show setup instructions if admin table doesn't exist
-  if (adminError?.includes('table not yet created')) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100">
+      <div className="max-w-4xl mx-auto p-6">
+        <Card className="shadow-lg">
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center text-orange-800">
-              <Database className="h-6 w-6 mr-3" />
-              Control Center Setup Required
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Bell className="w-6 h-6 text-gray-600" />
+                <div>
+                  <CardTitle className="text-xl font-semibold text-gray-900">
+                    Notifications
+                  </CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Loading notification center...
+                  </p>
+                </div>
+          </div>
+        </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              <p className="text-orange-700 text-lg">
-                Initialize your mission-critical admin notification system.
-              </p>
-              
-              <div className="bg-white rounded-lg p-6 border border-orange-200">
-                <h4 className="font-semibold text-slate-900 mb-4 flex items-center">
-                  <Zap className="h-5 w-5 mr-2 text-orange-600" />
-                  Quick Setup
-                </h4>
-                <ol className="space-y-3">
-                  <li className="flex items-start space-x-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-semibold">1</span>
-                    <span className="text-slate-700">Open your Supabase Dashboard</span>
-                  </li>
-                  <li className="flex items-start space-x-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-semibold">2</span>
-                    <span className="text-slate-700">Navigate to SQL Editor</span>
-                  </li>
-                  <li className="flex items-start space-x-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-semibold">3</span>
-                    <div>
-                      <span className="text-slate-700">Run the migration script:</span>
-                      <code className="block bg-slate-100 px-3 py-2 rounded text-sm mt-1 font-mono">
-                        sql/create_admin_notifications_table.sql
-                      </code>
-                    </div>
-                  </li>
-                  <li className="flex items-start space-x-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-semibold">4</span>
-                    <span className="text-slate-700">Refresh this page</span>
-                  </li>
-                </ol>
-              </div>
-
-              <div className="flex space-x-3">
-                <Button 
-                  onClick={() => window.open('https://supabase.com/dashboard/project/zzycggpcojissnllcucs/sql', '_blank')}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Supabase Dashboard
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => window.location.reload()}
-                  className="border-slate-300 hover:bg-slate-50"
-                >
-                  Refresh Page
-                </Button>
-              </div>
-            </div>
+            <div className="flex items-center justify-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  const isLoading = adminLoading || requestLoading || documentLoading || messageLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="text-center">
-          <LoadingSpinner />
-          <p className="text-slate-600 mt-4">Initializing Control Center...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Unify all notifications into a single array
-  const unifiedNotifications: UnifiedNotification[] = [
-    // Admin notifications
-    ...adminNotifications.filter(n => !n.is_read && !n.is_dismissed).map(n => ({
-      id: `admin-${n.id}`,
-      source: 'admin' as const,
-      type: n.type,
-      title: n.title,
-      message: n.message,
-      priority: n.priority,
-      category: n.category,
-      entity_type: n.entity_type,
-      created_at: n.created_at,
-      is_read: n.is_read,
-      action_required: n.action_required,
-      raw_data: n
-    })),
-    
-    // Request notifications
-    ...requestNotifications.filter(n => !n.is_read).map(n => ({
-      id: `request-${n.id}`,
-      source: 'request' as const,
-      type: n.type,
-      title: n.title,
-      message: n.message,
-      priority: n.priority,
-      category: 'communication',
-      entity_type: 'request',
-      created_at: n.created_at,
-      is_read: n.is_read,
-      action_required: n.priority === 'urgent',
-      project_name: n.project_name,
-      client_name: n.client_name,
-      raw_data: n
-    })),
-    
-    // Document notifications
-    ...documentNotifications.filter(n => !n.is_read).map(n => ({
-      id: `document-${n.id}`,
-      source: 'document' as const,
-      type: n.type,
-      title: n.title,
-      message: n.message,
-      priority: (n.priority === 'urgent' ? 'critical' : 
-                n.priority === 'high' ? 'high' : 
-                n.priority === 'normal' ? 'medium' : 'low') as 'critical' | 'high' | 'medium' | 'low',
-      category: 'compliance',
-      entity_type: 'document',
-      created_at: n.created_at,
-      is_read: n.is_read,
-      action_required: n.type === 'pending_approval' || n.type === 'approval_overdue',
-      project_name: n.project_name,
-      document_name: n.document_name,
-      raw_data: n
-    }))
-  ];
-
-  // Sort by priority and date
-  const sortedNotifications = unifiedNotifications.sort((a, b) => {
-    const priorityOrder = { critical: 5, urgent: 4, high: 3, medium: 2, low: 1 };
-    const priorityDiff = (priorityOrder[b.priority as keyof typeof priorityOrder] || 1) - 
-                        (priorityOrder[a.priority as keyof typeof priorityOrder] || 1);
-    if (priorityDiff !== 0) return priorityDiff;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-
-  const criticalAlerts = sortedNotifications.filter(n => n.priority === 'critical' || n.priority === 'urgent');
-  const actionableNotifications = sortedNotifications.filter(n => n.action_required);
-  
-  const totalUnread = sortedNotifications.length;
-  const totalCritical = criticalAlerts.length;
-
-  // Debug logging
-  console.log('🎛️ Unified Control Center Debug:', {
-    adminNotifications: adminNotifications.length,
-    requestNotifications: requestNotifications.length,
-    documentNotifications: documentNotifications.length,
-    unifiedTotal: unifiedNotifications.length,
-    criticalCount: criticalAlerts.length,
-    actionableCount: actionableNotifications.length,
-    messageUnread: messageStats.unreadMessages
-  });
-
-  // Handle notification actions based on source
-  const handleMarkAsRead = async (notification: UnifiedNotification) => {
-    try {
-      switch (notification.source) {
-        case 'admin':
-          await markAdminAsRead(notification.raw_data.id);
-          break;
-        case 'request':
-          await markRequestAsRead(notification.raw_data.id);
-          break;
-        case 'document':
-          // Document notifications don't have a mark as read function yet
-          console.log('Document notification marked as read:', notification.id);
-          break;
-        case 'message':
-          // Message notifications would be handled differently
-          console.log('Message notification marked as read:', notification.id);
-          break;
-      }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
-
-  const handleAcknowledge = async (notification: UnifiedNotification) => {
-    try {
-      switch (notification.source) {
-        case 'admin':
-          await markAdminAsAcknowledged(notification.raw_data.id);
-          break;
-        case 'request':
-          // Handle request acknowledgment
-          await markRequestAsRead(notification.raw_data.id);
-          break;
-        case 'document':
-          // Handle document acknowledgment
-          console.log('Document notification acknowledged:', notification.id);
-          break;
-      }
-    } catch (error) {
-      console.error('Error acknowledging notification:', error);
-    }
-  };
-
-  const handleDismiss = async (notification: UnifiedNotification) => {
-    try {
-      switch (notification.source) {
-        case 'admin':
-          await dismissAdminNotification(notification.raw_data.id);
-          break;
-        default:
-          // For non-admin notifications, just mark as read
-          await handleMarkAsRead(notification);
-          break;
-      }
-    } catch (error) {
-      console.error('Error dismissing notification:', error);
-    }
-  };
-
-  // Navigation functions
-  const handleViewSource = (notification: UnifiedNotification) => {
-    switch (notification.source) {
-      case 'admin':
-        // Stay on control center for admin notifications
-        break;
-      case 'request':
-        router.push(`/requests?id=${notification.raw_data.request_id || notification.raw_data.id}`);
-        break;
-      case 'document':
-        router.push(`/documents?id=${notification.raw_data.document_id || notification.raw_data.id}`);
-        break;
-      case 'message':
-        router.push('/communications');
-        break;
-    }
-  };
-
-  const handleNotificationClick = (notification: UnifiedNotification) => {
-    setSelectedNotification(notification);
-    setIsModalOpen(true);
-  };
-
-  const getRedirectPath = (notification: UnifiedNotification) => {
-    switch (notification.source) {
-      case 'admin':
-        return null; // No direct page for admin notifications
-      case 'request':
-        return '/requests';
-      case 'document':
-        return '/documents';
-      case 'message':
-        return '/communications';
-      default:
-        return null;
-    }
-  };
-
-  // Get icon for notification source
-  const getSourceIcon = (source: string) => {
-    switch (source) {
-      case 'admin': return Settings;
-      case 'request': return MessageSquare;
-      case 'document': return FileText;
-      case 'message': return MessageCircle;
-      default: return Bell;
-    }
-  };
-
-  // Get color for notification priority
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-      case 'urgent':
-        return 'border-red-300 text-red-700 bg-red-50';
-      case 'high':
-        return 'border-orange-300 text-orange-700 bg-orange-50';
-      case 'medium':
-        return 'border-blue-300 text-blue-700 bg-blue-50';
-      case 'low':
-        return 'border-slate-300 text-slate-700 bg-slate-50';
-      default:
-        return 'border-slate-300 text-slate-700 bg-slate-50';
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Control Center Header */}
-      <div className="text-center">
-        <div className="flex items-center justify-center mb-4">
-          <div className="p-3 bg-orange-100 rounded-full">
-            <Shield className="h-8 w-8 text-orange-600" />
-          </div>
-        </div>
-        <h1 className="text-3xl font-bold text-slate-900">Mission Control Center</h1>
-        <p className="text-slate-600 mt-2 text-lg">Real-time oversight and critical alert management</p>
-        
-        <div className="flex items-center justify-center space-x-4 mt-6">
-          {totalUnread === 0 ? (
-            <Badge className="bg-green-100 text-green-800 border-green-200 px-4 py-2">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              All Systems Operational
-            </Badge>
-          ) : (
-            <>
-              <Badge variant="destructive" className="bg-red-500 text-white px-4 py-2">
-                {totalUnread} Active Alerts
-              </Badge>
-              {totalCritical > 0 && (
-                <Badge variant="destructive" className="bg-red-600 text-white animate-pulse px-4 py-2">
-                  {totalCritical} CRITICAL
+    <div className="max-w-4xl mx-auto p-6">
+      <Card className="shadow-lg">
+        {/* Header */}
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <Bell className="w-6 h-6 text-gray-600" />
+                {unreadCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
                 </Badge>
               )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Critical Alerts Section */}
-      {criticalAlerts.length > 0 && (
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl p-8 border border-red-200">
-          <div className="flex items-center mb-6">
-            <AlertTriangle className="h-6 w-6 text-red-600 mr-3" />
-            <h2 className="text-xl font-bold text-red-900">Critical Alerts</h2>
-            <Badge variant="destructive" className="ml-3">
-              Immediate Action Required
-            </Badge>
-          </div>
-          
-          <div className="space-y-4">
-            {criticalAlerts.map((alert) => (
-              <div 
-                key={alert.id} 
-                className="bg-white rounded-xl p-6 border border-red-200 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                onClick={() => handleNotificationClick(alert)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-semibold text-red-900 text-lg">{alert.title}</h3>
-                      <Badge variant="outline" className="text-xs border-red-200 text-red-700">
-                        {alert.source}
-                      </Badge>
-                    </div>
-                    <p className="text-red-700 mt-2">{alert.message}</p>
-                    <div className="flex items-center space-x-4 mt-4 text-sm text-red-600">
-                      <Badge variant="outline" className="border-red-200">
-                        {alert.entity_type || alert.type}
-                      </Badge>
-                      {alert.project_name && (
-                        <span>{alert.project_name}</span>
-                      )}
-                      {alert.client_name && (
-                        <span>{alert.client_name}</span>
-                      )}
-                      <span>{new Date(alert.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="flex space-x-3 ml-6" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleNotificationClick(alert)}
-                      className="flex items-center space-x-1 border-red-300 text-red-700 hover:bg-red-50"
-                    >
-                      <Eye className="h-3 w-3" />
-                      <span>View</span>
-                    </Button>
-                    
-                    {getRedirectPath(alert) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewSource(alert)}
-                        className="flex items-center space-x-1 border-red-300 text-red-700 hover:bg-red-50"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        <span>Go to</span>
-                      </Button>
-                    )}
-                    
-                    {alert.action_required && (
-                      <Button 
-                        onClick={() => handleAcknowledge(alert)}
-                        className="bg-red-600 hover:bg-red-700 text-white"
-                      >
-                        Take Action
-                      </Button>
-                    )}
-                    <Button 
-                      variant="outline"
-                      onClick={() => handleMarkAsRead(alert)}
-                      className="border-red-300 text-red-700 hover:bg-red-50"
-                    >
-                      Mark Read
-                    </Button>
-                  </div>
-                </div>
               </div>
-            ))}
+              <div>
+                <CardTitle className="text-xl font-semibold text-gray-900">
+                  Notifications
+                </CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Manage all system notifications and take quick actions
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleSound}
+                className="h-9 w-9 p-0"
+                title={soundEnabled ? "Sound enabled" : "Sound disabled"}
+              >
+                {soundEnabled ? 
+                  <Volume2 className="w-4 h-4 text-green-600" /> : 
+                  <VolumeX className="w-4 h-4 text-gray-400" />
+                }
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={testRealtime}
+                className="h-9 w-9 p-0"
+                title="Test real-time notifications"
+              >
+                <Bell className="w-4 h-4 text-blue-600" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={testSound}
+                className="h-9 w-9 p-0"
+                title="Test notification sounds"
+              >
+                <Volume2 className="w-4 h-4 text-purple-600" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={markAllAsRead}
+                disabled={unreadCount === 0}
+                className="flex items-center space-x-2"
+              >
+                <CheckCheck className="w-4 h-4" />
+                <span>Mark all as read</span>
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+          
+          {/* Search Bar */}
+          <div className="relative mt-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search notifications..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4"
+            />
+          </div>
+        </CardHeader>
 
-      {/* Enhanced Alert Categories Grid */}
-      <div>
-        <h2 className="text-xl font-semibold text-slate-900 mb-6">Alert Categories</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <CleanStatsCard
-            title="Financial Alerts"
-            value={adminStats.financial_alerts}
-            icon={DollarSign}
-            color="orange"
-            description="Payment & budget issues"
-          />
-          
-          <CleanStatsCard
-            title="Document Alerts"
-            value={documentNotifications.filter(n => !n.is_read).length}
-            icon={FileText}
-            color="purple"
-            description="Approvals & compliance"
-          />
-          
-          <CleanStatsCard
-            title="Request Alerts"
-            value={requestUnreadCount}
-            icon={MessageSquare}
-            color="blue"
-            description="Client requests & support"
-          />
-          
-          <CleanStatsCard
-            title="Message Alerts"
-            value={messageStats.unreadMessages}
-            icon={MessageCircle}
-            color="green"
-            description="Unread conversations"
-          />
-        </div>
-      </div>
+        {/* Tabs Navigation */}
+        <div className="px-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsTrigger value="all" className="relative">
+                <span className="text-emerald-600 font-medium">View all</span>
+                <Badge variant="secondary" className="ml-2 bg-emerald-100 text-emerald-700">
+                  {getTabCount('all')}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="inbox">
+                Inbox
+                {getTabCount('inbox') > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {getTabCount('inbox')}
+                      </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="orders">
+                Orders
+                {getTabCount('orders') > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {getTabCount('orders')}
+                      </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="archived">
+                Archived
+                {getTabCount('archived') > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {getTabCount('archived')}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-      {/* All Active Notifications */}
-      {sortedNotifications.length > 0 ? (
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-6">
-            Active Notifications ({sortedNotifications.length})
-          </h2>
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="divide-y divide-slate-100">
-              {sortedNotifications.map((notification) => {
-                const SourceIcon = getSourceIcon(notification.source);
-                const redirectPath = getRedirectPath(notification);
+            {/* Notifications Content */}
+            <TabsContent value={activeTab} className="space-y-0">
+              <ScrollArea className="h-[600px] pr-4">
+                {notificationsLoading ? (
+                  <div className="flex items-center justify-center h-40">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+                      <p className="text-gray-500 mt-2">Loading notifications...</p>
+                    </div>
+                  </div>
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Bell className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {searchQuery ? 'No matching notifications' : 'No notifications yet'}
+                    </h3>
+                    <p className="text-gray-500">
+                      {searchQuery ? 'Try adjusting your search terms' : 'New notifications will appear here when they arrive'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredNotifications.map((notification, index) => {
+                      const actions = getNotificationActions(notification);
                 
                 return (
                   <div 
                     key={notification.id} 
-                    className="p-6 hover:bg-slate-50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-orange-200"
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <SourceIcon className="h-4 w-4 text-slate-500" />
-                          <h3 className="font-semibold text-slate-900">{notification.title}</h3>
-                          <Badge 
-                            variant="outline" 
-                            className={cn("text-xs", getPriorityColor(notification.priority))}
-                          >
-                            {notification.priority}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs border-slate-300 text-slate-600">
-                            {notification.source}
-                          </Badge>
-                          {notification.category && (
-                            <Badge variant="outline" className="text-xs border-slate-300 text-slate-600">
-                              {notification.category}
-                            </Badge>
+                          className={cn(
+                            "p-4 rounded-lg border transition-all duration-200 hover:shadow-md cursor-pointer group",
+                            !notification.is_read 
+                              ? "bg-blue-50 border-blue-200 hover:bg-blue-100" 
+                              : "bg-white border-gray-200 hover:bg-gray-50"
                           )}
-                        </div>
-                        <p className="text-slate-600 mb-3">{notification.message}</p>
-                        <div className="flex items-center space-x-4 text-sm text-slate-500">
-                          <span>{notification.entity_type || notification.type}</span>
-                          {notification.project_name && (
-                            <>
-                              <span>•</span>
-                              <span>{notification.project_name}</span>
-                            </>
-                          )}
-                          {notification.client_name && (
-                            <>
-                              <span>•</span>
-                              <span>{notification.client_name}</span>
-                            </>
-                          )}
-                          {notification.document_name && (
-                            <>
-                              <span>•</span>
-                              <span>{notification.document_name}</span>
-                            </>
-                          )}
-                          <span>•</span>
-                          <span>{new Date(notification.created_at).toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2 ml-6" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleNotificationClick(notification)}
-                          className="flex items-center space-x-1"
+                          onClick={() => !notification.is_read && markAsRead(notification.id)}
                         >
-                          <Eye className="h-3 w-3" />
-                          <span>View</span>
-                        </Button>
-                        
-                        {redirectPath && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewSource(notification)}
-                            className="flex items-center space-x-1"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>Go to</span>
-                          </Button>
-                        )}
-                        
-                        {notification.action_required && (
-                          <Button 
-                            size="sm"
-                            onClick={() => handleAcknowledge(notification)}
-                            className="bg-slate-900 hover:bg-slate-800 text-white"
-                          >
-                            Handle
-                          </Button>
-                        )}
-                        
-                        <Button 
-                          size="sm"
+                          <div className="flex items-start space-x-4">
+                            {/* Avatar */}
+                            <div className="relative">
+                              <Avatar className="w-10 h-10">
+                                <AvatarImage src={`/api/placeholder/40/40`} />
+                                <AvatarFallback className="bg-gradient-to-br from-orange-400 to-orange-600 text-white text-sm font-medium">
+                                  {getUserInitials(notification.title)}
+                                </AvatarFallback>
+                              </Avatar>
+                              {!notification.is_read && (
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                              )}
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    {getNotificationIcon(notification.notification_type)}
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                      {notification.title}
+                                    </p>
+                                    {!notification.is_read && (
+                                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                        New
+                                      </Badge>
+                                    )}
+                                    <Badge 
                           variant="outline"
-                          onClick={() => handleMarkAsRead(notification)}
-                          className="border-slate-300 hover:bg-slate-50"
-                        >
-                          Mark Read
-                        </Button>
-                        
-                        {notification.source === 'admin' && (
+                                      className={cn(
+                                        "text-xs ml-auto",
+                                        notification.priority_level === 'urgent' && "border-red-500 text-red-700",
+                                        notification.priority_level === 'high' && "border-orange-500 text-orange-700",
+                                        notification.priority_level === 'normal' && "border-blue-500 text-blue-700",
+                                        notification.priority_level === 'low' && "border-gray-500 text-gray-700"
+                                      )}
+                                    >
+                                      {notification.notification_type.replace('_', ' ')}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-gray-600 mb-2 leading-relaxed">
+                                    {notification.message}
+                                  </p>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-400">
+                                      {formatNotificationTime(notification.created_at)}
+                                    </span>
+                                    
+                                    {/* Quick Actions */}
+                                    {actions.length > 0 && (
+                                      <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {actions.map((action) => {
+                                          const IconComponent = action.icon || Eye;
+                                          return (
                           <Button 
+                                              key={action.id}
+                                              variant={action.variant}
                             size="sm"
-                            variant="outline"
-                            onClick={() => handleDismiss(notification)}
-                            className="border-slate-300 hover:bg-slate-50 text-slate-600"
-                          >
-                            Dismiss
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                action.action();
+                                              }}
+                                              className="h-7 px-3 text-xs"
+                                            >
+                                              <IconComponent className="w-3 h-3 mr-1" />
+                                              {action.label}
                           </Button>
+                                          );
+                                        })}
+                                      </div>
                         )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
             </div>
           </div>
         </div>
-      ) : (
-        /* Empty State */
-        <div className="text-center py-16">
-          <div className="bg-green-100 rounded-full p-6 w-fit mx-auto mb-6">
-            <CheckCircle className="h-12 w-12 text-green-600" />
+                      );
+                    })}
           </div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">All Clear!</h3>
-          <p className="text-slate-600">No active notifications requiring your attention.</p>
+                )}
+                
+                {/* View More */}
+                {filteredNotifications.length > 0 && (
+                  <div className="text-center py-6 border-t border-gray-100 mt-6">
+                    <Button variant="ghost" className="text-gray-500 hover:text-gray-700">
+                      <Clock className="w-4 h-4 mr-2" />
+                      View more
+          </Button>
         </div>
-      )}
-
-      {/* Notification Detail Modal */}
-      <NotificationDetailModal
-        notification={selectedNotification}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onMarkAsRead={handleMarkAsRead}
-        onAcknowledge={handleAcknowledge}
-        onDismiss={handleDismiss}
-        onViewSource={handleViewSource}
-      />
+                )}
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </Card>
     </div>
   );
 } 
+
+export default AdminControlCenter; 

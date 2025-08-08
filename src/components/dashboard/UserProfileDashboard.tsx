@@ -371,6 +371,12 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
                         {userInfo.phone}
                       </div>
                     )}
+                    {userInfo.address && (
+                      <div className="flex items-center text-sm text-gray-500">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {userInfo.address}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">

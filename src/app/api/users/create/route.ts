@@ -9,9 +9,9 @@ export async function POST(request: Request) {
     console.log('👤 Admin API: Creating new user without OTP:', { email, full_name, role });
     
     // Validate required fields
-    if (!email || !full_name) {
+    if (!full_name || !email || !role) {
       return NextResponse.json(
-        { error: 'Email and full name are required' },
+        { error: 'Full name, email, and role are required' },
         { status: 400 }
       );
     }
@@ -41,41 +41,32 @@ export async function POST(request: Request) {
       );
     }
     
-    // Create user in Supabase Auth with admin privileges
-    // Using auto-confirm to bypass email verification for admin-created users
+    // Create user account in Supabase Auth  
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: email.toLowerCase(),
+      email: email,
       password: temporary_password || generateTemporaryPassword(),
-      email_confirm: false, // User will need to verify email later
       user_metadata: {
         full_name: full_name,
         phone: phone || null,
         created_by_admin: true,
         requires_password_reset: true
-      }
+      },
+      email_confirm: false  // Auto-confirm email for admin-created users
     });
     
     if (authError) {
       console.error('❌ Admin API: Error creating auth user:', authError);
-      return NextResponse.json(
-        { error: 'Failed to create user account', details: authError.message },
-        { status: 500 }
-      );
+      throw authError;
     }
-    
-    if (!authUser.user) {
-      return NextResponse.json(
-        { error: 'Failed to create user account' },
-        { status: 500 }
-      );
-    }
-    
-    // Create user profile in public.users table
-    const { data: userProfile, error: profileError } = await supabaseAdmin
+
+    console.log('✅ Admin API: Auth user created successfully:', authUser.user?.id);
+
+    // Insert user into public.users table
+    const { data: userRecord, error: userError } = await supabaseAdmin
       .from('users')
       .insert({
-        id: authUser.user.id,
-        email: email.toLowerCase(),
+        id: authUser.user!.id,
+        email: email,
         full_name: full_name,
         phone: phone || null,
         role: role || 'client',
@@ -86,8 +77,8 @@ export async function POST(request: Request) {
       .select('*')
       .single();
     
-    if (profileError) {
-      console.error('❌ Admin API: Error creating user profile:', profileError);
+    if (userError) {
+      console.error('❌ Admin API: Error creating user profile:', userError);
       
       // Clean up auth user if profile creation failed
       try {
@@ -98,7 +89,7 @@ export async function POST(request: Request) {
       }
       
       return NextResponse.json(
-        { error: 'Failed to create user profile', details: profileError.message },
+        { error: 'Failed to create user profile', details: userError.message },
         { status: 500 }
       );
     }
@@ -115,12 +106,12 @@ export async function POST(request: Request) {
       console.log('⚠️ Could not send verification email, user can verify later');
     }
     
-    console.log('✅ Admin API: User created successfully:', userProfile.id);
+    console.log('✅ Admin API: User created successfully:', userRecord.id);
     
     return NextResponse.json({
       success: true,
       message: 'User created successfully. User will need to verify email and set password.',
-      user: userProfile,
+      user: userRecord,
       instructions: {
         next_steps: [
           'User will receive an email verification link',

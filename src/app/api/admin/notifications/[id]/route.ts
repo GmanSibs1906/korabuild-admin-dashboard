@@ -8,10 +8,10 @@ const supabase = createClient(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const notificationId = params.id;
+    const { id: notificationId } = await params;
     const { action } = await request.json();
     
     console.log(`🔄 ${action} notification:`, notificationId);
@@ -71,10 +71,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const notificationId = params.id;
+    const { id: notificationId } = await params;
     
     console.log('🗑️ Deleting notification:', notificationId);
 

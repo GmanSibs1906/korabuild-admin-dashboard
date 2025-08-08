@@ -232,6 +232,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     console.log('🔍 [Messages API] POST request started');
+    console.log('📱 [Messages API] *** MOBILE APP MIGHT BE USING THIS ENDPOINT ***');
     
     const body = await request.json();
     const { action, conversationId, content, messageType } = body;
@@ -430,6 +431,59 @@ export async function POST(request: NextRequest) {
             }
 
             console.log('✅ [Messages API] Message stored in messages table:', messageEntry.id);
+
+            // Create notification for admin users if sender is not an admin
+            if (adminUser.role !== 'admin') {
+              console.log('🔔 [Messages API] Creating notifications for admin users...');
+              
+              // Get all admin users
+              const { data: adminUsers, error: adminError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('role', 'admin');
+
+              if (adminError) {
+                console.error('❌ [Messages API] Error fetching admin users:', adminError);
+              } else if (adminUsers && adminUsers.length > 0) {
+                // Create notifications for each admin user
+                const notifications = adminUsers.map(admin => ({
+                  user_id: admin.id,
+                  project_id: conversationExists.project_id,
+                  notification_type: 'message',
+                  title: `New message from ${adminUser.full_name || 'Unknown User'}`,
+                  message: content.length > 100 ? content.substring(0, 100) + '...' : content,
+                  entity_id: messageEntry.id,
+                  entity_type: 'message',
+                  priority_level: 'normal',
+                  is_read: false,
+                  action_url: `/communications?conversation=${conversationId}`,
+                  conversation_id: conversationId,
+                  metadata: {
+                    message_id: messageEntry.id,
+                    sender_id: adminUser.id,
+                    sender_name: adminUser.full_name || 'Unknown User',
+                    conversation_id: conversationId,
+                    conversation_name: conversationExists.conversation_name,
+                    project_id: conversationExists.project_id,
+                    message_type: messageType || 'text',
+                    source: 'mobile_app_message'
+                  },
+                  priority: 'normal',
+                  is_pushed: false,
+                  is_sent: false
+                }));
+
+                const { data: notificationResult, error: notificationError } = await supabase
+                  .from('notifications')
+                  .insert(notifications);
+
+                if (notificationError) {
+                  console.error('❌ [Messages API] Error creating notifications:', notificationError);
+                } else {
+                  console.log(`✅ [Messages API] Created ${notifications.length} notifications for admin users`);
+                }
+              }
+            }
 
             // Get sender details for response
             const { data: senderDetails } = await supabase
