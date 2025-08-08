@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 
 const FinancesPage = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'payment-history' | 'due-next'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payment-history' | 'due-next'>('payment-history');
   const { financialData, isLoading: financialLoading, error: financialError, refetch } = useFinances({
     type: 'overview',
     autoRefetch: false,
@@ -157,262 +157,262 @@ const FinancesPage = () => {
   const financialOverview = calculateFinancialOverview();
 
   const tabs = [
-    { id: 'overview', label: 'Financial Overview', icon: DollarSign },
+    // { id: 'overview', label: 'Financial Overview', icon: DollarSign },
     { id: 'payment-history', label: 'Payment History', icon: History },
     { id: 'due-next', label: 'Due Next Payments', icon: Clock },
   ];
 
-  const renderFinancialOverview = () => (
-    <div className="space-y-8">
-      {/* Primary Financial Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  // const renderFinancialOverview = () => (
+  //   <div className="space-y-8">
+  //     {/* Primary Financial Metrics */}
+  //     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
-        {/* Total Expenditure - Primary Metric */}
-        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-red-800">Total Expenditure</CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-700">
-              {formatCurrency(financialOverview.totalExpenditure)}
-            </div>
-            <p className="text-xs text-red-600 mt-1">
-              From {payments?.filter(p => p.status === 'completed').length || 0} completed payments
-            </p>
-          </CardContent>
-        </Card>
+  //       {/* Total Expenditure - Primary Metric */}
+  //       <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+  //         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  //           <CardTitle className="text-sm font-medium text-red-800">Total Expenditure</CardTitle>
+  //           <ArrowUpRight className="h-4 w-4 text-red-600" />
+  //         </CardHeader>
+  //         <CardContent>
+  //           <div className="text-3xl font-bold text-red-700">
+  //             {formatCurrency(financialOverview.totalExpenditure)}
+  //           </div>
+  //           <p className="text-xs text-red-600 mt-1">
+  //             From {payments?.filter(p => p.status === 'completed').length || 0} completed payments
+  //           </p>
+  //         </CardContent>
+  //       </Card>
 
-        {/* Total Expected */}
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-800">Total Expected</CardTitle>
-            <Building className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-700">
-              {formatCurrency(financialOverview.totalExpected)}
-            </div>
-            <p className="text-xs text-blue-600 mt-1">
-              Total contract value across {projects.length} projects
-            </p>
-          </CardContent>
-        </Card>
+  //       {/* Total Expected */}
+  //       <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+  //         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  //           <CardTitle className="text-sm font-medium text-blue-800">Total Expected</CardTitle>
+  //           <Building className="h-4 w-4 text-blue-600" />
+  //         </CardHeader>
+  //         <CardContent>
+  //           <div className="text-3xl font-bold text-blue-700">
+  //             {formatCurrency(financialOverview.totalExpected)}
+  //           </div>
+  //           <p className="text-xs text-blue-600 mt-1">
+  //             Total contract value across {projects.length} projects
+  //           </p>
+  //         </CardContent>
+  //       </Card>
 
-        {/* Total Received */}
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-800">Total Received</CardTitle>
-            <ArrowDownRight className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-700">
-              {formatCurrency(financialOverview.totalReceived)}
-            </div>
-            <p className="text-xs text-green-600 mt-1">
-              Cash received from clients
-            </p>
-          </CardContent>
-        </Card>
+  //       {/* Total Received */}
+  //       <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+  //         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  //           <CardTitle className="text-sm font-medium text-green-800">Total Received</CardTitle>
+  //           <ArrowDownRight className="h-4 w-4 text-green-600" />
+  //         </CardHeader>
+  //         <CardContent>
+  //           <div className="text-3xl font-bold text-green-700">
+  //             {formatCurrency(financialOverview.totalReceived)}
+  //           </div>
+  //           <p className="text-xs text-green-600 mt-1">
+  //             Cash received from clients
+  //           </p>
+  //         </CardContent>
+  //       </Card>
 
-        {/* Total Outstanding */}
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-800">Total Outstanding</CardTitle>
-            <Clock className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-orange-700">
-              {formatCurrency(financialOverview.totalOutstanding)}
-            </div>
-            <p className="text-xs text-orange-600 mt-1">
-              Expected minus received
-            </p>
-          </CardContent>
-        </Card>
+  //       {/* Total Outstanding */}
+  //       <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+  //         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  //           <CardTitle className="text-sm font-medium text-orange-800">Total Outstanding</CardTitle>
+  //           <Clock className="h-4 w-4 text-orange-600" />
+  //         </CardHeader>
+  //         <CardContent>
+  //           <div className="text-3xl font-bold text-orange-700">
+  //             {formatCurrency(financialOverview.totalOutstanding)}
+  //           </div>
+  //           <p className="text-xs text-orange-600 mt-1">
+  //             Expected minus received
+  //           </p>
+  //         </CardContent>
+  //       </Card>
 
-        {/* Total Available */}
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-800">Total Available</CardTitle>
-            <Wallet className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-700">
-              {formatCurrency(financialOverview.totalAvailable)}
-            </div>
-            <p className="text-xs text-purple-600 mt-1">
-              Received minus expenditure
-            </p>
-          </CardContent>
-        </Card>
+  //       {/* Total Available */}
+  //       <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+  //         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  //           <CardTitle className="text-sm font-medium text-purple-800">Total Available</CardTitle>
+  //           <Wallet className="h-4 w-4 text-purple-600" />
+  //         </CardHeader>
+  //         <CardContent>
+  //           <div className="text-3xl font-bold text-purple-700">
+  //             {formatCurrency(financialOverview.totalAvailable)}
+  //           </div>
+  //           <p className="text-xs text-purple-600 mt-1">
+  //             Received minus expenditure
+  //           </p>
+  //         </CardContent>
+  //       </Card>
 
-        {/* Cash Flow Health Indicator */}
-        <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-800">Cash Flow Health</CardTitle>
-            <PiggyBank className="h-4 w-4 text-gray-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${
-              financialOverview.totalAvailable > 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {financialOverview.totalAvailable > 0 ? 'Positive' : 'Negative'}
-            </div>
-            <p className="text-xs text-gray-600 mt-1">
-              {((financialOverview.totalReceived / financialOverview.totalExpenditure) * 100).toFixed(1)}% efficiency ratio
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+  //       {/* Cash Flow Health Indicator */}
+  //       <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+  //         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  //           <CardTitle className="text-sm font-medium text-gray-800">Cash Flow Health</CardTitle>
+  //           <PiggyBank className="h-4 w-4 text-gray-600" />
+  //         </CardHeader>
+  //         <CardContent>
+  //           <div className={`text-2xl font-bold ${
+  //             financialOverview.totalAvailable > 0 ? 'text-green-600' : 'text-red-600'
+  //           }`}>
+  //             {financialOverview.totalAvailable > 0 ? 'Positive' : 'Negative'}
+  //           </div>
+  //           <p className="text-xs text-gray-600 mt-1">
+  //             {((financialOverview.totalReceived / financialOverview.totalExpenditure) * 100).toFixed(1)}% efficiency ratio
+  //           </p>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
 
-      {/* Financial Breakdown Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Financial Breakdown</CardTitle>
-          <p className="text-sm text-gray-600">Comprehensive view of financial position</p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Visual Progress Bars */}
-            <div className="space-y-3">
-              {/* Expected vs Received */}
-              <div>
-                <div className="flex justify-between text-sm font-medium mb-1">
-                  <span>Payment Collection Progress</span>
-                  <span>{((financialOverview.totalReceived / financialOverview.totalExpected) * 100).toFixed(1)}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-green-500 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((financialOverview.totalReceived / financialOverview.totalExpected) * 100, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Received: {formatCurrency(financialOverview.totalReceived)}</span>
-                  <span>Expected: {formatCurrency(financialOverview.totalExpected)}</span>
-                </div>
-              </div>
+  //     {/* Financial Breakdown Chart */}
+  //     <Card>
+  //       <CardHeader>
+  //         <CardTitle className="text-lg font-semibold">Financial Breakdown</CardTitle>
+  //         <p className="text-sm text-gray-600">Comprehensive view of financial position</p>
+  //       </CardHeader>
+  //       <CardContent>
+  //         <div className="space-y-4">
+  //           {/* Visual Progress Bars */}
+  //           <div className="space-y-3">
+  //             {/* Expected vs Received */}
+  //             <div>
+  //               <div className="flex justify-between text-sm font-medium mb-1">
+  //                 <span>Payment Collection Progress</span>
+  //                 <span>{((financialOverview.totalReceived / financialOverview.totalExpected) * 100).toFixed(1)}%</span>
+  //               </div>
+  //               <div className="w-full bg-gray-200 rounded-full h-3">
+  //                 <div 
+  //                   className="bg-green-500 h-3 rounded-full transition-all duration-300"
+  //                   style={{ width: `${Math.min((financialOverview.totalReceived / financialOverview.totalExpected) * 100, 100)}%` }}
+  //                 />
+  //               </div>
+  //               <div className="flex justify-between text-xs text-gray-500 mt-1">
+  //                 <span>Received: {formatCurrency(financialOverview.totalReceived)}</span>
+  //                 <span>Expected: {formatCurrency(financialOverview.totalExpected)}</span>
+  //               </div>
+  //             </div>
 
-              {/* Expenditure vs Received */}
-              <div>
-                <div className="flex justify-between text-sm font-medium mb-1">
-                  <span>Expenditure Rate</span>
-                  <span>{financialOverview.totalReceived > 0 ? ((financialOverview.totalExpenditure / financialOverview.totalReceived) * 100).toFixed(1) : '0'}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className={`h-3 rounded-full transition-all duration-300 ${
-                      (financialOverview.totalExpenditure / financialOverview.totalReceived) > 0.8 ? 'bg-red-500' : 
-                      (financialOverview.totalExpenditure / financialOverview.totalReceived) > 0.6 ? 'bg-orange-500' : 'bg-blue-500'
-                    }`}
-                    style={{ width: `${Math.min((financialOverview.totalExpenditure / financialOverview.totalReceived) * 100, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Spent: {formatCurrency(financialOverview.totalExpenditure)}</span>
-                  <span>Available: {formatCurrency(financialOverview.totalAvailable)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  //             {/* Expenditure vs Received */}
+  //             <div>
+  //               <div className="flex justify-between text-sm font-medium mb-1">
+  //                 <span>Expenditure Rate</span>
+  //                 <span>{financialOverview.totalReceived > 0 ? ((financialOverview.totalExpenditure / financialOverview.totalReceived) * 100).toFixed(1) : '0'}%</span>
+  //               </div>
+  //               <div className="w-full bg-gray-200 rounded-full h-3">
+  //                 <div 
+  //                   className={`h-3 rounded-full transition-all duration-300 ${
+  //                     (financialOverview.totalExpenditure / financialOverview.totalReceived) > 0.8 ? 'bg-red-500' : 
+  //                     (financialOverview.totalExpenditure / financialOverview.totalReceived) > 0.6 ? 'bg-orange-500' : 'bg-blue-500'
+  //                   }`}
+  //                   style={{ width: `${Math.min((financialOverview.totalExpenditure / financialOverview.totalReceived) * 100, 100)}%` }}
+  //                 />
+  //               </div>
+  //               <div className="flex justify-between text-xs text-gray-500 mt-1">
+  //                 <span>Spent: {formatCurrency(financialOverview.totalExpenditure)}</span>
+  //                 <span>Available: {formatCurrency(financialOverview.totalAvailable)}</span>
+  //               </div>
+  //             </div>
+  //           </div>
+  //         </div>
+  //       </CardContent>
+  //     </Card>
 
-      {/* Project Financial Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Project Financial Summary</CardTitle>
-          <p className="text-sm text-gray-600">Financial overview by project</p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {projects.slice(0, 5).map((project) => {
-              const projectPayments = payments?.filter(p => p.project_id === project.id) || [];
-              const projectExpenditure = projectPayments
-                .filter(p => p.status === 'completed')
-                .reduce((sum, p) => sum + (p.amount || 0), 0);
-              const estimatedReceived = (project.contract_value || 0) * 0.6; // Placeholder
+  //     {/* Project Financial Summary */}
+  //     <Card>
+  //       <CardHeader>
+  //         <CardTitle className="text-lg font-semibold">Project Financial Summary</CardTitle>
+  //         <p className="text-sm text-gray-600">Financial overview by project</p>
+  //       </CardHeader>
+  //       <CardContent>
+  //         <div className="space-y-3">
+  //           {projects.slice(0, 5).map((project) => {
+  //             const projectPayments = payments?.filter(p => p.project_id === project.id) || [];
+  //             const projectExpenditure = projectPayments
+  //               .filter(p => p.status === 'completed')
+  //               .reduce((sum, p) => sum + (p.amount || 0), 0);
+  //             const estimatedReceived = (project.contract_value || 0) * 0.6; // Placeholder
 
-              return (
-                <div key={project.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">{project.project_name}</h3>
-                    <p className="text-sm text-gray-500">
-                      Contract: {formatCurrency(project.contract_value || 0)} | 
-                      Expenditure: {formatCurrency(projectExpenditure)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">
-                      {formatCurrency(estimatedReceived - projectExpenditure)}
-                    </p>
-                    <p className="text-sm text-gray-500">Available</p>
-                  </div>
-                </div>
-              );
-            })}
+  //             return (
+  //               <div key={project.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+  //                 <div className="flex-1">
+  //                   <h3 className="font-medium text-gray-900">{project.project_name}</h3>
+  //                   <p className="text-sm text-gray-500">
+  //                     Contract: {formatCurrency(project.contract_value || 0)} | 
+  //                     Expenditure: {formatCurrency(projectExpenditure)}
+  //                   </p>
+  //                 </div>
+  //                 <div className="text-right">
+  //                   <p className="font-medium text-gray-900">
+  //                     {formatCurrency(estimatedReceived - projectExpenditure)}
+  //                   </p>
+  //                   <p className="text-sm text-gray-500">Available</p>
+  //                 </div>
+  //               </div>
+  //             );
+  //           })}
             
-            {projects.length > 5 && (
-              <div className="text-center pt-4">
-                <button className="flex items-center space-x-2 mx-auto px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
-                  <Eye className="h-4 w-4" />
-                  <span>View all {projects.length} projects</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+  //           {projects.length > 5 && (
+  //             <div className="text-center pt-4">
+  //               <button className="flex items-center space-x-2 mx-auto px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+  //                 <Eye className="h-4 w-4" />
+  //                 <span>View all {projects.length} projects</span>
+  //               </button>
+  //             </div>
+  //           )}
+  //         </div>
+  //       </CardContent>
+  //     </Card>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
-          <p className="text-sm text-gray-600">Common financial tasks and shortcuts</p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <button 
-              onClick={() => setActiveTab('payment-history')}
-              className="p-4 text-left bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <History className="h-6 w-6 text-orange-600" />
-                <div>
-                  <p className="font-medium text-orange-900">Payment History</p>
-                  <p className="text-sm text-orange-700">View all payment records</p>
-                </div>
-              </div>
-            </button>
+  //     {/* Quick Actions */}
+  //     <Card>
+  //       <CardHeader>
+  //         <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+  //         <p className="text-sm text-gray-600">Common financial tasks and shortcuts</p>
+  //       </CardHeader>
+  //       <CardContent>
+  //         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  //           <button 
+  //             onClick={() => setActiveTab('payment-history')}
+  //             className="p-4 text-left bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors"
+  //           >
+  //             <div className="flex items-center space-x-3">
+  //               <History className="h-6 w-6 text-orange-600" />
+  //               <div>
+  //                 <p className="font-medium text-orange-900">Payment History</p>
+  //                 <p className="text-sm text-orange-700">View all payment records</p>
+  //               </div>
+  //             </div>
+  //           </button>
             
-            <button 
-              onClick={() => setActiveTab('due-next')}
-              className="p-4 text-left bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <Clock className="h-6 w-6 text-blue-600" />
-                <div>
-                  <p className="font-medium text-blue-900">Due Next Payments</p>
-                  <p className="text-sm text-blue-700">Manage upcoming payments</p>
-                </div>
-              </div>
-            </button>
+  //           <button 
+  //             onClick={() => setActiveTab('due-next')}
+  //             className="p-4 text-left bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+  //           >
+  //             <div className="flex items-center space-x-3">
+  //               <Clock className="h-6 w-6 text-blue-600" />
+  //               <div>
+  //                 <p className="font-medium text-blue-900">Due Next Payments</p>
+  //                 <p className="text-sm text-blue-700">Manage upcoming payments</p>
+  //               </div>
+  //             </div>
+  //           </button>
             
-            <button className="p-4 text-left bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors">
-              <div className="flex items-center space-x-3">
-                <Calculator className="h-6 w-6 text-green-600" />
-                <div>
-                  <p className="font-medium text-green-900">Financial Analysis</p>
-                  <p className="text-sm text-green-700">Detailed financial reports</p>
-                </div>
-              </div>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  //           <button className="p-4 text-left bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors">
+  //             <div className="flex items-center space-x-3">
+  //               <Calculator className="h-6 w-6 text-green-600" />
+  //               <div>
+  //                 <p className="font-medium text-green-900">Financial Analysis</p>
+  //                 <p className="text-sm text-green-700">Detailed financial reports</p>
+  //               </div>
+  //             </div>
+  //           </button>
+  //         </div>
+  //       </CardContent>
+  //     </Card>
+  //   </div>
+  // );
 
   const renderDueNextPayments = () => {
     const totalDueAmount = creditAccounts
@@ -621,7 +621,7 @@ const FinancesPage = () => {
         </div>
 
         <div className="space-y-6">
-          {activeTab === 'overview' && renderFinancialOverview()}
+          {/* {activeTab === 'overview' && renderFinancialOverview()} */}
           {activeTab === 'payment-history' && renderPaymentHistory()}
           {activeTab === 'due-next' && renderDueNextPayments()}
         </div>

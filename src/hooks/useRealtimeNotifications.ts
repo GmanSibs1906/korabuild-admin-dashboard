@@ -18,6 +18,8 @@ export function useRealtimeNotifications() {
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const channelRef = useRef<any>(null);
+  const priorityAlertIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const notificationsRef = useRef<RealtimeNotification[]>([]);
 
   // Play notification sound based on type
   const playNotificationSound = useCallback(async (notificationType: string) => {
@@ -96,6 +98,7 @@ export function useRealtimeNotifications() {
       }
 
       setNotifications(data || []);
+      notificationsRef.current = data || []; // Update ref
       
       // Count unread notifications
       const unreadCount = data?.filter(n => !n.is_read).length || 0;
@@ -110,6 +113,8 @@ export function useRealtimeNotifications() {
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
+      console.log('📖 [Notifications] Marking notification as read:', notificationId);
+      
       const { error } = await supabase
         .from('notifications')
         .update({ 
@@ -119,22 +124,30 @@ export function useRealtimeNotifications() {
         .eq('id', notificationId);
 
       if (error) {
-        console.error('Error marking notification as read:', error);
+        console.error('❌ [Notifications] Error marking notification as read:', error);
         return;
       }
 
       // Update local state
-      setNotifications(prev => 
-        prev.map(n => 
+      setNotifications(prev => {
+        const updated = prev.map(n => 
           n.id === notificationId 
             ? { ...n, is_read: true, read_at: new Date().toISOString() }
             : n
-        )
-      );
+        );
+        notificationsRef.current = updated; // Update ref
+        return updated;
+      });
 
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount(prev => {
+        const newCount = Math.max(0, prev - 1);
+        console.log('📊 [Notifications] Updated unread count after mark as read:', { previous: prev, new: newCount });
+        return newCount;
+      });
+      
+      console.log('✅ [Notifications] Notification marked as read successfully');
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('❌ [Notifications] Error marking notification as read:', error);
     }
   }, []);
 
@@ -194,6 +207,94 @@ export function useRealtimeNotifications() {
       console.error('Error clearing notifications:', error);
     }
   }, []);
+
+  // Delete a specific notification
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    try {
+      console.log('🗑️ [Real-time] Deleting notification:', notificationId);
+      
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) {
+        console.error('❌ [Real-time] Error deleting notification:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Update local state
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setUnreadCount(prev => {
+        const notification = notifications.find(n => n.id === notificationId);
+        return notification && !notification.is_read ? prev - 1 : prev;
+      });
+
+      console.log('✅ [Real-time] Notification deleted successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ [Real-time] Error deleting notification:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }, [notifications]);
+
+  // Manage persistent priority alerts (30-second intervals)
+  const managePriorityAlerts = useCallback(() => {
+    const priorityNotifications = notifications.filter(n => 
+      !n.is_read && 
+      (n.notification_type === 'user_created' || 
+       (n.notification_type === 'system' && n.metadata?.notification_subtype === 'user_created') ||
+       n.priority_level === 'urgent') &&
+      n.metadata?.priority_alert === true
+    );
+
+    // Clear existing interval
+    if (priorityAlertIntervalRef.current) {
+      clearInterval(priorityAlertIntervalRef.current);
+      priorityAlertIntervalRef.current = null;
+    }
+
+    // Set up new interval if there are priority notifications
+    if (priorityNotifications.length > 0 && soundEnabled) {
+      console.log(`🔔 [Priority] Setting up 30-second alerts for ${priorityNotifications.length} priority notifications`);
+      
+      const interval = setInterval(async () => {
+        // Use current notifications from ref to get the latest state
+        const currentPriorityNotifications = notificationsRef.current.filter(n => 
+          !n.is_read && 
+          (n.notification_type === 'user_created' || 
+           (n.notification_type === 'system' && n.metadata?.notification_subtype === 'user_created') ||
+           n.priority_level === 'urgent') &&
+          n.metadata?.priority_alert === true
+        );
+
+        if (currentPriorityNotifications.length > 0) {
+          console.log(`🔊 [Priority] Playing persistent alert for ${currentPriorityNotifications.length} unread priority notifications`);
+          await playNotificationSound('newUserPriority');
+        } else {
+          // No more priority notifications, clear interval
+          console.log('✅ [Priority] All priority notifications read, stopping persistent alerts');
+          clearInterval(interval);
+          priorityAlertIntervalRef.current = null;
+        }
+      }, 30000); // 30 seconds
+
+      priorityAlertIntervalRef.current = interval;
+    }
+  }, [notifications, soundEnabled, playNotificationSound]);
+
+  // Effect to manage priority alerts when notifications change
+  useEffect(() => {
+    managePriorityAlerts();
+    
+    // Cleanup on unmount
+    return () => {
+      if (priorityAlertIntervalRef.current) {
+        clearInterval(priorityAlertIntervalRef.current);
+        priorityAlertIntervalRef.current = null;
+      }
+    };
+  }, [managePriorityAlerts]);
 
   // Setup real-time subscription
   useEffect(() => {
@@ -261,6 +362,7 @@ export function useRealtimeNotifications() {
             
             setNotifications(prev => {
               const updated = [newNotification, ...prev.slice(0, 49)];
+              notificationsRef.current = updated; // Update ref
               console.log('📝 [Real-time] Added notification to list:', { 
                 previousCount: prev.length, 
                 newCount: updated.length,
@@ -300,11 +402,13 @@ export function useRealtimeNotifications() {
               is_read: updatedNotification.is_read
             });
             
-            setNotifications(prev => 
-              prev.map(n => 
+            setNotifications(prev => {
+              const updated = prev.map(n => 
                 n.id === updatedNotification.id ? updatedNotification : n
-              )
-            );
+              );
+              notificationsRef.current = updated; // Update ref
+              return updated;
+            });
           }
         }
       )
@@ -388,6 +492,7 @@ export function useRealtimeNotifications() {
     markAsRead,
     markAllAsRead,
     clearNotifications,
+    deleteNotification,
     toggleSound,
     testSound,
     testRealtime, // New test function

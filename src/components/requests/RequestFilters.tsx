@@ -32,6 +32,9 @@ interface RequestFiltersProps {
   stats?: {
     totalProjects: number;
     totalClients: number;
+    statusCounts?: Record<string, number>;
+    priorityCounts?: Record<string, number>;
+    categoryCounts?: Record<string, number>;
   };
 }
 
@@ -62,28 +65,30 @@ export function RequestFilters({ onFiltersChange, stats }: RequestFiltersProps) 
   const [filters, setFilters] = useState<RequestFilterState>(initialFilters);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Dynamic status options from props
   const statusOptions: FilterOption[] = [
-    { label: 'Submitted', value: 'submitted', count: 8 },
-    { label: 'Reviewing', value: 'reviewing', count: 3 },
-    { label: 'In Progress', value: 'in_progress', count: 4 },
-    { label: 'Completed', value: 'completed', count: 12 },
-    { label: 'Cancelled', value: 'cancelled', count: 1 },
-  ];
+    { label: 'Submitted', value: 'submitted', count: stats?.statusCounts?.submitted || 0 },
+    { label: 'Reviewing', value: 'reviewing', count: stats?.statusCounts?.reviewing || 0 },
+    { label: 'In Progress', value: 'in_progress', count: stats?.statusCounts?.in_progress || 0 },
+    { label: 'Completed', value: 'completed', count: stats?.statusCounts?.completed || 0 },
+    { label: 'Cancelled', value: 'cancelled', count: stats?.statusCounts?.cancelled || 0 },
+  ].filter(option => option.count > 0); // Only show options with data
 
+  // Dynamic priority options from props
   const priorityOptions: FilterOption[] = [
-    { label: 'Low', value: 'low', count: 5 },
-    { label: 'Medium', value: 'medium', count: 8 },
-    { label: 'High', value: 'high', count: 6 },
-    { label: 'Urgent', value: 'urgent', count: 2 },
-  ];
+    { label: 'Low', value: 'low', count: stats?.priorityCounts?.low || 0 },
+    { label: 'Medium', value: 'medium', count: stats?.priorityCounts?.medium || 0 },
+    { label: 'High', value: 'high', count: stats?.priorityCounts?.high || 0 },
+    { label: 'Urgent', value: 'urgent', count: stats?.priorityCounts?.urgent || 0 },
+  ].filter(option => option.count > 0); // Only show options with data
 
-  const categoryOptions: FilterOption[] = [
-    { label: 'Change Order', value: 'change_order', count: 7 },
-    { label: 'Inspection', value: 'inspection', count: 9 },
-    { label: 'Consultation', value: 'consultation', count: 4 },
-    { label: 'Maintenance', value: 'maintenance', count: 3 },
-    { label: 'Other', value: 'other', count: 2 },
-  ];
+  // Dynamic category options from database categories
+  const categoryOptions: FilterOption[] = stats?.categoryCounts ? 
+    Object.entries(stats.categoryCounts).map(([key, count]) => ({
+      label: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+      value: key,
+      count
+    })).filter(option => option.count > 0) : [];
 
   const updateFilters = (newFilters: Partial<RequestFilterState>) => {
     const updatedFilters = { ...filters, ...newFilters };

@@ -91,13 +91,13 @@ export default function RequestsPage() {
       count: stats?.pending || 0,
       color: 'text-orange-600'
     },
-    { 
-      id: 'in_progress' as const, 
-      label: 'In Progress', 
-      icon: AlertCircle,
-      count: stats?.inProgress || 0,
-      color: 'text-blue-600'
-    },
+    // { 
+    //   id: 'in_progress' as const, 
+    //   label: 'In Progress', 
+    //   icon: AlertCircle,
+    //   count: stats?.inProgress || 0,
+    //   color: 'text-blue-600'
+    // },
     { 
       id: 'completed' as const, 
       label: 'Completed', 
@@ -123,8 +123,16 @@ export default function RequestsPage() {
   });
 
   const getRequestTypeIcon = (requestType: string) => {
+    // Map database request types to appropriate icons
+    if (requestType.includes('plan')) return '📐';
+    if (requestType.includes('boq')) return '📊';
+    if (requestType.includes('consultation')) return '💬';
+    if (requestType.includes('inspection')) return '🔍';
     if (requestType.includes('service')) return '🏗️';
     if (requestType.includes('material')) return '🧱';
+    if (requestType.includes('foundation')) return '🏗️';
+    if (requestType.includes('roofing')) return '🏠';
+    if (requestType.includes('finishes')) return '✨';
     return '📋';
   };
 
@@ -228,8 +236,17 @@ export default function RequestsPage() {
             <RequestFilters 
               onFiltersChange={handleAdvancedFiltersChange}
               stats={{
-                totalProjects: 8,
-                totalClients: 12
+                totalProjects: 8, // TODO: Fetch from projects API
+                totalClients: 12, // TODO: Fetch from users API
+                statusCounts: {
+                  submitted: stats?.pending || 0,
+                  reviewing: 0, // Not tracked separately yet
+                  in_progress: stats?.inProgress || 0,
+                  completed: stats?.completed || 0,
+                  cancelled: 0 // Not tracked separately yet
+                },
+                priorityCounts: stats?.byPriority || {},
+                categoryCounts: stats?.byCategory || {}
               }}
             />
             
@@ -267,7 +284,7 @@ export default function RequestsPage() {
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="submitted">Submitted</SelectItem>
                       <SelectItem value="reviewing">Reviewing</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      {/* <SelectItem value="in_progress">In Progress</SelectItem> */}
                       <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>

@@ -229,7 +229,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
               }
             } else {
               console.error(`❌ Failed to fetch messages for conversation ${conversation.conversation_name}:`, messagesResponse.status);
-            }
+      }
           } catch (err) {
             console.error('Error fetching sender info for conversation:', conversation.conversation_name, err);
           }
@@ -254,7 +254,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
           };
         })
       );
-
+      
       console.log('✅ [useCommunications] Conversations enhanced with sender info:', {
         total: enhancedConversations.length,
         withSenderInfo: enhancedConversations.filter(c => c.sender_info?.name !== 'Unknown User').length
@@ -318,7 +318,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
           }
         };
       });
-
+      
       // Refresh data to get updated counts
       setTimeout(() => {
         fetchData();
@@ -338,7 +338,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
   // Auto-refresh setup
   useEffect(() => {
     if (!autoRefresh) return;
-
+    
     const interval = setInterval(() => {
       console.log('🔄 [useCommunications] Auto-refreshing data...');
       fetchData();

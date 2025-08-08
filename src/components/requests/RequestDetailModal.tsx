@@ -64,24 +64,13 @@ export function RequestDetailModal({ request, isOpen, onClose, onUpdate }: Reque
   const [newComment, setNewComment] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // Mock data for demonstration - in real implementation, fetch from API
-  const comments: Comment[] = [
-    {
-      id: '1',
-      content: 'This request has been received and is under review. We will respond within 24 hours.',
-      author: 'Admin Team',
-      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      is_admin: true
-    },
-    {
-      id: '2',
-      content: 'Thank you for the quick response. Looking forward to the inspection.',
-      author: request?.client?.full_name || 'Client',
-      created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-      is_admin: false
-    }
-  ];
+  // Comments will be fetched from API when comment system is implemented
+  const comments: Comment[] = [];
+  
+  // For now, show a message that comments system is coming soon
+  const hasComments = comments.length > 0;
 
+  // Generate basic history from request data
   const history: HistoryEntry[] = [
     {
       id: '1',
@@ -90,13 +79,22 @@ export function RequestDetailModal({ request, isOpen, onClose, onUpdate }: Reque
       user: request?.client?.full_name || 'Client',
       created_at: request?.created_at || new Date().toISOString()
     },
-    {
+    // Add response history if available
+    ...(request?.response_date ? [{
       id: '2',
-      action: 'status_updated',
-      description: 'Status changed from submitted to in_progress',
+      action: 'responded',
+      description: 'Admin response provided',
       user: 'Admin Team',
-      created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString()
-    }
+      created_at: request.response_date
+    }] : []),
+    // Add completion history if completed
+    ...(request?.status === 'completed' && request?.updated_at ? [{
+      id: '3',
+      action: 'completed',
+      description: 'Request marked as completed',
+      user: 'Admin Team',
+      created_at: request.updated_at
+    }] : [])
   ];
 
   if (!request) return null;
@@ -422,19 +420,20 @@ export function RequestDetailModal({ request, isOpen, onClose, onUpdate }: Reque
                   <CardContent className="pt-4">
                     <div className="space-y-3">
                       <Textarea
-                        placeholder="Add a comment for the client..."
+                        placeholder="Comment system coming soon..."
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         rows={3}
-                        className='bg-white text-black'
+                        className='bg-gray-50 text-gray-400'
+                        disabled={true}
                       />
                       <div className="flex justify-between items-center">
                         <p className="text-xs text-gray-500">
-                          Your comment will be visible to the client
+                          Comment system will be available in a future update
                         </p>
                         <Button 
                           onClick={handleAddComment}
-                          disabled={!newComment.trim() || loading}
+                          disabled={true}
                           size="sm"
                         >
                           <Send className="h-3 w-3 mr-2" />
@@ -447,7 +446,7 @@ export function RequestDetailModal({ request, isOpen, onClose, onUpdate }: Reque
 
                 {/* Comments List */}
                 <div className="space-y-3">
-                  {comments.map((comment) => (
+                  {hasComments ? comments.map((comment) => (
                     <Card key={comment.id}>
                       <CardContent className="pt-4">
                         <div className="flex items-start space-x-3">
@@ -477,7 +476,20 @@ export function RequestDetailModal({ request, isOpen, onClose, onUpdate }: Reque
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  )) : (
+                    <Card>
+                      <CardContent className="pt-8 pb-8 text-center">
+                        <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Comments Yet</h3>
+                        <p className="text-gray-600 mb-4">
+                          Comments and communication history will appear here once the comment system is implemented.
+                        </p>
+                        <Badge variant="outline" className="text-gray-500">
+                          Feature Coming Soon
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
             )}

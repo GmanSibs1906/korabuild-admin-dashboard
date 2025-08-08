@@ -5,7 +5,7 @@ export interface AdminRequest {
   id: string;
   project_id?: string;
   client_id?: string;
-  request_type: 'change_order' | 'inspection' | 'consultation' | 'maintenance' | 'other';
+  request_type: string; // Dynamic from database: 'service_plan' | 'service_boq' | 'service_consultation' | 'material_foundation' etc.
   category: string; // 'service' | 'material' from mobile app categorization
   title: string;
   description: string;
@@ -19,6 +19,19 @@ export interface AdminRequest {
   estimated_cost?: number;
   created_at: string;
   updated_at: string;
+  
+  // Additional fields from database
+  subcategory?: string;
+  project_address?: string;
+  brief_description?: string;
+  request_data?: any;
+  contact_preference?: string;
+  preferred_response_time?: string;
+  admin_notes?: string;
+  assigned_to_user_id?: string;
+  resolved_at?: string;
+  client_satisfaction_rating?: number;
+  request_category?: string;
   
   // Populated relations for admin dashboard
   client?: {
@@ -114,13 +127,7 @@ export interface RequestStats {
   pending: number;
   inProgress: number;
   completed: number;
-  byCategory: {
-    change_order: number;
-    inspection: number;
-    consultation: number;
-    maintenance: number;
-    other: number;
-  };
+  byCategory: Record<string, number>; // Dynamic categories from database
   byPriority: {
     low: number;
     medium: number;

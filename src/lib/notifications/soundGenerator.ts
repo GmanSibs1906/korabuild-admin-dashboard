@@ -35,7 +35,7 @@ export class NotificationSoundGenerator {
   /**
    * Play a notification sound based on type
    */
-  async playNotificationSound(type: 'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' | 'message') {
+  async playNotificationSound(type: 'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' | 'message' | 'newUserPriority') {
     if (!this.audioContext) {
       console.warn('🔊 No audio context available for notification sound');
       return;
@@ -82,6 +82,13 @@ export class NotificationSoundGenerator {
           duration = 0.25;
           volume = 0.6; // Loudest for emergencies
           waveType = 'square'; // Sharp, urgent sound
+          break;
+        case 'newUserPriority':
+          // Priority new user alert - distinctive and attention-demanding
+          frequencies = [523.25, 659.25, 783.99, 1046.50, 659.25, 523.25]; // C5, E5, G5, C6, E5, C5 (welcome melody)
+          duration = 0.4;
+          volume = 0.55; // Very loud but not harsh
+          waveType = 'triangle'; // Rich, welcoming but urgent sound
           break;
         case 'message':
           // Message notification - distinctive and pleasant (most common sound)
@@ -143,8 +150,8 @@ export class NotificationSoundGenerator {
    * Test all notification sounds
    */
   async testAllSounds() {
-    const types: Array<'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' | 'message'> = [
-      'message', 'newUser', 'projectUpdate', 'payment', 'emergency', 'general'
+    const types: Array<'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' | 'message' | 'newUserPriority'> = [
+      'message', 'newUser', 'newUserPriority', 'projectUpdate', 'payment', 'emergency', 'general'
     ];
 
     console.log('🔊 Testing all notification sounds with enhanced volume...');

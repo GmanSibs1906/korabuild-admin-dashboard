@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 import { 
   Bell,
@@ -35,7 +36,11 @@ import {
   User,
   Settings,
   Volume2,
-  VolumeX
+  VolumeX,
+  Trash2,
+  UserPlus,
+  Edit,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -53,7 +58,7 @@ interface NotificationAction {
 export function AdminControlCenter() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const {
+  const { 
     notifications,
     unreadCount,
     loading: notificationsLoading,
@@ -61,6 +66,7 @@ export function AdminControlCenter() {
     markAsRead,
     markAllAsRead,
     clearNotifications,
+    deleteNotification,
     toggleSound,
     testRealtime,
     testSound,
@@ -73,11 +79,32 @@ export function AdminControlCenter() {
     name: string;
     projectName?: string;
   } | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
 
   // Ensure client-side rendering for dynamic content
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Handle delete confirmation
+  const handleDeleteClick = (notificationId: string) => {
+    setNotificationToDelete(notificationId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (notificationToDelete) {
+      await deleteNotification(notificationToDelete);
+      setDeleteConfirmOpen(false);
+      setNotificationToDelete(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false);
+    setNotificationToDelete(null);
+  };
 
   // Filter notifications based on active tab and search
   const filteredNotifications = notifications.filter(notification => {
@@ -106,7 +133,7 @@ export function AdminControlCenter() {
   };
 
   // Get notification icon based on type
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string, notification?: any) => {
     switch (type) {
       case 'system':
         return <User className="w-4 h-4 text-blue-500" />;
@@ -120,6 +147,13 @@ export function AdminControlCenter() {
         return <MessageSquare className="w-4 h-4 text-purple-500" />;
       case 'emergency':
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
+      case 'user_created':
+        return <UserPlus className="w-4 h-4 text-emerald-500" />;
+      case 'system':
+        if (notification.metadata?.notification_subtype === 'user_created') {
+          return <UserPlus className="w-4 h-4 text-emerald-500" />;
+        }
+        return <User className="w-4 h-4 text-blue-500" />;
           default:
         return <Bell className="w-4 h-4 text-gray-500" />;
     }
@@ -204,7 +238,7 @@ export function AdminControlCenter() {
                 const url = new URL(window.location.href);
                 url.searchParams.set('reply', 'true');
                 window.history.replaceState({}, '', url.toString());
-              } else {
+    } else {
                 console.log('⚠️ [Control Center] No conversation_id found for reply, falling back to communications page');
                 window.location.href = '/communications';
               }
@@ -265,10 +299,59 @@ export function AdminControlCenter() {
             }
           }
         );
-        break;
+          break;
 
       case 'system':
-        if (notification.entity_type === 'user' && notification.entity_id) {
+        // Handle new user notifications specially
+        if (notification.metadata?.notification_subtype === 'user_created' && notification.entity_id) {
+          actions.push(
+            {
+              id: 'view-profile',
+              label: 'View Profile',
+              variant: 'outline',
+              icon: User,
+              action: async () => {
+                console.log('👤 [Control Center] Opening user profile:', {
+                  notificationId: notification.id,
+                  userId: notification.entity_id,
+                  metadata: notification.metadata
+                });
+                
+                try {
+                  console.log('📖 [Control Center] Marking notification as read:', notification.id);
+                  await markAsRead(notification.id);
+                  console.log('✅ [Control Center] Notification marked as read successfully');
+                } catch (error) {
+                  console.error('❌ [Control Center] Error marking notification as read:', error);
+                }
+                
+                router.push(`/users/${notification.entity_id}`);
+              }
+            },
+            {
+              id: 'edit-user',
+              label: 'Edit User',
+              variant: 'primary',
+              icon: Edit,
+              action: async () => {
+                console.log('✏️ [Control Center] Opening user edit:', {
+                  notificationId: notification.id,
+                  userId: notification.entity_id
+                });
+                
+                try {
+                  console.log('📖 [Control Center] Marking notification as read:', notification.id);
+                  await markAsRead(notification.id);
+                  console.log('✅ [Control Center] Notification marked as read successfully');
+                } catch (error) {
+                  console.error('❌ [Control Center] Error marking notification as read:', error);
+                }
+                
+                router.push(`/users?edit=${notification.entity_id}`);
+              }
+            }
+          );
+        } else if (notification.entity_type === 'user' && notification.entity_id) {
           actions.push(
             {
               id: 'view-user',
@@ -294,7 +377,7 @@ export function AdminControlCenter() {
               }
             }
           );
-        } else {
+          } else {
           actions.push(
             {
               id: 'view-users',
@@ -323,9 +406,57 @@ export function AdminControlCenter() {
             }
           }
         );
-        break;
+          break;
 
-      default:
+      case 'user_created':
+        // Priority new user notifications with special actions
+        actions.push(
+          {
+            id: 'view-profile',
+            label: 'View Profile',
+            variant: 'outline',
+            icon: User,
+            action: async () => {
+              console.log('👤 [Control Center] Opening user profile:', {
+                notificationId: notification.id,
+                userId: notification.entity_id,
+                metadata: notification.metadata
+              });
+              
+              await markAsRead(notification.id);
+              
+              if (notification.entity_id) {
+                router.push(`/users/${notification.entity_id}`);
+              } else {
+                router.push('/users');
+              }
+            }
+          },
+          {
+            id: 'edit-user',
+            label: 'Edit User',
+            variant: 'primary',
+            icon: Edit,
+            action: async () => {
+              console.log('✏️ [Control Center] Opening user edit:', {
+                notificationId: notification.id,
+                userId: notification.entity_id
+              });
+              
+              await markAsRead(notification.id);
+              
+              // This will open the edit modal in the users page
+              if (notification.entity_id) {
+                router.push(`/users?edit=${notification.entity_id}`);
+              } else {
+                router.push('/users');
+              }
+            }
+          }
+        );
+          break;
+
+        default:
         actions.push(
           {
             id: 'view',
@@ -365,18 +496,18 @@ export function AdminControlCenter() {
       switch (notification.notification_type) {
         case 'payment_due':
           router.push('/finances');
-          break;
+        break;
         case 'project_update':
         case 'milestone_complete':
           router.push('/projects');
-          break;
-        case 'message':
+        break;
+      case 'message':
           if (notification.conversation_id) {
             router.push(`/communications?conversation=${notification.conversation_id}`);
           } else {
-            router.push('/communications');
+        router.push('/communications');
           }
-          break;
+        break;
         case 'system':
           if (notification.entity_type === 'user') {
             router.push('/users');
@@ -387,7 +518,7 @@ export function AdminControlCenter() {
         case 'emergency':
           router.push('/safety');
           break;
-        default:
+      default:
           router.push('/dashboard');
       }
     }
@@ -435,17 +566,17 @@ export function AdminControlCenter() {
                   <p className="text-sm text-gray-500 mt-1">
                     Loading notification center...
                   </p>
-                </div>
           </div>
+        </div>
         </div>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-center h-40">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-        </div>
+      </div>
           </CardContent>
         </Card>
-      </div>
+            </div>
     );
   }
 
@@ -455,32 +586,29 @@ export function AdminControlCenter() {
         {/* Header */}
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <Bell className="w-6 h-6 text-gray-600" />
-                {unreadCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                </Badge>
-              )}
-              </div>
-              <div>
+            <div>
+              <div className="flex items-center">
                 <CardTitle className="text-xl font-semibold text-gray-900">
                   Notifications
                 </CardTitle>
-                <p className="text-sm text-gray-500 mt-1">
-                  Manage all system notifications and take quick actions
-                </p>
+                {unreadCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="ml-3 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                )}
               </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Manage all system notifications and take quick actions
+              </p>
             </div>
             
             <div className="flex items-center space-x-2">
-              <Button
+                    <Button
                 variant="ghost"
-                size="sm"
+                      size="sm"
                 onClick={toggleSound}
                 className="h-9 w-9 p-0"
                 title={soundEnabled ? "Sound enabled" : "Sound disabled"}
@@ -489,17 +617,17 @@ export function AdminControlCenter() {
                   <Volume2 className="w-4 h-4 text-green-600" /> : 
                   <VolumeX className="w-4 h-4 text-gray-400" />
                 }
-              </Button>
-              <Button
+                    </Button>
+                      <Button
                 variant="ghost"
-                size="sm"
+                        size="sm"
                 onClick={testRealtime}
                 className="h-9 w-9 p-0"
                 title="Test real-time notifications"
               >
                 <Bell className="w-4 h-4 text-blue-600" />
-              </Button>
-              <Button
+                      </Button>
+                      <Button 
                 variant="ghost"
                 size="sm"
                 onClick={testSound}
@@ -507,18 +635,18 @@ export function AdminControlCenter() {
                 title="Test notification sounds"
               >
                 <Volume2 className="w-4 h-4 text-purple-600" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
+                      </Button>
+            <Button
+              variant="outline"
+              size="sm"
                 onClick={markAllAsRead}
                 disabled={unreadCount === 0}
-                className="flex items-center space-x-2"
-              >
+              className="flex items-center space-x-2"
+            >
                 <CheckCheck className="w-4 h-4" />
                 <span>Mark all as read</span>
-              </Button>
-            </div>
+            </Button>
+        </div>
           </div>
           
           {/* Search Bar */}
@@ -529,8 +657,8 @@ export function AdminControlCenter() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4"
-            />
-          </div>
+          />
+        </div>
         </CardHeader>
 
         {/* Tabs Navigation */}
@@ -556,7 +684,7 @@ export function AdminControlCenter() {
                 {getTabCount('orders') > 0 && (
                   <Badge variant="secondary" className="ml-2">
                     {getTabCount('orders')}
-                      </Badge>
+                </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger value="archived">
@@ -577,7 +705,7 @@ export function AdminControlCenter() {
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
                       <p className="text-gray-500 mt-2">Loading notifications...</p>
-                    </div>
+          </div>
                   </div>
                 ) : filteredNotifications.length === 0 ? (
                   <div className="text-center py-12">
@@ -599,9 +727,16 @@ export function AdminControlCenter() {
                     key={notification.id} 
                           className={cn(
                             "p-4 rounded-lg border transition-all duration-200 hover:shadow-md cursor-pointer group",
-                            !notification.is_read 
-                              ? "bg-blue-50 border-blue-200 hover:bg-blue-100" 
-                              : "bg-white border-gray-200 hover:bg-gray-50"
+                                                         // Priority new user styling
+                             (notification.notification_type === 'user_created' || (notification.notification_type === 'system' && notification.metadata?.notification_subtype === 'user_created')) && !notification.is_read
+                               ? "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300 hover:from-emerald-100 hover:to-green-100 shadow-lg shadow-emerald-100/50 ring-2 ring-emerald-200/50"
+                               : !notification.is_read 
+                               ? "bg-blue-50 border-blue-200 hover:bg-blue-100" 
+                               : "bg-white border-gray-200 hover:bg-gray-50",
+                             // Read priority notifications still get subtle styling
+                             (notification.notification_type === 'user_created' || (notification.notification_type === 'system' && notification.metadata?.notification_subtype === 'user_created')) && notification.is_read
+                               ? "bg-emerald-25 border-emerald-200/50"
+                               : ""
                           )}
                           onClick={() => !notification.is_read && markAsRead(notification.id)}
                         >
@@ -615,24 +750,37 @@ export function AdminControlCenter() {
                                 </AvatarFallback>
                               </Avatar>
                               {!notification.is_read && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                                <div className={cn(
+                                  "absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white",
+                                  notification.notification_type === 'user_created' || notification.metadata?.priority_alert
+                                    ? "bg-orange-500 animate-pulse shadow-lg shadow-orange-300/50"
+                                    : "bg-green-500"
+                                )}></div>
                               )}
                             </div>
 
                             {/* Content */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
                                   <div className="flex items-center space-x-2 mb-1">
-                                    {getNotificationIcon(notification.notification_type)}
+                                    {getNotificationIcon(notification.notification_type, notification)}
                                     <p className="text-sm font-medium text-gray-900 truncate">
                                       {notification.title}
+                                                                             {(notification.notification_type === 'user_created' || (notification.notification_type === 'system' && notification.metadata?.notification_subtype === 'user_created')) && (
+                                         <Shield className="inline w-4 h-4 ml-2 text-emerald-600" />
+                                       )}
                                     </p>
-                                    {!notification.is_read && (
+                                                                         {((notification.notification_type === 'user_created' || (notification.notification_type === 'system' && notification.metadata?.notification_subtype === 'user_created')) || notification.metadata?.priority_alert) && !notification.is_read && (
+                                      <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 animate-pulse border border-orange-300">
+                                        PRIORITY
+                          </Badge>
+                                    )}
+                                                                         {!notification.is_read && !(notification.notification_type === 'user_created' || (notification.notification_type === 'system' && notification.metadata?.notification_subtype === 'user_created')) && !notification.metadata?.priority_alert && (
                                       <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
                                         New
-                                      </Badge>
-                                    )}
+                            </Badge>
+                          )}
                                     <Badge 
                           variant="outline"
                                       className={cn(
@@ -655,34 +803,46 @@ export function AdminControlCenter() {
                                     </span>
                                     
                                     {/* Quick Actions */}
-                                    {actions.length > 0 && (
-                                      <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {actions.map((action) => {
-                                          const IconComponent = action.icon || Eye;
-                                          return (
+                                    <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      {actions.length > 0 && actions.map((action) => {
+                                        const IconComponent = action.icon || Eye;
+                                        return (
+                        <Button 
+                                            key={action.id}
+                                            variant={action.variant}
+                          size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              action.action();
+                                            }}
+                                            className="h-7 px-3 text-xs"
+                                          >
+                                            <IconComponent className="w-3 h-3 mr-1" />
+                                            {action.label}
+                        </Button>
+                                        );
+                                      })}
+                        
+                                      {/* Delete Button */}
                           <Button 
-                                              key={action.id}
-                                              variant={action.variant}
+                                        variant="ghost"
                             size="sm"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                action.action();
-                                              }}
-                                              className="h-7 px-3 text-xs"
-                                            >
-                                              <IconComponent className="w-3 h-3 mr-1" />
-                                              {action.label}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteClick(notification.id);
+                                        }}
+                                        className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        title="Delete notification"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
                           </Button>
-                                          );
-                                        })}
-                                      </div>
-                        )}
                       </div>
                     </div>
                   </div>
             </div>
           </div>
         </div>
+          </div>
                       );
                     })}
           </div>
@@ -702,6 +862,27 @@ export function AdminControlCenter() {
           </Tabs>
         </div>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Notification</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this notification? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDeleteCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Message Detail Modal */}
       {selectedConversation && (

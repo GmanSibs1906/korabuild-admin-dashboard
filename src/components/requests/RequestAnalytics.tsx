@@ -104,15 +104,19 @@ function AnalyticsMetricCard({
 function RequestDistributionChart({ stats }: { stats?: RequestStats }) {
   if (!stats) return null;
 
-  const categories = [
-    { name: 'Change Order', value: stats.byCategory.change_order, color: 'bg-blue-500' },
-    { name: 'Inspection', value: stats.byCategory.inspection, color: 'bg-green-500' },
-    { name: 'Consultation', value: stats.byCategory.consultation, color: 'bg-orange-500' },
-    { name: 'Maintenance', value: stats.byCategory.maintenance, color: 'bg-purple-500' },
-    { name: 'Other', value: stats.byCategory.other, color: 'bg-gray-500' },
+  // Transform dynamic categories from database into UI-friendly format
+  const categoryColors = [
+    'bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-purple-500', 'bg-red-500', 
+    'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-gray-500'
   ];
 
-  const maxValue = Math.max(...categories.map(c => c.value));
+  const categories = Object.entries(stats.byCategory).map(([key, value], index) => ({
+    name: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+    value,
+    color: categoryColors[index % categoryColors.length]
+  }));
+
+  const maxValue = Math.max(...categories.map(c => c.value), 1);
 
   return (
     <Card>
@@ -319,7 +323,7 @@ export function RequestAnalytics({ stats, loading }: RequestAnalyticsProps) {
       </div>
 
       {/* Quick Actions */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Calendar className="h-5 w-5 mr-2 text-orange-600" />
@@ -353,7 +357,7 @@ export function RequestAnalytics({ stats, loading }: RequestAnalyticsProps) {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 } 

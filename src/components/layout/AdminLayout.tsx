@@ -32,7 +32,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { getInitials } from '@/lib/utils';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -47,6 +50,7 @@ interface NavigationItem {
     action: string;
   }>;
   badge?: string;
+  comingSoon?: boolean;
 }
 
 const navigation: NavigationItem[] = [
@@ -85,13 +89,13 @@ const navigation: NavigationItem[] = [
     icon: MessageSquare,
     requiredPermissions: [{ resource: 'communications', action: 'view_all' }],
   },
-  {
-    name: 'Mobile Control',
-    href: '/mobile-control',
-    icon: Smartphone,
-    requiredPermissions: [{ resource: 'projects', action: 'view' }],
-    badge: 'New',
-  },
+  // {
+  //   name: 'Mobile Control',
+  //   href: '/mobile-control',
+  //   icon: Smartphone,
+  //   requiredPermissions: [{ resource: 'projects', action: 'view' }],
+  //   badge: 'New',
+  // },
   {
     name: 'Contractors',
     href: '/contractors',
@@ -99,38 +103,44 @@ const navigation: NavigationItem[] = [
     requiredPermissions: [{ resource: 'contractors', action: 'view' }],
   },
   {
-    name: 'Quality',
-    href: '/quality',
-    icon: ShieldCheck,
-    requiredPermissions: [{ resource: 'quality', action: 'view_inspections' }],
-  },
-  {
-    name: 'Schedule',
-    href: '/schedule',
-    icon: Calendar,
-    requiredPermissions: [{ resource: 'projects', action: 'view' }],
-  },
-  {
-    name: 'Analytics',
-    href: '/analytics',
-    icon: BarChart3,
-  },
-  {
     name: 'Documents',
     href: '/documents',
     icon: FileText,
-  },
-  {
-    name: 'Safety',
-    href: '/safety',
-    icon: Wrench,
-    requiredPermissions: [{ resource: 'safety', action: 'view_incidents' }],
   },
   {
     name: 'Orders',
     href: '/orders',
     icon: Wrench,
   },
+  {
+    name: 'Quality',
+    href: '/quality',
+    icon: ShieldCheck,
+    requiredPermissions: [{ resource: 'quality', action: 'view_inspections' }],
+    comingSoon: true,
+  },
+  {
+    name: 'Schedule',
+    href: '/schedule',
+    icon: Calendar,
+    requiredPermissions: [{ resource: 'projects', action: 'view' }],
+    comingSoon: true,
+  },
+  {
+    name: 'Analytics',
+    href: '/analytics',
+    icon: BarChart3,
+    comingSoon: true,
+  },
+  
+  {
+    name: 'Safety',
+    href: '/safety',
+    icon: Wrench,
+    requiredPermissions: [{ resource: 'safety', action: 'view_incidents' }],
+    comingSoon: true,
+  },
+  
 ];
 
 const systemNavigation: NavigationItem[] = [
@@ -145,9 +155,19 @@ const systemNavigation: NavigationItem[] = [
 export default function AdminLayout({ children }: AdminLayoutProps) {
   console.log('🔍 AdminLayout - Rendering with pathname:', usePathname());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [comingSoonFeature, setComingSoonFeature] = useState('');
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAdminAuth();
+  const { unreadCount, notifications } = useRealtimeNotifications();
+
+  // Check if there are priority notifications
+  const hasPriorityNotifications = notifications.some(n => 
+    !n.is_read && 
+    ((n.notification_type === 'system' && n.metadata?.notification_subtype === 'user_created') ||
+     n.metadata?.priority_alert === true)
+  );
 
   const handleSignOut = async () => {
     try {
@@ -156,6 +176,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     } catch (error) {
       console.error('Logout error:', error);
     }
+  };
+
+  const handleNotificationClick = () => {
+    router.push('/dashboard');
+  };
+
+  const handleComingSoonClick = (featureName: string) => {
+    setComingSoonFeature(featureName);
+    setComingSoonOpen(true);
   };
 
   const isNavigationItemVisible = (item: NavigationItem): boolean => {
@@ -221,6 +250,35 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navigation.filter(isNavigationItemVisible).map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              
+              if (item.comingSoon) {
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => handleComingSoonClick(item.name)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                      "text-gray-400 hover:bg-gray-50 cursor-pointer opacity-60"
+                    )}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <item.icon className="w-5 h-5 text-gray-300" />
+                      <span>{item.name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="outline" className="text-xs text-gray-400 border-gray-300">
+                        Coming Soon
+                      </Badge>
+                      {item.badge && (
+                        <Badge variant="secondary" className="ml-2 px-2 py-1 text-xs">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </div>
+                  </button>
+                );
+              }
+
               return (
                 <Link
                   key={item.name}
@@ -331,11 +389,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <button className="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  3
-                </span>
+              <button 
+                onClick={handleNotificationClick}
+                className="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                title="View notifications"
+              >
+                <Bell className={cn(
+                  "w-5 h-5 transition-colors",
+                  hasPriorityNotifications ? "text-orange-500" : ""
+                )} />
+                {unreadCount > 0 && (
+                  <span className={cn(
+                    "absolute -top-1 -right-1 w-4 h-4 text-white text-xs rounded-full flex items-center justify-center",
+                    hasPriorityNotifications 
+                      ? "bg-orange-500 animate-pulse shadow-lg shadow-orange-300/50" 
+                      : "bg-red-500"
+                  )}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
 
               {/* Help */}
@@ -397,6 +469,29 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      {/* Coming Soon Dialog */}
+      <Dialog open={comingSoonOpen} onOpenChange={setComingSoonOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 text-lg">🚧</span>
+              </div>
+              <span>{comingSoonFeature} - Coming Soon</span>
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              The {comingSoonFeature} feature is currently under development and will be available in a future update. 
+              We're working hard to bring you comprehensive construction project management tools.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-4">
+            <Button onClick={() => setComingSoonOpen(false)} className="bg-orange-500 hover:bg-orange-600">
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

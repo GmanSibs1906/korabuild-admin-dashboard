@@ -17,103 +17,89 @@ import {
   Plus,
   TrendingUp,
   FileText,
-  User
+  User,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
+import { useOrders, Order, Supplier } from '@/hooks/useOrders';
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'suppliers' | 'deliveries'>('overview');
 
+  // Fetch orders data with statistics
+  const { orders, suppliers, stats, loading, error, refetch } = useOrders({
+    includeStats: true
+  });
+
+  // Currency formatter
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount || 0);
+  };
+
+  // Dynamic order metrics based on real data
   const orderMetrics = [
     {
       title: 'Total Orders',
-      value: '247',
-      change: '+12',
-      trend: 'up',
+      value: stats?.totalOrders?.toString() || '0',
+      change: `+${stats?.monthlyTrend || 0}`,
+      trend: (stats?.monthlyTrend || 0) > 0 ? 'up' : 'down',
       icon: Package,
       color: 'text-blue-600 bg-blue-50'
     },
     {
       title: 'Pending Orders',
-      value: '23',
-      change: '-5',
+      value: stats?.pendingOrders?.toString() || '0',
+      change: '-5', // Would need historical data for real change
       trend: 'down',
       icon: Clock,
       color: 'text-orange-600 bg-orange-50'
     },
     {
       title: 'Total Value',
-      value: '$2.4M',
-      change: '+18%',
-      trend: 'up',
+      value: formatCurrency(stats?.totalValue || 0),
+      change: `+${stats?.valueGrowth || 0}%`,
+      trend: (stats?.valueGrowth || 0) > 0 ? 'up' : 'down',
       icon: DollarSign,
       color: 'text-green-600 bg-green-50'
     },
     {
       title: 'Delivered This Month',
-      value: '156',
-      change: '+24',
+      value: stats?.deliveredThisMonth?.toString() || '0',
+      change: '+24', // Would need historical data for real change
       trend: 'up',
       icon: CheckCircle,
       color: 'text-purple-600 bg-purple-50'
     }
   ];
 
-  const recentOrders = [
-    {
-      id: 'ORD-001',
-      project: 'Sandton Office Complex',
-      supplier: 'BuildCorp Supplies',
-      items: 'Concrete, Steel Beams',
-      value: 45000,
-      status: 'delivered',
-      orderDate: '2024-01-10',
-      deliveryDate: '2024-01-15'
-    },
-    {
-      id: 'ORD-002',
-      project: 'Cape Town Mall',
-      supplier: 'Metro Materials',
-      items: 'Electrical Cables, Switches',
-      value: 12500,
-      status: 'pending',
-      orderDate: '2024-01-12',
-      deliveryDate: '2024-01-18'
-    },
-    {
-      id: 'ORD-003',
-      project: 'Rosebank Apartments',
-      supplier: 'Quality Hardware',
-      items: 'Pipes, Fittings, Valves',
-      value: 8750,
-      status: 'in_transit',
-      orderDate: '2024-01-08',
-      deliveryDate: '2024-01-16'
-    }
-  ];
+  // Get recent orders (limit to 5 most recent)
+  const recentOrders = orders.slice(0, 5).map(order => ({
+    id: order.order_number,
+    project: order.project?.project_name || 'Unknown Project',
+    supplier: order.supplier?.supplier_name || 'Unknown Supplier',
+    items: order.order_items?.map(item => item.item_description).join(', ') || 'No items',
+    value: order.total_amount,
+    status: order.status,
+    orderDate: order.order_date,
+    deliveryDate: order.expected_delivery_date || order.actual_delivery_date || 'TBD'
+  }));
 
-  const topSuppliers = [
-    {
-      name: 'BuildCorp Supplies',
-      totalOrders: 45,
-      totalValue: 890000,
-      rating: 4.8,
-      onTimeDelivery: 96
-    },
-    {
-      name: 'Metro Materials',
-      totalOrders: 32,
-      totalValue: 650000,
-      rating: 4.6,
-      onTimeDelivery: 94
-    },
-    {
-      name: 'Quality Hardware',
-      totalOrders: 28,
-      totalValue: 420000,
-      rating: 4.7,
-      onTimeDelivery: 98
-    }
-  ];
+  // Calculate supplier statistics from orders
+  const topSuppliers = suppliers.slice(0, 3).map(supplier => {
+    const supplierOrders = orders.filter(order => order.supplier_id === supplier.id);
+    const totalValue = supplierOrders.reduce((sum, order) => sum + order.total_amount, 0);
+    
+    return {
+      name: supplier.supplier_name,
+      totalOrders: supplierOrders.length,
+      totalValue: totalValue,
+      rating: supplier.rating || 0,
+      onTimeDelivery: supplier.on_time_delivery || 95 // Default if not available
+    };
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -128,13 +114,6 @@ export default function OrdersPage() {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount || 0);
   };
 
   const renderOverview = () => (
@@ -332,6 +311,57 @@ export default function OrdersPage() {
     { id: 'deliveries', label: 'Deliveries', icon: Truck }
   ];
 
+  // Handle loading state
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
+            <p className="text-gray-600 mt-1">Loading order data...</p>
+          </div>
+          <RefreshCw className="h-6 w-6 animate-spin text-orange-500" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
+            <p className="text-gray-600 mt-1">Error loading order data</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to Load Orders</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={refetch} className="bg-orange-500 hover:bg-orange-600">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Page Header */}
@@ -344,8 +374,12 @@ export default function OrdersPage() {
         </div>
         <div className="flex items-center space-x-3">
           <Badge variant="secondary" className="px-3 py-1">
-            Live Order Data
+            {orders.length > 0 ? `${orders.length} Orders Loaded` : 'No Orders Found'}
           </Badge>
+          <Button variant="outline" size="sm" onClick={refetch}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </div>
       </div>
 

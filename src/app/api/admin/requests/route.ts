@@ -127,13 +127,7 @@ export async function GET(request: NextRequest) {
             pending: 0,
             inProgress: 0,
             completed: 0,
-            byCategory: {
-              change_order: 0,
-              inspection: 0,
-              consultation: 0,
-              maintenance: 0,
-              other: 0,
-            },
+            byCategory: {},
             byPriority: {
               low: 0,
               medium: 0,
@@ -206,18 +200,20 @@ export async function GET(request: NextRequest) {
         if (statsError) {
           console.warn('⚠️ Error fetching stats:', statsError.message);
         } else if (allRequests) {
+          // Calculate dynamic categories based on actual data
+          const byCategory: Record<string, number> = {};
+          const categoryCounts = allRequests.reduce((acc, r) => {
+            const type = r.request_type;
+            acc[type] = (acc[type] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
           stats = {
             total: allRequests.length,
             pending: allRequests.filter(r => r.status === 'submitted').length,
             inProgress: allRequests.filter(r => r.status === 'reviewing' || r.status === 'in_progress').length,
             completed: allRequests.filter(r => r.status === 'completed' || r.status === 'approved').length,
-            byCategory: {
-              change_order: allRequests.filter(r => r.request_type === 'change_order').length,
-              inspection: allRequests.filter(r => r.request_type === 'inspection').length,
-              consultation: allRequests.filter(r => r.request_type === 'consultation').length,
-              maintenance: allRequests.filter(r => r.request_type === 'maintenance').length,
-              other: allRequests.filter(r => r.request_type === 'other').length,
-            },
+            byCategory: categoryCounts,
             byPriority: {
               low: allRequests.filter(r => r.priority === 'low').length,
               medium: allRequests.filter(r => r.priority === 'medium').length,

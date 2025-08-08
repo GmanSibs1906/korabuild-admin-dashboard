@@ -39,7 +39,7 @@ export interface Database {
           id: string
           user_id: string | null
           project_id: string | null
-          notification_type: 'message' | 'project_update' | 'payment_due' | 'milestone_complete' | 'document_upload' | 'emergency' | 'general' | 'system'
+          notification_type: 'message' | 'project_update' | 'payment_due' | 'milestone_complete' | 'document_upload' | 'emergency' | 'general' | 'system' | 'user_created'
           title: string
           message: string
           entity_id: string | null
@@ -87,7 +87,7 @@ export interface Database {
           id?: string
           user_id?: string | null
           project_id?: string | null
-          notification_type?: 'message' | 'project_update' | 'payment_due' | 'milestone_complete' | 'document_upload' | 'emergency' | 'general' | 'system'
+          notification_type?: 'message' | 'project_update' | 'payment_due' | 'milestone_complete' | 'document_upload' | 'emergency' | 'general' | 'system' | 'user_created'
           title?: string
           message?: string
           entity_id?: string | null
