@@ -35,7 +35,7 @@ export class NotificationSoundGenerator {
   /**
    * Play a notification sound based on type
    */
-  async playNotificationSound(type: 'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' | 'message' | 'newUserPriority') {
+  async playNotificationSound(type: 'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' | 'message' | 'newUserPriority' | 'orderApproved' | 'orderDelivered' | 'orderCancelled') {
     if (!this.audioContext) {
       console.warn('🔊 No audio context available for notification sound');
       return;
@@ -96,6 +96,27 @@ export class NotificationSoundGenerator {
           duration = 0.5;
           volume = 0.45; // Loud enough to be clearly heard
           waveType = 'sine'; // Pleasant, non-jarring sound
+          break;
+        case 'orderApproved':
+          // Order approved - celebratory success sound
+          frequencies = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 (major chord ascending)
+          duration = 0.5;
+          volume = 0.5; // Loud to celebrate approval
+          waveType = 'triangle'; // Warm, successful sound
+          break;
+        case 'orderDelivered':
+          // Order delivered - completion tone
+          frequencies = [783.99, 659.25, 523.25]; // G5, E5, C5 (descending resolution)
+          duration = 0.4;
+          volume = 0.4; // Pleasant completion sound
+          waveType = 'sine'; // Clean completion sound
+          break;
+        case 'orderCancelled':
+          // Order cancelled - neutral/warning tone
+          frequencies = [440, 369.99]; // A4, F#4 (minor interval)
+          duration = 0.6;
+          volume = 0.35; // Softer for potentially negative news
+          waveType = 'sine'; // Neutral sound
           break;
         default:
           // General notification - clear and audible

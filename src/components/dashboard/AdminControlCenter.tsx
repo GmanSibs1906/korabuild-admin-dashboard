@@ -40,7 +40,9 @@ import {
   Trash2,
   UserPlus,
   Edit,
-  Shield
+  Shield,
+  Truck,
+  XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -136,6 +138,16 @@ export function AdminControlCenter() {
   const getNotificationIcon = (type: string, notification?: any) => {
     switch (type) {
       case 'system':
+        // Handle different system notification subtypes
+        if (notification.metadata?.notification_subtype === 'user_created') {
+          return <UserPlus className="w-4 h-4 text-emerald-500" />;
+        } else if (notification.metadata?.notification_subtype === 'order_approved') {
+          return <CheckCheck className="w-4 h-4 text-green-500" />;
+        } else if (notification.metadata?.notification_subtype === 'order_delivered') {
+          return <Truck className="w-4 h-4 text-blue-500" />;
+        } else if (notification.metadata?.notification_subtype === 'order_cancelled') {
+          return <XCircle className="w-4 h-4 text-red-500" />;
+        }
         return <User className="w-4 h-4 text-blue-500" />;
       case 'project_update':
         return <FileText className="w-4 h-4 text-green-500" />;
@@ -149,12 +161,7 @@ export function AdminControlCenter() {
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
       case 'user_created':
         return <UserPlus className="w-4 h-4 text-emerald-500" />;
-      case 'system':
-        if (notification.metadata?.notification_subtype === 'user_created') {
-          return <UserPlus className="w-4 h-4 text-emerald-500" />;
-        }
-        return <User className="w-4 h-4 text-blue-500" />;
-          default:
+      default:
         return <Bell className="w-4 h-4 text-gray-500" />;
     }
   };
@@ -351,6 +358,44 @@ export function AdminControlCenter() {
               }
             }
           );
+        } else if (notification.metadata?.notification_subtype === 'order_approved' || 
+                   notification.metadata?.notification_subtype === 'order_delivered' || 
+                   notification.metadata?.notification_subtype === 'order_cancelled') {
+          // Order status change notifications
+          actions.push(
+            {
+              id: 'view-order',
+              label: 'View Order',
+              variant: 'outline',
+              icon: Package,
+              action: async () => {
+                console.log('📦 [Control Center] Opening order view:', {
+                  notificationId: notification.id,
+                  orderId: notification.related_id,
+                  metadata: notification.metadata
+                });
+                
+                await markAsRead(notification.id);
+                router.push(`/orders`);
+              }
+            }
+          );
+          
+          // Add project view if we have project info
+          if (notification.metadata?.project_id) {
+            actions.push(
+              {
+                id: 'view-project',
+                label: 'View Project',
+                variant: 'secondary',
+                icon: FileText,
+                action: async () => {
+                  await markAsRead(notification.id);
+                  router.push(`/projects/${notification.metadata.project_id}`);
+                }
+              }
+            );
+          }
         } else if (notification.entity_type === 'user' && notification.entity_id) {
           actions.push(
             {

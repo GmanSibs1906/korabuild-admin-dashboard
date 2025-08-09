@@ -255,9 +255,9 @@ async function createOrder(projectId: string, orderData: any) {
       }, 0);
     }
 
-    const taxRate = 0.15; // 15% VAT
-    const taxAmount = subtotal * taxRate;
-    const totalAmount = subtotal + taxAmount;
+    // No VAT/tax added as per project rules - prices are in USD without VAT
+    const taxAmount = 0;
+    const totalAmount = subtotal;
 
     // Create the order with calculated totals
     const orderToCreate = {
@@ -396,9 +396,9 @@ async function updateOrder(orderId: string, updates: any) {
         return sum + lineTotal;
       }, 0);
 
-      const taxRate = 0.15; // 15% VAT
-      const taxAmount = subtotal * taxRate;
-      const totalAmount = subtotal + taxAmount;
+      // No VAT/tax added as per project rules - prices are in USD without VAT
+      const taxAmount = 0;
+      const totalAmount = subtotal;
 
       calculatedTotals = {
         subtotal: subtotal,
@@ -452,6 +452,10 @@ async function updateOrder(orderId: string, updates: any) {
           const quantityOrdered = parseFloat(item.quantity_ordered) || 0;
           const unitCost = parseFloat(item.unit_cost) || 0;
           const lineTotal = quantityOrdered * unitCost;
+
+          // No VAT/tax added as per project rules - prices are in USD without VAT
+          const taxAmount = 0;
+          const totalAmount = lineTotal;
 
           return {
             order_id: orderId,

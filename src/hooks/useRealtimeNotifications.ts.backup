@@ -22,27 +22,16 @@ export function useRealtimeNotifications() {
   const notificationsRef = useRef<RealtimeNotification[]>([]);
 
   // Play notification sound based on type
-  const playNotificationSound = useCallback(async (notificationType: string, notification?: RealtimeNotification) => {
+  const playNotificationSound = useCallback(async (notificationType: string) => {
     if (!soundEnabled) return;
 
     try {
-      let soundType: 'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' | 'message' | 'newUserPriority' | 'orderApproved' | 'orderDelivered' | 'orderCancelled' = 'general';
+      let soundType: 'newUser' | 'projectUpdate' | 'payment' | 'general' | 'emergency' = 'general';
       
       // Map notification types to appropriate sounds
       switch (notificationType) {
         case 'system':
-          // Check for specific system notification subtypes
-          if (notification?.metadata?.notification_subtype === 'user_created') {
-            soundType = notification.metadata?.priority_alert ? 'newUserPriority' : 'newUser';
-          } else if (notification?.metadata?.notification_subtype === 'order_approved') {
-            soundType = 'orderApproved';
-          } else if (notification?.metadata?.notification_subtype === 'order_delivered') {
-            soundType = 'orderDelivered';
-          } else if (notification?.metadata?.notification_subtype === 'order_cancelled') {
-            soundType = 'orderCancelled';
-          } else {
-            soundType = 'newUser';
-          }
+          soundType = 'newUser';
           break;
         case 'project_update':
         case 'milestone_complete':
@@ -54,12 +43,6 @@ export function useRealtimeNotifications() {
         case 'emergency':
           soundType = 'emergency';
           break;
-        case 'message':
-          soundType = 'message';
-          break;
-        case 'user_created':
-          soundType = notification?.metadata?.priority_alert ? 'newUserPriority' : 'newUser';
-          break;
         default:
           soundType = 'general';
       }
@@ -68,7 +51,8 @@ export function useRealtimeNotifications() {
     } catch (error) {
       console.warn('Failed to play notification sound:', error);
     }
-  }, [soundEnabled]); 
+  }, [soundEnabled]);
+
   // Show toast notification with appropriate styling
   const showToastNotification = useCallback((notification: RealtimeNotification) => {
     // Style toast based on priority and type
@@ -399,7 +383,7 @@ export function useRealtimeNotifications() {
 
             console.log('🔊 [Real-time] Playing notification sound...');
             try {
-              await playNotificationSound(newNotification.notification_type, newNotification);
+              await playNotificationSound(newNotification.notification_type);
               console.log('✅ [Real-time] Sound played successfully');
             } catch (soundError) {
               console.error('❌ [Real-time] Sound failed to play:', soundError);

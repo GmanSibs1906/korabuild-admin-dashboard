@@ -925,7 +925,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                 </div>
 
                 {/* Progress Percentage Control */}
-                <div>
+                {/* <div>
                   <Label htmlFor="progress_percentage" className="text-sm font-medium text-gray-700">
                     Progress Percentage
                   </Label>
@@ -943,7 +943,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                     <span className="text-sm text-gray-500">%</span>
                     
                     {/* 🔧 NEW: Auto-calculate progress button */}
-                    <button
+                    {/*<button
                       type="button"
                       onClick={handleRecalculateProgress}
                       disabled={saving || !projectId}
@@ -957,7 +957,7 @@ export function ProgressControlPanel({ projectId, onClose }: ProgressControlPane
                   <p className="text-xs text-gray-500 mt-1">
                     Manual override or use "Auto-Calculate" to compute from milestones
                   </p>
-                </div>
+                </div> */}
               </div>
 
               {/* Timeline Summary */}

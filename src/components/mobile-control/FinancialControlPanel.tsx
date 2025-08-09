@@ -96,11 +96,17 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
       const response = await fetch(`/api/mobile-control/financial?projectId=${projectId}`);
       const result = await response.json();
       
+      console.log('💰 [FinancialControlPanel] API Response:', result);
+      console.log('💰 [FinancialControlPanel] Financial Data:', result.data?.financial);
+      console.log('💰 [FinancialControlPanel] Amount Used:', result.data?.financial?.amountUsed);
+      
       if (result.success) {
         setFinancialData(result.data.financial);
         setPayments(result.data.payments || []);
         setCreditData(result.data.credit);
         setNextPayment(result.data.nextPayment);
+        
+        console.log('💰 [FinancialControlPanel] State updated with Amount Used:', result.data.financial.amountUsed);
         
         // Sync data with parent component
         onDataSync({
@@ -175,8 +181,6 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
           });
           break;
         case 'cashReceived':
-        case 'amountUsed':
-        case 'amountRemaining':
           await updateFinancialData('financial', {
             ...financialData,
             [field]: parseFloat(editValues[field]) || 0
@@ -481,39 +485,29 @@ export function FinancialControlPanel({ projectId, onDataSync }: FinancialContro
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Amount Used</span>
                   <div className="flex items-center space-x-2">
-                    {editMode === 'amountUsed' ? (
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="number"
-                          value={editValues.amountUsed}
-                          onChange={(e) => setEditValues({...editValues, amountUsed: e.target.value})}
-                          className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                        <Button size="sm" onClick={() => saveEdit('amountUsed')}>Save</Button>
-                        <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel</Button>
-                      </div>
-                    ) : (
-                      <>
-                        <span className="font-medium text-orange-600">
-                          {formatCurrency(financialData.amountUsed)}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEdit('amountUsed', financialData.amountUsed)}
-                        >
-                          Edit
-                        </Button>
-                      </>
-                    )}
+                    <span className="font-medium text-orange-600">
+                      {(() => {
+                        console.log('💰 [Render] Amount Used value:', financialData.amountUsed);
+                        console.log('💰 [Render] Financial Data object:', financialData);
+                        return formatCurrency(financialData.amountUsed);
+                      })()}
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      Auto-calculated from payments
+                    </span>
                   </div>
                 </div>
                 
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Amount Remaining</span>
-                  <span className="font-medium text-blue-600">
-                    {formatCurrency(financialData.amountRemaining)}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-blue-600">
+                      {formatCurrency(financialData.cashReceived - financialData.amountUsed)}
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      Cash Received - Amount Used
+                    </span>
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between pt-2 border-t">

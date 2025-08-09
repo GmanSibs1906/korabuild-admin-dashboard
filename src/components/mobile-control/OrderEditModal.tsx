@@ -148,8 +148,9 @@ export function OrderEditModal({ isOpen, onClose, order, suppliers, onOrderUpdat
   // Calculate totals
   const calculateTotals = () => {
     const subtotal = orderItems.reduce((sum, item) => sum + (item.line_total || 0), 0);
-    const taxAmount = subtotal * 0.15; // 15% VAT
-    const total = subtotal + taxAmount;
+    // No VAT/tax added as per project rules - prices are in USD without VAT
+    const taxAmount = 0;
+    const total = subtotal;
     
     return {
       subtotal,
@@ -482,6 +483,7 @@ export function OrderEditModal({ isOpen, onClose, order, suppliers, onOrderUpdat
                   onChange={(e) => handleInputChange('delivery_instructions', e.target.value)}
                   placeholder="Any special instructions for this order"
                   rows={3}
+                  className="bg-white"
                 />
               </div>
 
@@ -493,6 +495,7 @@ export function OrderEditModal({ isOpen, onClose, order, suppliers, onOrderUpdat
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                   placeholder="Any additional notes for this order"
                   rows={3}
+                  className="bg-white"
                 />
               </div>
             </CardContent>
@@ -627,7 +630,7 @@ export function OrderEditModal({ isOpen, onClose, order, suppliers, onOrderUpdat
                         <span>{formatCurrency(calculateTotals().subtotal)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span>Tax (15%):</span>
+                        <span>Tax:</span>
                         <span>{formatCurrency(calculateTotals().taxAmount)}</span>
                       </div>
                       <div className="flex justify-between font-semibold text-lg border-t pt-2">

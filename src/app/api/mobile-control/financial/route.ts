@@ -117,23 +117,22 @@ export async function GET(request: NextRequest) {
     const contractValue = project.contract_value || 0;
     const totalPayments = payments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
     
+    // Amount Used should be calculated from payment history (total of all payments)
+    const amountUsed = totalPayments;
+    
     // Use project financials if available - cash_received should NOT fall back to payments
     let cashReceived = 0; // Default to 0, not totalPayments
-    let amountUsed = 0;
     let amountRemaining = contractValue;
 
     if (financials && financials.length > 0) {
       const latestFinancial = financials[0];
       cashReceived = latestFinancial.cash_received || 0; // No fallback to payments
-      amountUsed = latestFinancial.amount_used || 0;
-      amountRemaining = latestFinancial.amount_remaining || (contractValue - cashReceived);
+      // Note: amountUsed is now calculated from payments, not from database
+      amountRemaining = cashReceived - amountUsed; // Cash Received - Amount Used
     } else {
       // If no project_financials record exists, use defaults
       // cash_received remains 0 (admin must manually set this)
-      // Calculate estimates based on project progress
-      const progressPercentage = project.progress_percentage || 0;
-      amountUsed = Math.round((contractValue * progressPercentage) / 100);
-      amountRemaining = contractValue - amountUsed;
+      amountRemaining = cashReceived - amountUsed; // Cash Received - Amount Used
     }
 
     // Calculate financial health
@@ -278,14 +277,30 @@ export async function POST(request: NextRequest) {
         console.log('💰 Latest financial record found:', latestFinancial);
 
         if (latestFinancial) {
+          // Calculate amount_used from payments instead of accepting from frontend
+          const { data: payments, error: paymentsError } = await supabaseAdmin
+            .from('payments')
+            .select('amount')
+            .eq('project_id', projectId);
+          
+          if (paymentsError) {
+            throw paymentsError;
+          }
+          
+          const calculatedAmountUsed = payments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
+          const calculatedAmountRemaining = data.cashReceived - calculatedAmountUsed;
+          
           // Update the LATEST existing record
           console.log('💰 Updating latest financial record with ID:', latestFinancial.id);
+          console.log('💰 Amount Used calculated from payments:', calculatedAmountUsed);
+          console.log('💰 Amount Remaining calculated as Cash Received - Amount Used:', calculatedAmountRemaining);
+          
           const { data: updateData, error: updateError } = await supabaseAdmin
             .from('project_financials')
             .update({
               cash_received: data.cashReceived,
-              amount_used: data.amountUsed,
-              amount_remaining: data.amountRemaining,
+              amount_used: calculatedAmountUsed, // Use calculated value
+              amount_remaining: calculatedAmountRemaining, // Use calculated value
               snapshot_date: new Date().toISOString().split('T')[0],
               updated_at: new Date().toISOString()
             })
@@ -295,15 +310,31 @@ export async function POST(request: NextRequest) {
           financialUpdate = updateData;
           financialError = updateError;
         } else {
+          // Calculate amount_used from payments for new record too
+          const { data: payments, error: paymentsError } = await supabaseAdmin
+            .from('payments')
+            .select('amount')
+            .eq('project_id', projectId);
+          
+          if (paymentsError) {
+            throw paymentsError;
+          }
+          
+          const calculatedAmountUsed = payments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
+          const calculatedAmountRemaining = data.cashReceived - calculatedAmountUsed;
+          
           // Create new record only if none exists
           console.log('💰 Creating new financial record');
+          console.log('💰 Amount Used calculated from payments:', calculatedAmountUsed);
+          console.log('💰 Amount Remaining calculated as Cash Received - Amount Used:', calculatedAmountRemaining);
+          
           const { data: insertData, error: insertError } = await supabaseAdmin
             .from('project_financials')
             .insert({
               project_id: projectId,
               cash_received: data.cashReceived,
-              amount_used: data.amountUsed,
-              amount_remaining: data.amountRemaining,
+              amount_used: calculatedAmountUsed, // Use calculated value
+              amount_remaining: calculatedAmountRemaining, // Use calculated value
               snapshot_date: new Date().toISOString().split('T')[0],
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()

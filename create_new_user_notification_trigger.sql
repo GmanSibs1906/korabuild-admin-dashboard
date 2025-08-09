@@ -23,7 +23,7 @@ BEGIN
                 admin_user.id,
                 'system',
                 '🎉 New User Registered: ' || COALESCE(NEW.full_name, 'New User'),
-                'A new ' || NEW.role || ' has joined the platform. Review their profile and approve their access.',
+                'A new ' || NEW.role || ' has joined the platform. Review their profile to ensure they have a project setup.',
                 NEW.id,
                 'user',
                 'urgent',

@@ -69,9 +69,9 @@ export default function OrdersPage() {
 
   // Currency formatter
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZAR'
+      currency: 'USD'
     }).format(amount || 0);
   };
 
