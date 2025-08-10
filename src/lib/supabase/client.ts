@@ -12,11 +12,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false
+    detectSessionInUrl: false,
+    flowType: 'pkce'
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 10,
+      heartbeatIntervalMs: 30000,
+      reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 10000)
+    },
+    timeout: 30000
+  },
+  // Add global options for better error handling
+  global: {
+    headers: {
+      'X-Client-Info': 'korabuild-admin-dashboard'
     }
   }
 })

@@ -27,7 +27,7 @@ export async function GET(
       );
     }
 
-    // Get user's projects with more detailed information
+    // Get user's projects with more detailed information including client details
     const { data: projects, error: projectsError } = await supabaseAdmin
       .from('projects')
       .select(`
@@ -43,7 +43,12 @@ export async function GET(
         status,
         description,
         created_at,
-        updated_at
+        updated_at,
+        client_id,
+        users!projects_client_id_fkey (
+          full_name,
+          email
+        )
       `)
       .eq('client_id', userId)
       .order('created_at', { ascending: false });
@@ -125,11 +130,60 @@ export async function GET(
     const planningProjects = projects?.filter(p => p.status === 'planning').length || 0;
     const onHoldProjects = projects?.filter(p => p.status === 'on_hold').length || 0;
 
-    // Calculate financial stats
+    // Calculate financial stats - MATCHES FINANCIAL CONTROL LOGIC
     const totalContractValue = projects?.reduce((sum, p) => sum + (p.contract_value || 0), 0) || 0;
-    const totalCashReceived = payments?.filter(p => p.status === 'completed').reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-    const totalAmountUsed = payments?.filter(p => p.payment_category === 'materials' || p.payment_category === 'labor').reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+    
+    // Get the latest project_financials for each project to match Financial Control
+    let totalCashReceived = 0;
+    let totalAmountUsed = 0;
+    
+    for (const project of projects || []) {
+      // Get latest financial record for this project
+      const projectFinancial = projectFinancials?.find(pf => pf.project_id === project.id);
+      
+      if (projectFinancial) {
+        // Use cash_received from project_financials (manually set by admin)
+        totalCashReceived += projectFinancial.cash_received || 0;
+      }
+      
+      // Calculate amount used from all payments for this project (matches Financial Control)
+      const projectPayments = payments?.filter(p => p.project_id === project.id) || [];
+      const projectAmountUsed = projectPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      totalAmountUsed += projectAmountUsed;
+    }
+    
     const totalAmountRemaining = totalCashReceived - totalAmountUsed;
+
+    // Calculate correct progress percentage for each project from milestones
+    const projectsWithCorrectProgress = (projects || []).map(project => {
+      const projectMilestonesForProject = projectMilestones?.filter(m => m.project_id === project.id) || [];
+      
+      let calculatedProgress = 0;
+      if (projectMilestonesForProject.length > 0) {
+        // Calculate average of all milestone progress percentages (matches Progress Control logic)
+        const totalProgress = projectMilestonesForProject.reduce((sum, milestone) => {
+          return sum + (milestone.progress_percentage || 0);
+        }, 0);
+        calculatedProgress = Math.round(totalProgress / projectMilestonesForProject.length);
+      }
+      
+      console.log(`📊 Progress calculation for ${project.project_name}:`, {
+        totalMilestones: projectMilestonesForProject.length,
+        oldProgress: project.progress_percentage,
+        calculatedProgress,
+        milestoneBreakdown: projectMilestonesForProject.map(m => ({
+          status: m.status,
+          progress: m.progress_percentage
+        }))
+      });
+      
+      return {
+        ...project,
+        progress_percentage: calculatedProgress, // Use calculated progress from milestones
+        client_name: (project as any).users?.full_name || 'N/A', // Add client name for display
+        client_email: (project as any).users?.email || ''
+      };
+    });
 
     // Build user profile response that matches the interface
     const userProfile = {
@@ -158,7 +212,7 @@ export async function GET(
         unreadNotifications: notifications?.filter(n => !n.is_read).length || 0,
         engagementScore: Math.min(100, Math.max(0, (activeProjects * 20) + (completedProjects * 10)))
       },
-      projects: projects || [],
+      projects: projectsWithCorrectProgress,
       payments: payments || [],
       allPayments: payments || [],
       documents: documents || [],

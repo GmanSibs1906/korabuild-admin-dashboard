@@ -93,16 +93,38 @@ export async function GET(request: Request) {
       const totalPayments = project.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
       const totalContractValue = project.project_contractors?.reduce((sum: number, c: any) => sum + (c.contract_value || 0), 0) || project.contract_value || 0;
       
-      // Calculate project health score
-      const progressScore = project.progress_percentage || 0;
+      // Calculate progress percentage from milestones (matches Progress Control logic)
+      let calculatedProgress = 0;
+      if (totalMilestones > 0) {
+        const totalProgress = project.project_milestones.reduce((sum: number, milestone: any) => {
+          return sum + (milestone.progress_percentage || 0);
+        }, 0);
+        calculatedProgress = Math.round(totalProgress / totalMilestones);
+      }
+      
+      // Calculate project health score (use calculated progress instead of stored progress)
+      const progressScore = calculatedProgress;
       const timelineScore = calculateTimelineScore(project.start_date, project.expected_completion, project.actual_completion);
       const budgetScore = calculateBudgetScore(totalContractValue, totalPayments);
       const milestoneScore = totalMilestones > 0 ? (completedMilestones / totalMilestones) * 100 : 0;
       
       const healthScore = Math.round((progressScore + timelineScore + budgetScore + milestoneScore) / 4);
       
+      console.log(`📊 Progress calculation for ${project.project_name}:`, {
+        totalMilestones,
+        oldProgress: project.progress_percentage,
+        calculatedProgress,
+        milestoneBreakdown: project.project_milestones?.map((m: any) => ({
+          name: m.milestone_name,
+          status: m.status,
+          progress: m.progress_percentage
+        })) || []
+      });
+      
       return {
         ...project,
+        progress_percentage: calculatedProgress, // Use calculated progress from milestones
+        client_name: project.client?.full_name || 'N/A', // Add client name for display
         stats: {
           totalMilestones,
           completedMilestones,

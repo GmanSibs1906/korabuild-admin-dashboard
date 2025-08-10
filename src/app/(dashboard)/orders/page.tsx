@@ -33,6 +33,7 @@ import { DeliveryCreateModal } from '@/components/mobile-control/DeliveryCreateM
 import { DeliveryEditModal } from '@/components/mobile-control/DeliveryEditModal';
 import { SupplierCreateModal } from '@/components/mobile-control/SupplierCreateModal';
 import { SupplierEditModal } from '@/components/mobile-control/SupplierEditModal';
+import { DeleteOrderModal } from '@/components/modals/DeleteOrderModal';
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'suppliers' | 'deliveries'>('overview');
@@ -50,6 +51,9 @@ export default function OrdersPage() {
   const [showSupplierCreateModal, setShowSupplierCreateModal] = useState(false);
   const [showSupplierEditModal, setShowSupplierEditModal] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  
+  const [showDeleteOrderModal, setShowDeleteOrderModal] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<any>(null);
   
   const [updating, setUpdating] = useState(false);
 
@@ -130,16 +134,22 @@ export default function OrdersPage() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm('Are you sure you want to delete this order?')) {
-      return;
+    // Find the order to show in the delete modal
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      setOrderToDelete(order);
+      setShowDeleteOrderModal(true);
     }
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
 
     try {
       setUpdating(true);
       
       // Get the project ID for this order
-      const orderToDelete = orders.find(o => o.id === orderId);
-      const projectId = orderToDelete?.project_id || orderToDelete?.project?.id;
+      const projectId = orderToDelete.project_id || orderToDelete.project?.id;
       
       if (!projectId) {
         throw new Error('Could not determine project ID for order');
@@ -152,7 +162,7 @@ export default function OrdersPage() {
         },
         body: JSON.stringify({
           action: 'delete',
-          orderId: orderId,
+          orderId: orderToDelete.id,
           projectId: projectId
         }),
       });
@@ -162,6 +172,8 @@ export default function OrdersPage() {
       if (result.success) {
         console.log('📦 Order deleted successfully');
         refetch(); // Refresh data
+        setShowDeleteOrderModal(false);
+        setOrderToDelete(null);
       } else {
         throw new Error(result.error || 'Failed to delete order');
       }
@@ -1077,6 +1089,19 @@ export default function OrdersPage() {
           }}
           onSupplierUpdated={handleUpdateSupplier}
           supplier={selectedSupplier}
+        />
+      )}
+
+      {showDeleteOrderModal && orderToDelete && (
+        <DeleteOrderModal
+          isOpen={showDeleteOrderModal}
+          onClose={() => {
+            setShowDeleteOrderModal(false);
+            setOrderToDelete(null);
+          }}
+          onConfirm={confirmDeleteOrder}
+          order={orderToDelete}
+          isDeleting={updating}
         />
       )}
     </div>

@@ -42,7 +42,7 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'broadcast' | 'notifications'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'broadcast' | 'notifications'>('messages');
   
   const [communicationData, setCommunicationData] = useState<MobileCommunicationData | null>(null);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -68,10 +68,22 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
       setLoading(true);
       setError(null);
       
+      console.log('📱 [CommunicationControl] Fetching data for project:', projectId);
+      
       const response = await fetch(`/api/mobile-control/communication?projectId=${projectId}`);
       const result = await response.json();
       
       if (result.success) {
+        console.log('📱 [CommunicationControl] Data received:', {
+          totalConversations: result.data.communication.totalConversations,
+          unreadMessages: result.data.communication.unreadMessages,
+          pendingApprovals: result.data.communication.pendingApprovals,
+          recentMessagesCount: result.data.communication.recentMessages?.length || 0,
+          conversationsCount: result.data.conversations?.length || 0,
+          messagesCount: result.data.messages?.length || 0,
+          approvalsCount: result.data.approvals?.length || 0
+        });
+        
         setCommunicationData(result.data.communication);
         setConversations(result.data.conversations || []);
         setMessages(result.data.messages || []);
@@ -84,9 +96,11 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
           timestamp: new Date().toISOString()
         });
       } else {
+        console.error('📱 [CommunicationControl] API Error:', result.error);
         setError(result.error || 'Failed to fetch communication data');
       }
     } catch (err) {
+      console.error('📱 [CommunicationControl] Network Error:', err);
       setError('Network error loading communication data');
       console.error('Error fetching communication data:', err);
     } finally {
@@ -291,10 +305,10 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
           {[
-            { id: 'overview', label: 'Overview', description: 'Communication metrics and summary' },
+            // { id: 'overview', label: 'Overview', description: 'Communication metrics and summary' },
             { id: 'messages', label: 'Messages', description: 'View and respond to messages' },
-            { id: 'broadcast', label: 'Broadcast', description: 'Send announcements to users' },
-            { id: 'notifications', label: 'Notifications', description: 'Manage notification settings' }
+            // { id: 'broadcast', label: 'Broadcast', description: 'Send announcements to users' },
+            // { id: 'notifications', label: 'Notifications', description: 'Manage notification settings' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -315,62 +329,162 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
       <div className="space-y-6">
         {/* Overview Tab */}
         {activeTab === 'overview' && communicationData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.013 8.013 0 01-7-4L3 20l4-4c-1.18-1.346-2-3.094-2-5 0-4.418 3.582-8 8-8s8 3.582 8 8z" />
-                  </svg>
+          <div className="space-y-6">
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.013 8.013 0 01-7-4L3 20l4-4c-1.18-1.346-2-3.094-2-5 0-4.418 3.582-8 8-8s8 3.582 8 8z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Conversations</p>
+                    <p className="text-2xl font-semibold text-gray-900">{communicationData.totalConversations}</p>
+                    <p className="text-xs text-gray-500 mt-1">Active project discussions</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Conversations</p>
-                  <p className="text-2xl font-semibold text-gray-900">{communicationData.totalConversations}</p>
-                </div>
-              </div>
-            </Card>
+              </Card>
 
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-8 w-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
+              <Card className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="h-8 w-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="text-sm font-medium text-gray-600">Unread Messages</p>
+                    <div className="flex items-center">
+                      <p className="text-2xl font-semibold text-gray-900">{communicationData.unreadMessages}</p>
+                      {communicationData.unreadMessages > 0 && (
+                        <Badge className="ml-2 bg-red-100 text-red-800 text-xs">
+                          Needs Attention
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Require admin response</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Unread Messages</p>
-                  <p className="text-2xl font-semibold text-gray-900">{communicationData.unreadMessages}</p>
-                </div>
-              </div>
-            </Card>
+              </Card>
 
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+              <Card className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+                    <div className="flex items-center">
+                      <p className="text-2xl font-semibold text-gray-900">{communicationData.pendingApprovals}</p>
+                      {communicationData.pendingApprovals > 0 && (
+                        <Badge className="ml-2 bg-yellow-100 text-yellow-800 text-xs">
+                          Action Required
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Awaiting admin approval</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
-                  <p className="text-2xl font-semibold text-gray-900">{communicationData.pendingApprovals}</p>
-                </div>
-              </div>
-            </Card>
+              </Card>
 
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM9 17h5l-5 5v-5zM5 12l5-5h4l5 5v5H5v-5z" />
-                  </svg>
+              <Card className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-1l-4 4z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Recent Messages</p>
+                    <p className="text-2xl font-semibold text-gray-900">{communicationData.recentMessages?.length || 0}</p>
+                    <p className="text-xs text-gray-500 mt-1">Last 10 messages</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Recent Messages</p>
-                  <p className="text-2xl font-semibold text-gray-900">{communicationData.recentMessages.length}</p>
+              </Card>
+            </div>
+
+            {/* Additional Insights */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Notification Settings Summary */}
+              <Card className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Settings</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Push Notifications</span>
+                    <Badge className={communicationData.notificationSettings.pushEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                      {communicationData.notificationSettings.pushEnabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Email Notifications</span>
+                    <Badge className={communicationData.notificationSettings.emailEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                      {communicationData.notificationSettings.emailEnabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">SMS Notifications</span>
+                    <Badge className={communicationData.notificationSettings.smsEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                      {communicationData.notificationSettings.smsEnabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Quiet Hours</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {communicationData.notificationSettings.quietHoursStart} - {communicationData.notificationSettings.quietHoursEnd}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+
+              {/* Communication Health */}
+              <Card className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Communication Health</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600">Response Rate</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {communicationData.unreadMessages === 0 ? '100%' : 
+                         communicationData.recentMessages?.length > 0 ? 
+                         `${Math.round(((communicationData.recentMessages.length - communicationData.unreadMessages) / communicationData.recentMessages.length) * 100)}%` : 
+                         '0%'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-600 h-2 rounded-full" 
+                        style={{ 
+                          width: communicationData.unreadMessages === 0 ? '100%' : 
+                                 communicationData.recentMessages?.length > 0 ? 
+                                 `${Math.round(((communicationData.recentMessages.length - communicationData.unreadMessages) / communicationData.recentMessages.length) * 100)}%` : 
+                                 '0%'
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-gray-600">
+                    {communicationData.unreadMessages === 0 ? (
+                      <span className="text-green-600 font-medium">✓ All messages responded to</span>
+                    ) : (
+                      <span className="text-orange-600 font-medium">⚠ {communicationData.unreadMessages} messages need response</span>
+                    )}
+                  </div>
+                  
+                  <div className="text-sm text-gray-600">
+                    {communicationData.pendingApprovals === 0 ? (
+                      <span className="text-green-600 font-medium">✓ No pending approvals</span>
+                    ) : (
+                      <span className="text-yellow-600 font-medium">⏳ {communicationData.pendingApprovals} approvals pending</span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         )}
 

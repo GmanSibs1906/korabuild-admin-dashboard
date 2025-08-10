@@ -538,7 +538,52 @@ async function deleteOrder(orderId: string) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
     }
 
-    // First delete order items
+    console.log('🗑️ Starting cascading delete for order:', orderId);
+
+    // Step 1: Get all order items for this order
+    const { data: orderItems, error: getItemsError } = await supabaseAdmin
+      .from('order_items')
+      .select('id')
+      .eq('order_id', orderId);
+
+    if (getItemsError) {
+      console.error('❌ Error getting order items:', getItemsError);
+      return NextResponse.json({ error: 'Failed to get order items' }, { status: 500 });
+    }
+
+    console.log(`📋 Found ${orderItems?.length || 0} order items to delete`);
+
+    // Step 2: Delete all delivery items that reference these order items
+    if (orderItems && orderItems.length > 0) {
+      const orderItemIds = orderItems.map(item => item.id);
+      
+      const { error: deleteDeliveryItemsError } = await supabaseAdmin
+        .from('delivery_items')
+        .delete()
+        .in('order_item_id', orderItemIds);
+
+      if (deleteDeliveryItemsError) {
+        console.error('❌ Error deleting delivery items:', deleteDeliveryItemsError);
+        return NextResponse.json({ error: 'Failed to delete delivery items' }, { status: 500 });
+      }
+
+      console.log('✅ Delivery items deleted successfully');
+    }
+
+    // Step 3: Delete all deliveries for this order
+    const { error: deleteDeliveriesError } = await supabaseAdmin
+      .from('deliveries')
+      .delete()
+      .eq('order_id', orderId);
+
+    if (deleteDeliveriesError) {
+      console.error('❌ Error deleting deliveries:', deleteDeliveriesError);
+      return NextResponse.json({ error: 'Failed to delete deliveries' }, { status: 500 });
+    }
+
+    console.log('✅ Deliveries deleted successfully');
+
+    // Step 4: Delete order items
     const { error: deleteItemsError } = await supabaseAdmin
       .from('order_items')
       .delete()
@@ -549,7 +594,22 @@ async function deleteOrder(orderId: string) {
       return NextResponse.json({ error: 'Failed to delete order items' }, { status: 500 });
     }
 
-    // Then delete the order
+    console.log('✅ Order items deleted successfully');
+
+    // Step 5: Delete order status history
+    const { error: deleteHistoryError } = await supabaseAdmin
+      .from('order_status_history')
+      .delete()
+      .eq('order_id', orderId);
+
+    if (deleteHistoryError) {
+      console.error('❌ Error deleting order history:', deleteHistoryError);
+      return NextResponse.json({ error: 'Failed to delete order history' }, { status: 500 });
+    }
+
+    console.log('✅ Order status history deleted successfully');
+
+    // Step 6: Finally delete the order itself
     const { error: deleteOrderError } = await supabaseAdmin
       .from('project_orders')
       .delete()
@@ -561,7 +621,10 @@ async function deleteOrder(orderId: string) {
     }
 
     console.log('✅ Order deleted successfully:', orderId);
-    return NextResponse.json({ success: true, message: 'Order deleted successfully' });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Order and all related data deleted successfully' 
+    });
 
   } catch (error) {
     console.error('❌ Delete order error:', error);

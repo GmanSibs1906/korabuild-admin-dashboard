@@ -58,7 +58,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
     fetchUserActivity
   } = useUserProfile();
 
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>('projects');
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showProjectCreateModal, setShowProjectCreateModal] = useState(false);
@@ -265,7 +265,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
   };
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: User },
+    // { id: 'overview', label: 'Overview', icon: User },
     { id: 'projects', label: 'Projects', icon: Building2 },
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'documents', label: 'Documents', icon: FileText },
@@ -398,15 +398,11 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
 
       {/* Quick Stats */}
       <div className="mb-6">
-        {/* Primary Stats - MATCHES MOBILE APP FINANCIAL DATA */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4 mb-4">
+        {/* Primary Stats - MATCHES FINANCIAL CONTROL DATA */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-3 mb-4">
           <div className="bg-white rounded-lg p-4 shadow border-l-4 border-orange-500">
             <div className="text-2xl font-bold text-orange-600">{quickStats.totalProjects}</div>
             <div className="text-sm text-gray-500">Total Projects</div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow border-l-4 border-blue-500">
-            <div className="text-2xl font-bold text-blue-600">{quickStats.activeProjects}</div>
-            <div className="text-sm text-gray-500">Active Projects</div>
           </div>
           <div className="bg-white rounded-lg p-4 shadow border-l-4 border-green-500">
             <div className="text-2xl font-bold text-green-600">{formatCurrency(quickStats.totalCashReceived)}</div>
@@ -424,8 +420,8 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
           </div>
         </div>
 
-        {/* Financial Breakdown - MATCHES MOBILE APP */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        {/* Financial Breakdown - MATCHES FINANCIAL CONTROL */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div className="bg-white rounded-lg p-4 shadow border-l-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
@@ -480,39 +476,10 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
               <div className="text-xs text-gray-400 mt-1">Available funds</div>
             </div>
           </div>
-
-          <div className="bg-white rounded-lg p-4 shadow border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-lg font-bold text-purple-600">
-                  {quickStats.totalCashReceived > 0 && quickStats.totalAmountUsed > 0
-                    ? ((quickStats.totalAmountUsed / quickStats.totalCashReceived) * 100).toFixed(1) + '%'
-                    : '0%'
-                  }
-                </div>
-                <div className="text-sm text-gray-500">Financial Health</div>
-              </div>
-              <div className={cn(
-                "w-16 h-16 rounded-full flex items-center justify-center",
-                quickStats.totalAmountRemaining > quickStats.totalAmountUsed ? "bg-green-100" : 
-                quickStats.totalAmountRemaining > 0 ? "bg-yellow-100" : "bg-red-100"
-              )}>
-                <TrendingUp className={cn(
-                  "h-8 w-8",
-                  quickStats.totalAmountRemaining > quickStats.totalAmountUsed ? "text-green-600" : 
-                  quickStats.totalAmountRemaining > 0 ? "text-yellow-600" : "text-red-600"
-                )} />
-              </div>
-            </div>
-            <div className="text-xs text-gray-400 mt-1">
-              {quickStats.totalAmountRemaining > quickStats.totalAmountUsed ? "Healthy" : 
-               quickStats.totalAmountRemaining > 0 ? "Caution" : "Critical"}
-            </div>
-          </div>
         </div>
 
         {/* Secondary Stats */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-6 lg:grid-cols-6">
+        {/* <div className="grid grid-cols-2 gap-4 sm:grid-cols-6 lg:grid-cols-6">
           <div className="bg-white rounded-lg p-3 shadow">
             <div className="text-lg font-semibold text-gray-700">{quickStats.completedProjects}</div>
             <div className="text-xs text-gray-500">Completed</div>
@@ -543,7 +510,7 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
             </div>
             <div className="text-xs text-gray-500">Engagement</div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Tabs */}
@@ -634,6 +601,10 @@ export function UserProfileDashboard({ userId, onClose }: UserProfileDashboardPr
                         <div className="flex items-center mt-1 text-sm text-gray-500">
                           <MapPin className="h-4 w-4 mr-1" />
                           {project.project_address}
+                        </div>
+                        <div className="flex items-center mt-1 text-sm text-gray-500">
+                          <User className="h-4 w-4 mr-1" />
+                          Owner: {project.client_name || 'N/A'}
                         </div>
                         <div className="flex items-center space-x-4 mt-2">
                           <span className="text-sm text-gray-900 font-medium">

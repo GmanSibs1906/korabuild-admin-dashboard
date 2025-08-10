@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
       data: {
         project: {
           ...project,
+          progress_percentage: milestoneStats.overallProgress, // Use calculated progress from milestones
           daysRemaining,
         },
         milestones: milestones || [],
