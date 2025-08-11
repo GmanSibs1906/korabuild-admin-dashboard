@@ -458,6 +458,27 @@ export async function POST(request: NextRequest) {
 
         console.log('✅ [Messages API] Successfully marked messages as read for all admins:', updatedMessages?.length || 0);
 
+        // Also mark all notifications related to this conversation as read for all admins
+        console.log('📢 [Messages API] Marking related notifications as read for conversation:', conversationId);
+        
+        const { data: updatedNotifications, error: notificationError } = await supabaseAdmin
+          .from('notifications')
+          .update({
+            is_read: true,
+            read_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('conversation_id', conversationId)
+          .in('user_id', adminIds)
+          .select('id, conversation_id, is_read');
+
+        if (notificationError) {
+          console.warn('⚠️ [Messages API] Warning marking notifications as read:', notificationError);
+          // Don't fail the request for this, it's not critical
+        } else {
+          console.log('✅ [Messages API] Successfully marked notifications as read:', updatedNotifications?.length || 0);
+        }
+
         // Also update the conversation's metadata to track read status
         const { error: conversationUpdateError } = await supabaseAdmin
           .from('conversations')
@@ -482,7 +503,8 @@ export async function POST(request: NextRequest) {
           data: {
             conversationId,
             markedAsRead: true,
-            messagesUpdated: updatedMessages?.length || 0
+            messagesUpdated: updatedMessages?.length || 0,
+            notificationsUpdated: updatedNotifications?.length || 0
           }
         });
 

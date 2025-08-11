@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,25 @@ export default function CommunicationsPage() {
     refreshInterval: 300000
   });
 
+  // Use useCallback to define the function before useEffect
+  const handleOpenConversation = useCallback(async (conversationId: string, conversationName: string, projectName?: string) => {
+    console.log('📨 [Communications] Opening conversation:', { conversationId, conversationName, projectName });
+    setSelectedConversation({
+      id: conversationId,
+      name: conversationName,
+      projectName
+    });
+    
+    // Mark conversation as read when opened
+    try {
+      console.log('📨 [Communications] Marking conversation as read:', conversationId);
+      await markConversationRead(conversationId);
+      console.log('✅ [Communications] Conversation marked as read successfully');
+    } catch (error) {
+      console.error('❌ [Communications] Failed to mark conversation as read:', error);
+    }
+  }, [markConversationRead]);
+
   // Handle URL parameters to open specific conversations
   useEffect(() => {
     const conversationId = searchParams.get('conversation');
@@ -67,7 +86,7 @@ export default function CommunicationsPage() {
       console.log('📨 [Communications] Conversation cleared from URL, resetting');
       setProcessedConversationId(null);
     }
-  }, [searchParams, data?.conversations, processedConversationId]);
+  }, [searchParams, data?.conversations, processedConversationId, handleOpenConversation]);
 
   // Transform conversations to be sender-based
   useEffect(() => {
@@ -118,21 +137,6 @@ export default function CommunicationsPage() {
     conversation.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conversation.last_message.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const handleOpenConversation = async (conversationId: string, conversationName: string, projectName?: string) => {
-    setSelectedConversation({
-      id: conversationId,
-      name: conversationName,
-      projectName
-    });
-    
-    // Mark conversation as read when opened
-    try {
-      await markConversationRead(conversationId);
-    } catch (error) {
-      console.error('Failed to mark conversation as read:', error);
-    }
-  };
 
   const handleCloseConversation = () => {
     console.log('📨 [Communications] Closing conversation modal');

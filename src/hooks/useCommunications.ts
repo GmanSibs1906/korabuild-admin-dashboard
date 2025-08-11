@@ -212,6 +212,10 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
       setData(prevData => {
         if (!prevData) return prevData;
         
+        // Find the conversation to get its current unread_count
+        const conversation = prevData.conversations.find(conv => conv.id === conversationId);
+        const currentUnreadCount = conversation?.unread_count || 0;
+        
         return {
           ...prevData,
           conversations: prevData.conversations.map(conv => 
@@ -221,7 +225,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
           ),
           stats: {
             ...prevData.stats,
-            unreadMessages: Math.max(0, prevData.stats.unreadMessages - 1)
+            unreadMessages: Math.max(0, prevData.stats.unreadMessages - currentUnreadCount)
           }
         };
       });
