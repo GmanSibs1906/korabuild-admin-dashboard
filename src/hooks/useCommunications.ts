@@ -170,102 +170,9 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
 
       console.log('✅ [useCommunications] Communications data fetched successfully');
       
-      // Enhance conversations with better sender information
-      console.log('🔄 [useCommunications] Enhancing conversations with sender info...');
-      const enhancedConversations = await Promise.all(
-        result.conversations.map(async (conversation: ConversationWithDetails) => {
-          // First, establish a fallback sender name from the conversation's project/client data
-          let fallbackSenderName = 'Unknown User';
-          let fallbackSenderId = '';
-          
-          if (conversation.project?.client_name) {
-            fallbackSenderName = conversation.project.client_name;
-            fallbackSenderId = conversation.project.client_id || '';
-          } else if (conversation.participants && conversation.participants.length > 0) {
-            fallbackSenderId = conversation.participants[0];
-          }
-          
-          console.log(`📨 Processing conversation ${conversation.conversation_name}:`, {
-            conversationId: conversation.id,
-            projectClientName: conversation.project?.client_name,
-            fallbackSenderName,
-            fallbackSenderId
-          });
-
-          try {
-            // Fetch recent messages to get actual sender info
-            const messagesResponse = await fetch(`/api/communications/messages?conversationId=${conversation.id}&limit=1`);
-            
-            if (messagesResponse.ok) {
-              const messagesData = await messagesResponse.json();
-              
-              if (messagesData.messages && messagesData.messages.length > 0) {
-                const lastMessage = messagesData.messages[0];
-                console.log(`✅ Got last message for ${conversation.conversation_name}:`, {
-                  senderId: lastMessage.sender_id,
-                  senderName: lastMessage.sender_name,
-                  senderRole: lastMessage.sender_role
-                });
-                
-                // Use the fetched sender info if available
-                const senderInfo = {
-                  id: lastMessage.sender_id,
-                  name: lastMessage.sender_name && lastMessage.sender_name !== 'Unknown User' 
-                    ? lastMessage.sender_name 
-                    : fallbackSenderName,
-                  role: lastMessage.sender_role || 'client'
-                };
-
-                return {
-                  ...conversation,
-                  sender_info: senderInfo,
-                  last_message: {
-                    ...conversation.last_message,
-                    sender_name: senderInfo.name
-                  }
-                };
-              } else {
-                console.log(`⚠️ No messages found for conversation ${conversation.conversation_name}`);
-              }
-            } else {
-              console.error(`❌ Failed to fetch messages for conversation ${conversation.conversation_name}:`, messagesResponse.status);
-      }
-          } catch (err) {
-            console.error('Error fetching sender info for conversation:', conversation.conversation_name, err);
-          }
-          
-          // Fallback to conversation with improved sender info
-          console.log(`🔄 Using fallback sender info for ${conversation.conversation_name}:`, {
-            name: fallbackSenderName,
-            id: fallbackSenderId
-          });
-          
-          return {
-            ...conversation,
-            sender_info: {
-              id: fallbackSenderId,
-              name: fallbackSenderName,
-              role: 'client'
-            },
-            last_message: {
-              ...conversation.last_message,
-              sender_name: fallbackSenderName
-            }
-          };
-        })
-      );
-      
-      console.log('✅ [useCommunications] Conversations enhanced with sender info:', {
-        total: enhancedConversations.length,
-        withSenderInfo: enhancedConversations.filter(c => c.sender_info?.name !== 'Unknown User').length
-      });
-
-      const enhancedData = {
-        ...result,
-        conversations: enhancedConversations
-      };
-
-      setData(enhancedData);
+      // The API already provides sender_info and proper last_message data
+      // No need for additional API calls - this was causing slow loading!
+      setData(result);
     } catch (err) {
       console.error('❌ [useCommunications] Error fetching data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch communications data');
@@ -319,10 +226,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
         };
       });
       
-      // Refresh data to get updated counts
-      setTimeout(() => {
-        fetchData();
-      }, 500);
+      // Optimistic update is sufficient - no need for additional refetch
       
     } catch (err) {
       console.error('❌ [useCommunications] Error marking conversation as read:', err);

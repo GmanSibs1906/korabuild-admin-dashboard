@@ -13,8 +13,6 @@ export interface RealtimeNotification extends NotificationType {
 }
 
 export function useRealtimeNotifications() {
-  console.log('🚀 [useRealtimeNotifications] Hook initialized at', new Date().toISOString());
-  
   const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -749,8 +747,8 @@ export function useRealtimeNotifications() {
           }
         };
         
-        // Poll every 5 seconds for new notifications
-        const pollInterval = setInterval(pollForUpdates, 5000);
+        // Poll every 15 seconds for new notifications (reduced frequency for better performance)
+        const pollInterval = setInterval(pollForUpdates, 15000);
         
         // Store the interval for cleanup
         channelRef.current = { 
@@ -951,40 +949,18 @@ export function useRealtimeNotifications() {
     }
   }, []);
 
-  // Periodic state monitoring to catch micro-second changes
+  // Periodic state monitoring to catch micro-second changes (reduced frequency)
   useEffect(() => {
     const monitoringInterval = setInterval(() => {
-      console.log('🔍 [State Monitor] Periodic notification state check:', {
-        timestamp: new Date().toISOString(),
-        totalNotifications: notifications.length,
-        unreadCount: unreadCount,
-        adminIdsLoaded: adminIdsLoaded,
-        adminUserIds: adminUserIds,
-        notificationsBreakdown: {
-          messages: notifications.filter(n => n.notification_type === 'message').length,
-          system: notifications.filter(n => n.notification_type === 'system').length,
-          userCreated: notifications.filter(n => n.notification_type === 'user_created').length,
-          other: notifications.filter(n => !['message', 'system', 'user_created'].includes(n.notification_type)).length
-        },
-        adminMessages: notifications.filter(n => 
-          n.notification_type === 'message' && 
-          adminUserIds.includes(n.metadata?.sender_id)
-        ).map(n => ({
-          id: n.id.substring(0, 8),
-          title: n.title.substring(0, 30),
-          sender_id: n.metadata?.sender_id?.substring(0, 8)
-        })),
-        clientMessages: notifications.filter(n => 
-          n.notification_type === 'message' && 
-          n.metadata?.sender_id &&
-          !adminUserIds.includes(n.metadata?.sender_id)
-        ).map(n => ({
-          id: n.id.substring(0, 8),
-          title: n.title.substring(0, 30),
-          sender_id: n.metadata?.sender_id?.substring(0, 8)
-        }))
-      });
-    }, 2000); // Check every 2 seconds
+      // Only log when there are significant changes, not every 2 seconds
+      if (notifications.length > 0 || unreadCount > 0) {
+        console.log('🔍 [State Monitor] State check:', {
+          total: notifications.length,
+          unread: unreadCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }, 10000); // Reduced from 2 seconds to 10 seconds
 
     return () => clearInterval(monitoringInterval);
   }, [notifications, unreadCount, adminIdsLoaded, adminUserIds]);

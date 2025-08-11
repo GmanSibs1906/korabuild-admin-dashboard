@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -111,17 +111,8 @@ export function MessageDetailModal({
       setMessages(data.messages || []);
       setConversation(data.conversation || null);
       
-      // Mark conversation as read
-      await fetch('/api/communications/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'mark_conversation_read',
-          conversationId: conversationId
-        }),
-      });
+      // Note: Mark as read is handled by the parent component (communications page)
+      // to avoid duplicate API calls and improve performance
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load messages');
     } finally {
@@ -212,6 +203,9 @@ export function MessageDetailModal({
                 <DialogTitle className="text-lg font-semibold text-black">
                   {conversationName}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  View and reply to messages in this conversation
+                </DialogDescription>
               </div>
               {projectName && (
                 <Badge variant="outline" className="text-xs text-black">
@@ -278,10 +272,10 @@ export function MessageDetailModal({
                     isAdmin ? "justify-end" : "justify-start"
                   )}
                 >
-                  {/* Avatar for mobile app messages (left side) */}
+                  {/* Avatar for client/mobile messages (left side) */}
                   {!isAdmin && (
                     <div className="flex-shrink-0 mb-1">
-                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-medium">
                         {message.sender_name.charAt(0).toUpperCase()}
                       </div>
                     </div>
@@ -291,20 +285,20 @@ export function MessageDetailModal({
                   <div className={cn(
                     "relative max-w-xs sm:max-w-md px-4 py-2 rounded-2xl shadow-sm",
                     isAdmin 
-                      ? "bg-orange-500 text-white rounded-br-md" 
-                      : "bg-white text-gray-900 rounded-bl-md border border-gray-200"
+                      ? "bg-white text-gray-900 rounded-br-md border border-gray-200" 
+                      : "bg-orange-500 text-white rounded-bl-md"
                   )}>
                     {/* Message header */}
                     <div className="flex items-center space-x-2 mb-1">
                       <span className={cn(
                         "text-xs font-medium",
-                        isAdmin ? "text-orange-100" : "text-gray-600"
+                        isAdmin ? "text-gray-600" : "text-orange-100"
                       )}>
                         {message.sender_name}
                       </span>
                       <span className={cn(
                         "text-xs",
-                        isAdmin ? "text-orange-200" : "text-gray-500"
+                        isAdmin ? "text-gray-500" : "text-orange-200"
                       )}>
                         {formatMessageTime(message.sent_at)}
                       </span>
@@ -313,7 +307,7 @@ export function MessageDetailModal({
                     {/* Message content */}
                     <div className={cn(
                       "text-sm whitespace-pre-wrap",
-                      isAdmin ? "text-white" : "text-gray-900"
+                      isAdmin ? "text-gray-900" : "text-white"
                     )}>
                       {message.content}
                     </div>
@@ -339,7 +333,7 @@ export function MessageDetailModal({
                                 />
                                 <div className={cn(
                                   "text-xs mt-1 text-center",
-                                  isAdmin ? "text-orange-200" : "text-gray-500"
+                                  isAdmin ? "text-gray-500" : "text-orange-200"
                                 )}>
                                   {attachment.filename}
                                 </div>
@@ -352,8 +346,8 @@ export function MessageDetailModal({
                                 className={cn(
                                   "flex items-center space-x-2 text-xs p-2 rounded border cursor-pointer transition-colors",
                                   isAdmin 
-                                    ? "text-orange-100 bg-orange-600 border-orange-400 hover:bg-orange-700" 
-                                    : "text-gray-600 bg-gray-100 border-gray-300 hover:bg-gray-200"
+                                    ? "text-gray-600 bg-gray-100 border-gray-300 hover:bg-gray-200" 
+                                    : "text-orange-100 bg-orange-600 border-orange-400 hover:bg-orange-700"
                                 )}
                                 onClick={() => {
                                   if (attachment.file_url) {
@@ -389,7 +383,7 @@ export function MessageDetailModal({
                   {/* Avatar for admin messages (right side) */}
                   {isAdmin && (
                     <div className="flex-shrink-0 mb-1">
-                      <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white text-sm font-medium">
                         {message.sender_name.charAt(0).toUpperCase()}
                       </div>
                     </div>

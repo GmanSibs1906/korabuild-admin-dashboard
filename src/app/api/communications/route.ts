@@ -35,8 +35,14 @@ interface ConversationWithDetails {
     message_text: string;
     sender_id: string;
     created_at: string;
+    sender_name?: string;
   };
   unread_count: number;
+  sender_info?: {
+    id: string;
+    name: string;
+    role: string;
+  };
 }
 
 interface ApprovalRequestWithDetails {
@@ -282,7 +288,8 @@ export async function GET(request: Request) {
           project_name,
           client_id,
           users:client_id (
-            full_name
+            full_name,
+            role
           )
         )
       `)
@@ -293,6 +300,157 @@ export async function GET(request: Request) {
       console.error('❌ [Communications API] Error fetching conversations:', conversationsError);
       throw conversationsError;
     }
+
+    // Process conversations with additional data first to calculate accurate unread counts
+    const conversations: (ConversationWithDetails | null)[] = await Promise.all(
+      (conversationsData || []).map(async (conv: ConversationData) => {
+        const daysSinceLastMessage = Math.floor(
+          (new Date().getTime() - new Date(conv.last_message_at).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        
+        // Get actual last message from messages table, preferring client messages
+        const { data: lastMessageData } = await supabase
+          .from('messages')
+          .select(`
+            id,
+            message_text,
+            sender_id,
+            created_at,
+            sender:sender_id (
+              full_name,
+              role
+            )
+          `)
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: false })
+          .limit(10); // Get more messages to find client messages
+
+        // Prefer client messages over admin messages for preview
+        let selectedMessage = lastMessageData?.[0]; // Default to most recent
+        if (lastMessageData && lastMessageData.length > 0) {
+          // Try to find the most recent client message first
+          const clientMessage = lastMessageData.find(msg => 
+            (msg.sender as any)?.role === 'client'
+          );
+          
+          // If we found a recent client message (within last 5 messages), use it
+          if (clientMessage) {
+            const clientMessageIndex = lastMessageData.findIndex(msg => msg.id === clientMessage.id);
+            if (clientMessageIndex < 5) { // Only use if it's among the 5 most recent
+              selectedMessage = clientMessage;
+            }
+          }
+        }
+
+        // Get actual message count from messages table
+        const { count: actualMessageCount } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('conversation_id', conv.id);
+
+        // Get all participants with their roles to filter admin-only conversations
+        const participantIds = conv.participants || [];
+        const { data: participantUsers } = await supabase
+          .from('users')
+          .select('id, full_name, role')
+          .in('id', participantIds);
+
+        // Skip conversations that only have admin participants
+        const nonAdminParticipants = participantUsers?.filter(user => user.role !== 'admin') || [];
+        if (nonAdminParticipants.length === 0) {
+          return null; // Skip this conversation
+        }
+
+        // Get the client participant (non-admin) for the conversation name
+        const clientParticipant = nonAdminParticipants[0];
+        
+        // Calculate actual unread count for this conversation
+        let unreadCount = 0;
+        
+        try {
+          // Get all admin user IDs for checking read status
+          const { data: adminUsers } = await supabase
+            .from('users')
+            .select('id')
+            .eq('role', 'admin');
+          
+          if (adminUsers && adminUsers.length > 0) {
+            // Get all messages in this conversation
+            const { data: messages } = await supabase
+              .from('messages')
+              .select(`
+                id, 
+                read_by, 
+                sender_id,
+                sender:sender_id (
+                  role
+                )
+              `)
+              .eq('conversation_id', conv.id);
+            
+            if (messages) {
+              unreadCount = messages.filter(message => {
+                // Only count messages from non-admin users as potentially unread
+                const senderRole = (message.sender as any)?.role;
+                if (senderRole === 'admin') {
+                  return false; // Don't count admin messages as unread
+                }
+                
+                // Check if any admin has read this message
+                const readBy = message.read_by || {};
+                const hasBeenReadByAnyAdmin = adminUsers.some(admin => readBy[admin.id]);
+                
+                return !hasBeenReadByAnyAdmin; // Unread if no admin has read it
+              }).length;
+            }
+          }
+        } catch (error) {
+          console.error(`Error calculating unread count for conversation ${conv.id}:`, error);
+          unreadCount = 0;
+        }
+      
+        return {
+          ...conv,
+          project: conv.projects ? {
+            project_name: conv.projects.project_name,
+            client_id: conv.projects.client_id,
+            client_name: Array.isArray(conv.projects.users) ? conv.projects.users[0]?.full_name || 'Unknown Client' : conv.projects.users?.full_name || 'Unknown Client'
+          } : undefined,
+          last_message: selectedMessage ? {
+            message_text: selectedMessage.message_text,
+            sender_id: selectedMessage.sender_id,
+            created_at: selectedMessage.created_at,
+            sender_name: (selectedMessage.sender as any)?.full_name || 'Unknown User'
+          } : undefined,
+          unread_count: unreadCount,
+          message_count: actualMessageCount || 0,
+          days_since_last_message: daysSinceLastMessage,
+          sender_info: {
+            id: clientParticipant?.id || '',
+            name: clientParticipant?.full_name || 'Unknown Client',
+            role: clientParticipant?.role || 'client'
+          }
+        } as ConversationWithDetails;
+      })
+    );
+
+    // Filter out null conversations (admin-only conversations)
+    const filteredConversations = conversations.filter(conv => conv !== null) as ConversationWithDetails[];
+
+    // Now calculate stats with accurate unread count
+    const stats: CommunicationStats = {
+      totalConversations: filteredConversations.length, // Use filtered count
+      totalMessages: messagesCount.count || 0,
+      unreadMessages: filteredConversations.reduce((total, conv) => total + conv.unread_count, 0),
+      pendingApprovals: pendingApprovalsCount.count || 0,
+      urgentRequests: urgentRequestsCount.count || 0,
+      averageResponseTime: Math.round(avgResponseTime),
+      responseRate: pendingApprovalsCount.count ? 
+        Math.round(((averageResponseTime.data?.length || 0) / pendingApprovalsCount.count) * 100) : 100,
+      escalatedRequests: escalatedRequestsCount.count || 0
+    };
+
+    console.log('📈 [Communications API] Communication statistics:', stats);
 
     // Fetch approval requests with details
     const { data: approvalRequestsData, error: approvalRequestsError } = await supabase
@@ -343,87 +501,6 @@ export async function GET(request: Request) {
       throw notificationsError;
     }
 
-    // Process conversations with additional data first to calculate accurate unread counts
-    const conversations: ConversationWithDetails[] = await Promise.all(
-      (conversationsData || []).map(async (conv: ConversationData) => {
-      const daysSinceLastMessage = Math.floor(
-        (new Date().getTime() - new Date(conv.last_message_at).getTime()) / (1000 * 60 * 60 * 24)
-      );
-        
-        // Calculate actual unread count for this conversation
-        let unreadCount = 0;
-        
-        try {
-          // Get admin user ID for checking read status
-          const { data: adminUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('role', 'admin')
-            .single();
-          
-          if (adminUser) {
-            // Count unread messages in this conversation
-            // Messages are considered unread if the admin user ID is not in the read_by JSON field
-            const { data: messages } = await supabase
-              .from('messages')
-              .select('id, read_by')
-              .eq('conversation_id', conv.id);
-            
-            if (messages) {
-              unreadCount = messages.filter(message => {
-                const readBy = message.read_by || {};
-                return !readBy[adminUser.id]; // Message is unread if admin ID is not in read_by
-              }).length;
-            }
-            
-            // Also count unread messages from communication_log for this project
-            if (conv.project_id) {
-              const { data: logMessages } = await supabase
-                .from('communication_log')
-                .select('id, created_by')
-                .eq('project_id', conv.project_id)
-                .eq('communication_type', 'instruction')
-                .eq('subject', 'Admin Message')
-                .neq('created_by', adminUser.id); // Don't count admin's own messages as unread
-              
-              if (logMessages) {
-                unreadCount += logMessages.length;
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Error calculating unread count for conversation ${conv.id}:`, error);
-          unreadCount = 0; // Default to 0 if calculation fails
-        }
-      
-      return {
-        ...conv,
-        project: conv.projects ? {
-          project_name: conv.projects.project_name,
-          client_id: conv.projects.client_id,
-          client_name: conv.projects.users?.full_name || 'Unknown Client'
-        } : undefined,
-          unread_count: unreadCount,
-        days_since_last_message: daysSinceLastMessage
-      };
-      })
-    );
-
-    // Now calculate stats with accurate unread count
-    const stats: CommunicationStats = {
-      totalConversations: conversationsCount.count || 0,
-      totalMessages: messagesCount.count || 0,
-      unreadMessages: conversations.reduce((total, conv) => total + conv.unread_count, 0),
-      pendingApprovals: pendingApprovalsCount.count || 0,
-      urgentRequests: urgentRequestsCount.count || 0,
-      averageResponseTime: Math.round(avgResponseTime),
-      responseRate: pendingApprovalsCount.count ? 
-        Math.round(((averageResponseTime.data?.length || 0) / pendingApprovalsCount.count) * 100) : 100,
-      escalatedRequests: escalatedRequestsCount.count || 0
-    };
-
-    console.log('📈 [Communications API] Communication statistics:', stats);
-
     // Process approval requests with additional data
     const approvalRequests: ApprovalRequestWithDetails[] = (approvalRequestsData || []).map((req: ApprovalRequestData) => {
       const daysPending = Math.floor(
@@ -455,7 +532,7 @@ export async function GET(request: Request) {
     }));
 
     // Calculate message distribution by type
-    const messagesByType = conversations.reduce((acc: { [key: string]: number }, conv: ConversationWithDetails) => {
+    const messagesByType = filteredConversations.reduce((acc: { [key: string]: number }, conv: ConversationWithDetails) => {
       acc[conv.conversation_type] = (acc[conv.conversation_type] || 0) + conv.message_count;
       return acc;
     }, {} as { [key: string]: number });
@@ -478,7 +555,7 @@ export async function GET(request: Request) {
 
     const communicationData: CommunicationData = {
       stats,
-      conversations,
+      conversations: filteredConversations,
       approvalRequests,
       notifications,
       recentCommunications: recentCommunications || [],
@@ -488,7 +565,7 @@ export async function GET(request: Request) {
 
     console.log('✅ [Communications API] Communication data compiled successfully');
     console.log('📊 [Communications API] Data summary:', {
-      conversationsCount: conversations.length,
+      conversationsCount: filteredConversations.length,
       approvalRequestsCount: approvalRequests.length,
       notificationsCount: notifications.length,
       recentCommunicationsCount: recentCommunications?.length || 0

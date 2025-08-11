@@ -153,7 +153,6 @@ const systemNavigation: NavigationItem[] = [
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  console.log('🔍 AdminLayout - Rendering with pathname:', usePathname());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState('');

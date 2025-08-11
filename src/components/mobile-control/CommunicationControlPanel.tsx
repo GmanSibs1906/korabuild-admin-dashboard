@@ -331,33 +331,33 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
         {activeTab === 'overview' && communicationData && (
           <div className="space-y-6">
             {/* Quick Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.013 8.013 0 01-7-4L3 20l4-4c-1.18-1.346-2-3.094-2-5 0-4.418 3.582-8 8-8s8 3.582 8 8z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Conversations</p>
-                    <p className="text-2xl font-semibold text-gray-900">{communicationData.totalConversations}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.013 8.013 0 01-7-4L3 20l4-4c-1.18-1.346-2-3.094-2-5 0-4.418 3.582-8 8-8s8 3.582 8 8z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Conversations</p>
+                  <p className="text-2xl font-semibold text-gray-900">{communicationData.totalConversations}</p>
                     <p className="text-xs text-gray-500 mt-1">Active project discussions</p>
                   </div>
-                </div>
-              </Card>
+              </div>
+            </Card>
 
-              <Card className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-8 w-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-8 w-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
                   <div className="ml-4 flex-1">
-                    <p className="text-sm font-medium text-gray-600">Unread Messages</p>
+                  <p className="text-sm font-medium text-gray-600">Unread Messages</p>
                     <div className="flex items-center">
-                      <p className="text-2xl font-semibold text-gray-900">{communicationData.unreadMessages}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{communicationData.unreadMessages}</p>
                       {communicationData.unreadMessages > 0 && (
                         <Badge className="ml-2 bg-red-100 text-red-800 text-xs">
                           Needs Attention
@@ -366,20 +366,20 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Require admin response</p>
                   </div>
-                </div>
-              </Card>
+              </div>
+            </Card>
 
-              <Card className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                   <div className="ml-4 flex-1">
-                    <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+                  <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
                     <div className="flex items-center">
-                      <p className="text-2xl font-semibold text-gray-900">{communicationData.pendingApprovals}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{communicationData.pendingApprovals}</p>
                       {communicationData.pendingApprovals > 0 && (
                         <Badge className="ml-2 bg-yellow-100 text-yellow-800 text-xs">
                           Action Required
@@ -388,18 +388,18 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Awaiting admin approval</p>
                   </div>
-                </div>
-              </Card>
+              </div>
+            </Card>
 
-              <Card className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-1l-4 4z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Recent Messages</p>
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Recent Messages</p>
                     <p className="text-2xl font-semibold text-gray-900">{communicationData.recentMessages?.length || 0}</p>
                     <p className="text-xs text-gray-500 mt-1">Last 10 messages</p>
                   </div>
@@ -481,9 +481,9 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
                     ) : (
                       <span className="text-yellow-600 font-medium">⏳ {communicationData.pendingApprovals} approvals pending</span>
                     )}
-                  </div>
                 </div>
-              </Card>
+              </div>
+            </Card>
             </div>
           </div>
         )}
@@ -492,7 +492,7 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
         {activeTab === 'messages' && (
           <div className="space-y-6">
             {/* Send Message Form */}
-            <Card className="p-6">
+            {/* <Card className="p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Send Message to User</h3>
               <div className="space-y-4">
                 <div>
@@ -534,7 +534,7 @@ export function CommunicationControlPanel({ projectId, onDataSync }: Communicati
                   </div>
                 </div>
               </div>
-            </Card>
+            </Card> */}
 
             {/* Recent Messages */}
             <Card className="p-6">

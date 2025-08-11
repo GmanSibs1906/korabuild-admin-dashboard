@@ -340,6 +340,11 @@ export default function CommunicationsPage() {
                           <span className="flex items-center gap-1">
                             <MessageSquare className="h-3 w-3" />
                             {conversation.message_count} messages
+                            {conversation.unread_count > 0 && (
+                              <Badge variant="secondary" className="ml-1 bg-red-100 text-red-800 text-xs px-1.5 py-0.5">
+                                {conversation.unread_count} new
+                              </Badge>
+                            )}
                           </span>
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
@@ -356,9 +361,12 @@ export default function CommunicationsPage() {
                   
                       <div className="flex items-center gap-2">
                         {conversation.unread_count > 0 && (
-                          <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                            {conversation.unread_count} unread
-                          </Badge>
+                          <div className="flex flex-col items-center">
+                            <Badge variant="secondary" className="bg-orange-500 text-white font-semibold">
+                              {conversation.unread_count}
+                            </Badge>
+                            <span className="text-xs text-gray-500 mt-1">unread</span>
+                          </div>
                         )}
                         <Button 
                           variant="ghost" 

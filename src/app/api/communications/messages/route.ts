@@ -139,9 +139,31 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ [Messages API] Combined messages total:', allMessages.length);
 
+    // Transform messages to match frontend interface expectations
+    const transformedMessages = allMessages.map(msg => ({
+      id: msg.id,
+      content: msg.message_text || (msg as any).content || '',
+      sender_id: msg.sender_id,
+      sender_name: msg.sender?.full_name || 'Unknown User',
+      sender_role: msg.sender?.role || 'user',
+      sent_at: msg.created_at,
+      is_read: Array.isArray(msg.read_by) ? msg.read_by.length > 0 : false,
+      message_type: msg.message_type || 'text',
+      attachments: msg.attachment_urls && msg.attachment_urls.length > 0 
+        ? msg.attachment_urls.map((url: string, index: number) => ({
+            id: `${msg.id}-attachment-${index}`,
+            filename: url.split('/').pop() || 'attachment',
+            file_type: 'unknown',
+            file_size: 0,
+            file_url: url
+          }))
+        : []
+    }));
+
     return NextResponse.json({
       success: true,
-      data: allMessages
+      messages: transformedMessages,
+      conversation: null // Add this for compatibility
     });
 
   } catch (error) {
@@ -383,6 +405,219 @@ export async function POST(request: NextRequest) {
           conversationId: conversationIdToUse
         }
       });
+    }
+
+    if (action === 'mark_conversation_read') {
+      console.log('📖 [Messages API] Processing mark conversation as read...');
+      
+      if (!conversationId) {
+        console.error('❌ [Messages API] Missing conversationId for mark_conversation_read');
+        return NextResponse.json({
+          success: false,
+          error: 'Conversation ID is required for marking as read'
+        });
+      }
+
+      console.log('🔍 [Messages API] Marking conversation as read:', conversationId);
+
+      try {
+        // Get all admin user IDs to mark messages as read for all admins
+        const { data: adminUsers, error: adminError } = await supabaseAdmin
+          .from('users')
+          .select('id')
+          .eq('role', 'admin');
+
+        if (adminError) {
+          console.error('❌ [Messages API] Error fetching admin users:', adminError);
+          return NextResponse.json({
+            success: false,
+            error: `Failed to fetch admin users: ${adminError.message}`
+          });
+        }
+
+        const adminIds = adminUsers?.map(admin => admin.id) || [];
+        console.log('👥 [Messages API] Found admin users:', adminIds.length);
+
+        // Mark all messages in the conversation as read by ALL admin users
+        const { data: updatedMessages, error: markReadError } = await supabaseAdmin
+          .from('messages')
+          .update({
+            read_by: adminIds.reduce((acc, adminId) => ({ ...acc, [adminId]: true }), {}),
+            updated_at: new Date().toISOString()
+          })
+          .eq('conversation_id', conversationId)
+          .select('id, conversation_id, read_by');
+
+        if (markReadError) {
+          console.error('❌ [Messages API] Error marking messages as read:', markReadError);
+          return NextResponse.json({
+            success: false,
+            error: `Failed to mark messages as read: ${markReadError.message}`
+          });
+        }
+
+        console.log('✅ [Messages API] Successfully marked messages as read for all admins:', updatedMessages?.length || 0);
+
+        // Also update the conversation's metadata to track read status
+        const { error: conversationUpdateError } = await supabaseAdmin
+          .from('conversations')
+          .update({
+            metadata: {
+              last_read_at: new Date().toISOString(),
+              last_read_by: senderId || 'admin'
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', conversationId);
+
+        if (conversationUpdateError) {
+          console.warn('⚠️ [Messages API] Warning updating conversation read status:', conversationUpdateError);
+          // Don't fail the request for this
+        }
+
+        console.log('✅ [Messages API] Conversation marked as read successfully');
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            conversationId,
+            markedAsRead: true,
+            messagesUpdated: updatedMessages?.length || 0
+          }
+        });
+
+      } catch (error) {
+        console.error('❌ [Messages API] Error in mark_conversation_read:', error);
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to mark conversation as read'
+        });
+      }
+    }
+
+    if (action === 'send_message') {
+      console.log('💬 [Messages API] Processing send message...');
+      
+      if (!conversationId || !content) {
+        console.error('❌ [Messages API] Missing required fields for send_message');
+        return NextResponse.json({
+          success: false,
+          error: 'Conversation ID and content are required'
+        });
+      }
+
+      console.log('📝 [Messages API] Sending message to conversation:', conversationId);
+
+      try {
+        // Get current admin user for the sender
+        const { data: adminUsers, error: adminError } = await supabaseAdmin
+          .from('users')
+          .select('id, full_name, email, role')
+          .eq('role', 'admin')
+          .limit(1);
+
+        if (adminError || !adminUsers || adminUsers.length === 0) {
+          console.error('❌ [Messages API] Admin user error:', adminError);
+          return NextResponse.json({
+            success: false,
+            error: 'Admin user not found'
+          });
+        }
+
+        const adminUser = adminUsers[0];
+        console.log('✅ [Messages API] Admin user found:', adminUser.full_name);
+
+        // Insert the message
+        const { data: message, error: messageError } = await supabaseAdmin
+          .from('messages')
+          .insert({
+            conversation_id: conversationId,
+            sender_id: adminUser.id,
+            message_text: content,
+            message_type: messageType || 'text',
+            attachment_urls: [],
+            reply_to_id: null,
+            is_edited: false,
+            edited_at: null,
+            is_pinned: false,
+            read_by: [adminUser.id],
+            reactions: {},
+            metadata: {
+              source: 'admin_dashboard',
+              sent_via: 'admin_chat_interface'
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select(`
+            id,
+            conversation_id,
+            sender_id,
+            message_text,
+            message_type,
+            attachment_urls,
+            reply_to_id,
+            is_edited,
+            edited_at,
+            is_pinned,
+            read_by,
+            reactions,
+            metadata,
+            created_at,
+            updated_at
+          `)
+          .single();
+
+        if (messageError) {
+          console.error('❌ [Messages API] Message insert error:', messageError);
+          return NextResponse.json({
+            success: false,
+            error: `Failed to send message: ${messageError.message}`
+          });
+        }
+
+        console.log('✅ [Messages API] Message sent successfully:', message.id);
+
+        // Update conversation last_message_at
+        const { error: updateError } = await supabaseAdmin
+          .from('conversations')
+          .update({
+            last_message_at: new Date().toISOString()
+          })
+          .eq('id', conversationId);
+
+        if (updateError) {
+          console.warn('⚠️ [Messages API] Conversation update warning:', updateError);
+          // Don't fail the request for this
+        }
+
+        // Transform message to frontend format
+        const transformedMessage = {
+          id: message.id,
+          content: message.message_text,
+          sender_id: message.sender_id,
+          sender_name: adminUser.full_name,
+          sender_role: adminUser.role,
+          sent_at: message.created_at,
+          is_read: true,
+          message_type: message.message_type,
+          attachments: []
+        };
+
+        console.log('✅ [Messages API] Send message process completed successfully');
+
+        return NextResponse.json({
+          success: true,
+          message: transformedMessage
+        });
+
+      } catch (error) {
+        console.error('❌ [Messages API] Error in send_message:', error);
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to send message'
+        });
+      }
     }
 
     // Handle other message actions...
