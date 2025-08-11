@@ -1,65 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
-// GET handler for fetching conversation messages
 export async function GET(request: NextRequest) {
+  console.log('🔍 [Messages API] GET request started');
+  
   try {
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get('conversationId');
+    
+    console.log('📋 [Messages API] GET params:', { conversationId });
 
     if (!conversationId) {
-      return NextResponse.json(
-        { error: 'conversationId is required' },
-        { status: 400 }
-      );
+      console.log('❌ [Messages API] Missing conversationId');
+      return NextResponse.json({
+        success: false,
+        error: 'Conversation ID is required'
+      });
     }
 
-    const supabase = supabaseAdmin;
-
-    // Get conversation details
-    const { data: conversation, error: conversationError } = await supabase
-      .from('conversations')
-      .select(`
-        id,
-        project_id,
-        conversation_name,
-        conversation_type,
-        description,
-        is_private,
-        participants,
-        last_message_at,
-        message_count,
-        priority_level,
-        is_archived,
-        created_at,
-        updated_at,
-        projects:project_id (
-          project_name,
-          client_id,
-          users:client_id (
-            full_name
-          )
-        )
-      `)
-      .eq('id', conversationId)
-      .single();
-
-    if (conversationError) {
-      console.error('Error fetching conversation:', conversationError);
-      return NextResponse.json(
-        { error: 'Failed to fetch conversation' },
-        { status: 500 }
-      );
-    }
-
-    // Fetch real messages from both tables (messages + communication_log)
-    console.log('📨 [Messages API] Fetching messages from both tables...');
+    console.log('🔍 [Messages API] Fetching messages with explicit column selection...');
     
     // Fetch from messages table (original messages)
-    const { data: messages, error: messagesError } = await supabase
+    const { data: messages, error: messagesError } = await supabaseAdmin
       .from('messages')
       .select(`
-        *,
+        id,
+        conversation_id,
+        sender_id,
+        message_text,
+        message_type,
+        attachment_urls,
+        reply_to_id,
+        is_edited,
+        edited_at,
+        is_pinned,
+        read_by,
+        reactions,
+        metadata,
+        created_at,
+        updated_at,
         sender:sender_id (
           id,
           full_name,
@@ -71,14 +50,44 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true });
 
     if (messagesError) {
-      console.error('Error fetching messages from messages table:', messagesError);
+      console.error('❌ [Messages API] Messages query error:', messagesError);
+      return NextResponse.json({
+        success: false,
+        error: messagesError.message
+      });
     }
 
+    console.log('✅ [Messages API] Successfully fetched messages:', messages?.length || 0);
+
+    console.log('🔍 [Messages API] Fetching communication log messages...');
+
     // Fetch from communication_log table (new admin messages)
-    const { data: logMessages, error: logError } = await supabase
+    const { data: logMessages, error: logError } = await supabaseAdmin
       .from('communication_log')
       .select(`
-        *,
+        id,
+        project_id,
+        communication_type,
+        subject,
+        content,
+        from_person,
+        to_person,
+        cc_persons,
+        communication_date,
+        priority,
+        response_required,
+        response_due_date,
+        response_received,
+        response_date,
+        related_contract_id,
+        related_assignment_id,
+        attachments,
+        follow_up_required,
+        follow_up_date,
+        status,
+        created_by,
+        created_at,
+        updated_at,
         sender:created_by (
           id,
           full_name,
@@ -86,796 +95,311 @@ export async function GET(request: NextRequest) {
           profile_photo_url
         )
       `)
-      .eq('communication_type', 'instruction')
-      .eq('subject', 'Admin Message')
-      .order('created_at', { ascending: true });
+      .eq('project_id', conversationId)
+      .order('communication_date', { ascending: true });
 
     if (logError) {
-      console.error('Error fetching messages from communication_log:', logError);
+      console.error('❌ [Messages API] Communication log query error:', logError);
+      return NextResponse.json({
+        success: false,
+        error: logError.message
+      });
     }
 
-    // Filter log messages by conversation (stored in metadata or by project)
-    const conversationLogMessages = (logMessages || []).filter(logMsg => {
-      // Check if this log message belongs to our conversation
-      // We can match by project_id since we store that
-      return logMsg.project_id === conversation.project_id;
-    });
+    console.log('✅ [Messages API] Successfully fetched log messages:', logMessages?.length || 0);
 
-    console.log('📊 [Messages API] Message counts:', {
-      messagesTable: messages?.length || 0,
-      communicationLog: conversationLogMessages.length,
-      total: (messages?.length || 0) + conversationLogMessages.length,
-      conversationHasProject: conversation.project_id !== null
-    });
-
-    // Format messages from messages table
-    const formattedMessages = (messages || []).map((message: any) => {
-      // Process attachment URLs into proper attachment objects
-      const attachments = (message.attachment_urls || []).map((url: string, index: number) => {
-        const filename = url.split('/').pop() || `attachment_${index + 1}`;
-        const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
-        
-        // Determine file type based on extension
-        let file_type = 'application/octet-stream';
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExtension)) {
-          file_type = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-        } else if (['pdf'].includes(fileExtension)) {
-          file_type = 'application/pdf';
-        } else if (['doc', 'docx'].includes(fileExtension)) {
-          file_type = 'application/msword';
-        } else if (['txt'].includes(fileExtension)) {
-          file_type = 'text/plain';
-        }
-
-        return {
-          id: `${message.id}_attachment_${index}`,
-          filename: filename,
-          file_type: file_type,
-          file_size: 0, // We don't have size info from the URL
-          file_url: url
-        };
-      });
-
-      return {
-        id: message.id,
-        content: message.message_text,
-        sender_id: message.sender_id,
-        sender_name: message.sender?.full_name || 'Unknown User',
-        sender_role: message.sender?.role || 'user',
-        sender_avatar: message.sender?.profile_photo_url || null,
-        sent_at: message.created_at,
-        is_read: message.read_by ? Object.keys(message.read_by).length > 0 : false,
-        message_type: message.message_type || 'text',
-        attachments: attachments,
-        reply_to: message.reply_to_id,
-        is_edited: message.is_edited || false,
-        edited_at: message.edited_at,
-        reactions: message.reactions || {},
-        metadata: message.metadata || {},
-        source: 'messages_table'
-      };
-    });
-
-    // Format messages from communication_log table
-    const formattedLogMessages = conversationLogMessages.map((logMessage: any) => {
-      return {
-        id: logMessage.id,
-        content: logMessage.content,
-        sender_id: logMessage.created_by,
-        sender_name: logMessage.from_person || logMessage.sender?.full_name || 'Admin',
-        sender_role: logMessage.sender?.role || 'admin',
-        sender_avatar: logMessage.sender?.profile_photo_url || null,
-        sent_at: logMessage.created_at,
-        is_read: false, // New messages are unread
+    // Transform communication_log entries to match message format
+    const transformedLogMessages = (logMessages || []).map(log => ({
+      id: log.id,
+      conversation_id: conversationId,
+      sender_id: log.created_by,
+      message_text: log.content || '',
         message_type: 'text',
-        attachments: [],
-        reply_to: null,
+      attachment_urls: log.attachments || [],
+      reply_to_id: null,
         is_edited: false,
         edited_at: null,
+      is_pinned: false,
+      read_by: {},
         reactions: {},
         metadata: {
-          stored_in: 'communication_log',
-          source: 'admin_dashboard',
-          communication_type: logMessage.communication_type
-        },
-        source: 'communication_log'
-      };
-    });
+        source: 'communication_log',
+        subject: log.subject,
+        priority: log.priority,
+        communication_type: log.communication_type
+      },
+      created_at: log.communication_date,
+      updated_at: log.updated_at,
+      sender: (log as any).sender
+    }));
 
-    // Merge and sort all messages by creation time
-    const allMessages = [...formattedMessages, ...formattedLogMessages]
-      .sort((a, b) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime());
+    // Combine and sort all messages
+    const allMessages = [...(messages || []), ...transformedLogMessages]
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-    console.log('✅ [Messages API] Messages formatted and merged:', {
-      totalMessages: allMessages.length,
-      fromMessagesTable: formattedMessages.length,
-      fromCommunicationLog: formattedLogMessages.length
-    });
-
-    // Parse participants from the participants array
-    const participantsList = conversation.participants || [];
-    
-    const formattedConversation = {
-      id: conversation.id,
-      name: conversation.conversation_name,
-      project_name: conversation.projects ? (Array.isArray(conversation.projects) ? conversation.projects[0]?.project_name : (conversation.projects as any)?.project_name) : null,
-      participants: participantsList.map((participantId: string) => ({
-        id: participantId,
-        name: 'User',
-        role: 'user',
-        avatar_url: null
-      })),
-      last_message: allMessages.length > 0 ? allMessages[allMessages.length - 1].content : '',
-      last_message_at: conversation.last_message_at,
-      unread_count: 0,
-      status: conversation.is_archived ? 'archived' : 'active',
-      priority: conversation.priority_level || 'medium'
-    };
-
-    console.log(`✅ Admin Dashboard: Fetched ${allMessages.length} messages for conversation ${conversationId} (${formattedMessages.length} from messages table, ${formattedLogMessages.length} from communication_log)`);
+    console.log('✅ [Messages API] Combined messages total:', allMessages.length);
 
     return NextResponse.json({
-      conversation: formattedConversation,
-      messages: allMessages
+      success: true,
+      data: allMessages
     });
 
   } catch (error) {
-    console.error('Error in GET /api/communications/messages:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('❌ [Messages API] GET error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
 
-// POST handler for sending messages and other actions
 export async function POST(request: NextRequest) {
+  console.log('🔍 [Messages API] POST request started');
+  console.log('📱 [Messages API] *** MOBILE APP MIGHT BE USING THIS ENDPOINT ***');
+  
   try {
-    console.log('🔍 [Messages API] POST request started');
-    console.log('📱 [Messages API] *** MOBILE APP MIGHT BE USING THIS ENDPOINT ***');
-    
     const body = await request.json();
-    const { action, conversationId, content, messageType } = body;
+    console.log('📋 [Messages API] Request body:', body);
 
-    console.log('📋 [Messages API] Request body:', {
+    const { 
       action,
       conversationId,
-      content: content ? `${content.substring(0, 50)}...` : null,
-      messageType
-    });
+      content, 
+      messageType = 'text',
+      senderId,
+      recipientId,
+      sendToUser
+    } = body;
 
-    if (!action) {
-      console.error('❌ [Messages API] Missing action field');
-      return NextResponse.json(
-        { error: 'action is required' },
-        { status: 400 }
-      );
-    }
+    console.log('📤 [Messages API] Processing action:', action);
 
-    // Check if conversationId is required based on action
-    if (action !== 'send_direct_message' && !conversationId) {
-      console.error('❌ [Messages API] Missing conversationId for action:', action);
-      return NextResponse.json(
-        { error: 'conversationId is required for this action' },
-        { status: 400 }
-      );
-    }
-
-    const supabase = supabaseAdmin;
-
-    switch (action) {
-      case 'send_message': {
-        console.log('📤 [Messages API] Processing send_message action');
-        
-        if (!content) {
-          console.error('❌ [Messages API] Missing content for send_message');
-          return NextResponse.json(
-            { error: 'content is required for send_message' },
-            { status: 400 }
-          );
-        }
-
-        // Get admin user - use existing user from mobile app or create admin
-        let adminUser;
-        
-        console.log('👤 [Messages API] Looking for existing admin user...');
-        
-        // First try to get existing admin user
-        const { data: existingAdmin, error: adminQueryError } = await supabase
+    if (action === 'send_direct_message') {
+      console.log('💬 [Messages API] Processing direct message...');
+      
+      // Get current admin user
+      console.log('🔍 [Messages API] Fetching admin user...');
+      const { data: adminUsers, error: adminError } = await supabaseAdmin
           .from('users')
-          .select('id, full_name, role, email')
+        .select('id, full_name, email, role')
           .eq('role', 'admin')
-          .limit(1)
-          .single();
+        .limit(1);
 
-        if (adminQueryError && adminQueryError.code !== 'PGRST116') {
-          console.error('❌ [Messages API] Error querying for admin user:', adminQueryError);
-        }
-
-        if (existingAdmin) {
-          console.log('✅ [Messages API] Found existing admin user:', {
-            id: existingAdmin.id,
-            name: existingAdmin.full_name,
-            email: existingAdmin.email
-          });
-          adminUser = existingAdmin;
-        } else {
-          console.log('🔍 [Messages API] No admin found, checking for specific user to promote...');
-          
-          // Use the existing user from mobile app logs as admin for this conversation
-          const { data: existingUser, error: userQueryError } = await supabase
-            .from('users')
-            .select('id, full_name, role, email')
-            .eq('id', 'abefe861-97da-4556-8b39-18c5ddbce22c')
-            .single();
-
-          if (userQueryError) {
-            console.error('❌ [Messages API] Error finding specific user:', userQueryError);
-          }
-
-          if (existingUser) {
-            console.log('✅ [Messages API] Found user to promote to admin:', {
-              id: existingUser.id,
-              name: existingUser.full_name,
-              currentRole: existingUser.role
-            });
-            
-            // Update user to admin role
-            const { data: updatedUser, error: updateError } = await supabase
-              .from('users')
-              .update({ role: 'admin' })
-              .eq('id', 'abefe861-97da-4556-8b39-18c5ddbce22c')
-              .select('id, full_name, role, email')
-              .single();
-
-            if (updateError) {
-              console.error('❌ [Messages API] Error updating user to admin:', updateError);
-              // Use existing user as-is
-              adminUser = existingUser;
-            } else {
-              console.log('✅ [Messages API] Successfully promoted user to admin');
-              adminUser = updatedUser;
-            }
-          } else {
-            console.log('🆕 [Messages API] Creating new admin user...');
-            
-            // Create new admin user
-            const { data: newAdmin, error: adminError } = await supabase
-              .from('users')
-              .insert({
-                email: 'admin@korabuild.com',
-                full_name: 'KoraBuild Admin',
-                role: 'admin'
-              })
-              .select('id, full_name, role, email')
-              .single();
-
-            if (adminError) {
-              console.error('❌ [Messages API] Error creating admin user:', {
-                error: adminError,
-                code: adminError.code,
-                message: adminError.message,
-                details: adminError.details
-              });
-              return NextResponse.json(
-                { error: 'Failed to create admin user' },
-                { status: 500 }
-              );
-            }
-
-            console.log('✅ [Messages API] Created new admin user:', {
-              id: newAdmin.id,
-              name: newAdmin.full_name
-            });
-            adminUser = newAdmin;
-          }
-        }
-
-        // Verify conversation exists before inserting message
-        console.log('🔍 [Messages API] Verifying conversation exists...');
-        const { data: conversationExists, error: convCheckError } = await supabase
-          .from('conversations')
-          .select('id, conversation_name, project_id')
-          .eq('id', conversationId)
-          .single();
-
-        if (convCheckError) {
-          console.error('❌ [Messages API] Error checking conversation:', {
-            error: convCheckError,
-            conversationId
-          });
-          return NextResponse.json(
-            { error: 'Conversation not found' },
-            { status: 404 }
-          );
-        }
-
-        console.log('✅ [Messages API] Conversation verified:', {
-          id: conversationExists.id,
-          name: conversationExists.conversation_name,
-          projectId: conversationExists.project_id
+      if (adminError || !adminUsers || adminUsers.length === 0) {
+        console.error('❌ [Messages API] Admin user error:', adminError);
+        return NextResponse.json({
+          success: false,
+          error: 'Admin user not found'
         });
+      }
 
-        // Insert the message using communication_log table (bypass trigger issues)
-        console.log('💾 [Messages API] Storing message in communication_log table...');
+      const adminUser = adminUsers[0];
+      console.log('✅ [Messages API] Admin user found:', adminUser.full_name);
 
-        try {
-          // Handle case where conversation has no project (project_id is null)
-          // We need to either use the messages table directly or create a dummy project
+      // Determine recipient ID
+      let targetRecipientId = recipientId || sendToUser;
+      if (!targetRecipientId) {
+        console.error('❌ [Messages API] No recipient specified');
+        return NextResponse.json({
+          success: false,
+          error: 'Recipient ID is required'
+        });
+      }
+
+      console.log('👤 [Messages API] Target recipient:', targetRecipientId);
+
+      let conversationIdToUse = conversationId;
+      
+      if (!conversationIdToUse) {
+        console.log('🔍 [Messages API] Checking for existing conversation...');
+        
+        // Check if conversation already exists between admin and recipient
+        console.log('🔍 [Messages API] Executing conversation lookup query...');
+        const { data: existingConversation, error: conversationError } = await supabaseAdmin
+          .from('conversations')
+          .select(`
+            id,
+            project_id,
+            conversation_name,
+            conversation_type,
+            description,
+            is_private,
+            participants,
+            created_by,
+            last_message_at,
+            message_count,
+            is_archived,
+            priority_level,
+            metadata,
+            created_at,
+            updated_at
+          `)
+          .contains('participants', [adminUser.id])
+          .contains('participants', [targetRecipientId])
+          .eq('conversation_type', 'client_contractor')
+          .limit(1);
+
+        if (conversationError) {
+          console.error('❌ [Messages API] Conversation lookup error:', conversationError);
+          return NextResponse.json({
+            success: false,
+            error: `Conversation lookup failed: ${conversationError.message}`
+          });
+        }
+
+        if (existingConversation && existingConversation.length > 0) {
+          conversationIdToUse = existingConversation[0].id;
+          console.log('✅ [Messages API] Using existing conversation:', conversationIdToUse);
+        } else {
+          console.log('🆕 [Messages API] Creating new conversation...');
           
-          if (conversationExists.project_id === null) {
-            console.log('🔄 [Messages API] Conversation has no project - using messages table instead');
-            
-            // For conversations without projects, store in messages table
-            const { data: messageEntry, error: messageError } = await supabase
-              .from('messages')
-              .insert({
-                conversation_id: conversationId,
-                sender_id: adminUser.id,
-                message_text: content,
-                message_type: messageType || 'text',
-                attachment_urls: [],
-                reply_to_id: null,
-                is_edited: false,
-                is_pinned: false,
-                read_by: {},
-                reactions: {},
-                metadata: {
-                  source: 'admin_dashboard',
-                  no_project: true,
-                  sent_via: 'messages_table'
-                },
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              })
-              .select('*')
-              .single();
-
-            if (messageError) {
-              console.error('❌ [Messages API] Failed to store message in messages table:', messageError);
-              return NextResponse.json(
-                { error: 'Failed to store message in messages table', details: messageError.message },
-                { status: 500 }
-              );
-            }
-
-            console.log('✅ [Messages API] Message stored in messages table:', messageEntry.id);
-
-            // Create notification for admin users if sender is not an admin
-            if (adminUser.role !== 'admin') {
-              console.log('🔔 [Messages API] Creating notifications for admin users...');
-              
-              // Get all admin users
-              const { data: adminUsers, error: adminError } = await supabase
-                .from('users')
-                .select('id')
-                .eq('role', 'admin');
-
-              if (adminError) {
-                console.error('❌ [Messages API] Error fetching admin users:', adminError);
-              } else if (adminUsers && adminUsers.length > 0) {
-                // Create notifications for each admin user
-                const notifications = adminUsers.map(admin => ({
-                  user_id: admin.id,
-                  project_id: conversationExists.project_id,
-                  notification_type: 'message',
-                  title: `New message from ${adminUser.full_name || 'Unknown User'}`,
-                  message: content.length > 100 ? content.substring(0, 100) + '...' : content,
-                  entity_id: messageEntry.id,
-                  entity_type: 'message',
-                  priority_level: 'normal',
-                  is_read: false,
-                  action_url: `/communications?conversation=${conversationId}`,
-                  conversation_id: conversationId,
-                  metadata: {
-                    message_id: messageEntry.id,
-                    sender_id: adminUser.id,
-                    sender_name: adminUser.full_name || 'Unknown User',
-                    conversation_id: conversationId,
-                    conversation_name: conversationExists.conversation_name,
-                    project_id: conversationExists.project_id,
-                    message_type: messageType || 'text',
-                    source: 'mobile_app_message'
-                  },
-                  priority: 'normal',
-                  is_pushed: false,
-                  is_sent: false
-                }));
-
-                const { data: notificationResult, error: notificationError } = await supabase
-                  .from('notifications')
-                  .insert(notifications);
-
-                if (notificationError) {
-                  console.error('❌ [Messages API] Error creating notifications:', notificationError);
-                } else {
-                  console.log(`✅ [Messages API] Created ${notifications.length} notifications for admin users`);
-                }
-              }
-            }
-
-            // Get sender details for response
-            const { data: senderDetails } = await supabase
+          // Get recipient details for conversation name
+          console.log('🔍 [Messages API] Fetching recipient details...');
+          const { data: recipientUser, error: recipientError } = await supabaseAdmin
               .from('users')
-              .select('id, full_name, role, profile_photo_url')
-              .eq('id', adminUser.id)
+            .select('full_name, email')
+            .eq('id', targetRecipientId)
               .single();
 
-            // Create message response that matches frontend expectations
-            const messageResponse = {
-              id: messageEntry.id,
-              content: content,
-              sender_id: adminUser.id,
-              sender_name: senderDetails?.full_name || adminUser.full_name || 'KoraBuild Admin',
-              sender_role: senderDetails?.role || adminUser.role || 'admin',
-              sender_avatar: senderDetails?.profile_photo_url || null,
-              sent_at: messageEntry.created_at,
-              is_read: false,
-              message_type: messageType || 'text',
-              attachments: [],
-              reply_to: null,
-              is_edited: false,
-              edited_at: null,
-              reactions: {},
-              metadata: {
-                stored_in: 'messages_table',
-                source: 'admin_dashboard',
-                no_project: true
-              }
-            };
-
-            console.log(`🎉 [Messages API] Message response created for no-project conversation ${conversationId}`);
-
+          if (recipientError) {
+            console.error('❌ [Messages API] Recipient lookup error:', recipientError);
             return NextResponse.json({
-              message: messageResponse,
-              success: true,
-              note: 'Message stored in messages table (no project associated)'
+              success: false,
+              error: 'Recipient not found'
             });
           }
 
-          // For conversations with projects, use communication_log table
-          const { data: logEntry, error: logError } = await supabase
-            .from('communication_log')
-            .insert({
-              project_id: conversationExists.project_id,
-              communication_type: 'instruction', // Use valid enum value instead of 'message'
-              subject: 'Admin Message',
-              content: content,
-              from_person: adminUser.full_name || 'KoraBuild Admin',
-              to_person: 'Conversation Participants',
-              communication_date: new Date().toISOString(),
-              priority: 'medium',
-              status: 'sent',
-              created_by: adminUser.id,
-              attachments: [], // Store conversation info in attachments array as workaround
-              related_contract_id: null,
-              related_assignment_id: null,
-              response_required: false,
-              follow_up_required: false
-            })
-            .select('*')
-            .single();
+          console.log('✅ [Messages API] Recipient found:', recipientUser.full_name);
 
-          if (logError) {
-            console.error('❌ [Messages API] Failed to store message:', logError);
-            return NextResponse.json(
-              { error: 'Failed to store message', details: logError.message },
-              { status: 500 }
-            );
-          }
-
-          console.log('✅ [Messages API] Message stored successfully:', logEntry.id);
-
-          // Get sender details for response
-          const { data: senderDetails } = await supabase
-            .from('users')
-            .select('id, full_name, role, profile_photo_url')
-            .eq('id', adminUser.id)
-            .single();
-
-          // Create message response that matches frontend expectations
-          const messageResponse = {
-            id: logEntry.id,
-            content: content,
-            sender_id: adminUser.id,
-            sender_name: senderDetails?.full_name || adminUser.full_name || 'KoraBuild Admin',
-            sender_role: senderDetails?.role || adminUser.role || 'admin',
-            sender_avatar: senderDetails?.profile_photo_url || null,
-            sent_at: logEntry.created_at,
-            is_read: false,
-            message_type: messageType || 'text',
-            attachments: [],
-            reply_to: null,
-            is_edited: false,
-            edited_at: null,
-            reactions: {},
-            metadata: {
-              stored_in: 'communication_log',
-              source: 'admin_dashboard',
-              real_message: true
-            }
-          };
-
-          console.log(`🎉 [Messages API] Message response created for conversation ${conversationId}`, {
-            messageId: messageResponse.id,
-            senderName: messageResponse.sender_name,
-            contentLength: messageResponse.content.length
-          });
-
-          return NextResponse.json({
-            message: messageResponse,
-            success: true,
-            note: 'Message stored in communication_log due to database trigger restrictions'
-          });
-
-        } catch (error) {
-          console.error('💥 [Messages API] Unexpected error:', error);
-          return NextResponse.json(
-            { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
-            { status: 500 }
-          );
-        }
-      }
-
-      case 'mark_conversation_read': {
-        // Update all messages in the conversation as read by admin
-        const { data: adminUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('role', 'admin')
-          .single();
-
-        if (adminUser) {
-          const { error } = await supabase
-            .from('messages')
-            .update({
-              read_by: `{"${adminUser.id}": "${new Date().toISOString()}"}`
-            })
-            .eq('conversation_id', conversationId);
-
-          if (error) {
-            console.error('Error marking conversation as read:', error);
-            return NextResponse.json(
-              { error: 'Failed to mark conversation as read' },
-              { status: 500 }
-            );
-          }
-        }
-
-        return NextResponse.json({ success: true });
-      }
-
-      case 'mark_read': {
-        const { messageId } = body;
-        
-        if (!messageId) {
-          return NextResponse.json(
-            { error: 'messageId is required for mark_read' },
-            { status: 400 }
-          );
-        }
-
-        // Get admin user
-        const { data: adminUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('role', 'admin')
-          .single();
-
-        if (adminUser) {
-          const { error } = await supabase
-            .from('messages')
-            .update({
-              read_by: `{"${adminUser.id}": "${new Date().toISOString()}"}`
-            })
-            .eq('id', messageId);
-
-          if (error) {
-            console.error('Error marking message as read:', error);
-            return NextResponse.json(
-              { error: 'Failed to mark message as read' },
-              { status: 500 }
-            );
-          }
-        }
-
-        return NextResponse.json({ success: true });
-      }
-
-      case 'send_direct_message': {
-        console.log('📤 [Messages API] Processing send_direct_message action');
-        
-        const { recipientId, content, messageType } = body;
-        
-        if (!recipientId || !content) {
-          console.error('❌ [Messages API] Missing required fields for send_direct_message');
-          return NextResponse.json(
-            { error: 'recipientId and content are required for send_direct_message' },
-            { status: 400 }
-          );
-        }
-
-        // Get admin user
-        const { data: adminUser, error: adminError } = await supabase
-          .from('users')
-          .select('id, full_name, role')
-          .eq('role', 'admin')
-          .limit(1)
-          .single();
-
-        if (adminError || !adminUser) {
-          console.error('❌ [Messages API] Admin user not found:', adminError);
-          return NextResponse.json(
-            { error: 'Admin user not found' },
-            { status: 403 }
-          );
-        }
-
-        // Get recipient information
-        const { data: recipient, error: recipientError } = await supabase
-          .from('users')
-          .select('id, full_name, email')
-          .eq('id', recipientId)
-          .single();
-
-        if (recipientError || !recipient) {
-          console.error('❌ [Messages API] Recipient not found:', recipientError);
-          return NextResponse.json(
-            { error: 'Recipient not found' },
-            { status: 404 }
-          );
-        }
-
-        // Check if conversation already exists between admin and recipient
-        const { data: existingConversation, error: conversationError } = await supabase
-          .from('conversations')
-          .select('*')
-          .contains('participants', [adminUser.id])
-          .contains('participants', [recipientId])
-          .eq('conversation_type', 'client_contractor')
-          .single();
-
-        let conversationId;
-
-        if (conversationError && conversationError.code !== 'PGRST116') {
-          console.error('❌ [Messages API] Error checking for existing conversation:', conversationError);
-          return NextResponse.json(
-            { error: 'Failed to check for existing conversation' },
-            { status: 500 }
-          );
-        }
-
-        if (existingConversation) {
-          conversationId = existingConversation.id;
-          console.log('✅ [Messages API] Using existing conversation:', conversationId);
-        } else {
-          // Create new direct message conversation
-          const { data: newConversation, error: newConversationError } = await supabase
+          // Create new conversation
+          console.log('🔍 [Messages API] Creating conversation with explicit fields...');
+          const { data: newConversation, error: createError } = await supabaseAdmin
             .from('conversations')
             .insert({
-              conversation_name: `Direct Message: Admin & ${recipient.full_name}`,
+              conversation_name: `Direct message with ${recipientUser.full_name}`,
               conversation_type: 'client_contractor',
-              participants: [adminUser.id, recipientId],
+              description: 'Direct message conversation',
+              is_private: false,
+              participants: [adminUser.id, targetRecipientId],
               created_by: adminUser.id,
-              created_at: new Date().toISOString()
+              last_message_at: new Date().toISOString(),
+              message_count: 0,
+              is_archived: false,
+              priority_level: 'normal',
+              metadata: {
+                type: 'direct_message',
+                created_by_admin: true
+              }
             })
             .select('id')
             .single();
 
-          if (newConversationError) {
-            console.error('❌ [Messages API] Error creating conversation:', newConversationError);
-            console.error('❌ [Messages API] Conversation data being inserted:', {
-              conversation_name: `Direct Message: Admin & ${recipient.full_name}`,
-              conversation_type: 'client_contractor',
-              participants: [adminUser.id, recipientId],
-              created_by: adminUser.id,
-              created_at: new Date().toISOString()
+          if (createError) {
+            console.error('❌ [Messages API] Conversation creation error:', createError);
+            return NextResponse.json({
+              success: false,
+              error: `Failed to create conversation: ${createError.message}`
             });
-            return NextResponse.json(
-              { error: 'Failed to create conversation', details: newConversationError.message },
-              { status: 500 }
-            );
           }
 
-          conversationId = newConversation.id;
-          console.log('✅ [Messages API] Created new conversation:', conversationId);
+          conversationIdToUse = newConversation.id;
+          console.log('✅ [Messages API] New conversation created:', conversationIdToUse);
         }
+      }
 
-        // Send the message
-        const { data: message, error: messageError } = await supabase
-          .from('messages')
-          .insert({
-            conversation_id: conversationId,
-            sender_id: adminUser.id,
-            message_text: content,
-            message_type: messageType || 'text',
-            created_at: new Date().toISOString()
-          })
-          .select(`
-            *,
-            sender:sender_id (
-              id,
-              full_name,
-              role,
-              profile_photo_url
-            )
-          `)
-          .single();
+      console.log('💾 [Messages API] Inserting message...');
+      
+      // Send the message
+      console.log('🔍 [Messages API] Executing message insert query...');
+      const { data: message, error: messageError } = await supabaseAdmin
+            .from('messages')
+        .insert({
+          conversation_id: conversationIdToUse,
+          sender_id: adminUser.id,
+          message_text: content,
+          message_type: messageType || 'text',
+          created_at: new Date().toISOString()
+        })
+        .select(`
+          id,
+          conversation_id,
+          sender_id,
+          message_text,
+          message_type,
+          attachment_urls,
+          reply_to_id,
+          is_edited,
+          edited_at,
+          is_pinned,
+          read_by,
+          reactions,
+          metadata,
+          created_at,
+          updated_at,
+          sender:sender_id (
+            id,
+            full_name,
+            email,
+            role
+          )
+        `)
+        .single();
 
-        if (messageError) {
-          console.error('❌ [Messages API] Error sending message:', messageError);
-          return NextResponse.json(
-            { error: 'Failed to send message' },
-            { status: 500 }
-          );
-        }
-
-        // Update conversation last message time
-        await supabase
-          .from('conversations')
-          .update({ 
-            last_message_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', conversationId);
-
-        // Create notification for the recipient
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: recipientId,
-            notification_type: 'message',
-            title: `New message from ${adminUser.full_name}`,
-            message: content.length > 100 ? content.substring(0, 100) + '...' : content,
-            entity_id: message.id,
-            entity_type: 'message',
-            priority_level: 'normal',
-            is_read: false,
-            action_url: `/communications?conversation=${conversationId}`,
-            conversation_id: conversationId,
-            metadata: {
-              message_id: message.id,
-              sender_id: adminUser.id,
-              sender_name: adminUser.full_name,
-              conversation_id: conversationId,
-              message_type: messageType || 'text',
-              source: 'admin_direct_message'
-            }
-          });
-
-        if (notificationError) {
-          console.error('❌ [Messages API] Error creating notification:', notificationError);
-          // Don't fail the request for notification errors
-        }
-
-        console.log('✅ [Messages API] Direct message sent successfully');
-
+      if (messageError) {
+        console.error('❌ [Messages API] Message insert error:', {
+          code: messageError.code,
+          message: messageError.message,
+          details: messageError.details,
+          hint: messageError.hint
+        });
         return NextResponse.json({
-          success: true,
-          message: {
-            id: message.id,
-            conversation_id: conversationId,
-            sender_id: adminUser.id,
-            sender_name: adminUser.full_name,
-            content: content,
-            timestamp: message.created_at,
-            type: message.message_type
-          }
+          success: false,
+          error: `Failed to send message: ${messageError.message}`,
+          details: messageError
         });
       }
 
-      default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+      console.log('✅ [Messages API] Message sent successfully:', message.id);
+
+      // Update conversation last_message_at
+      console.log('🔄 [Messages API] Updating conversation timestamp...');
+      const { error: updateError } = await supabaseAdmin
+        .from('conversations')
+            .update({
+          last_message_at: new Date().toISOString()
+        })
+        .eq('id', conversationIdToUse);
+
+      if (updateError) {
+        console.warn('⚠️ [Messages API] Conversation update warning:', updateError);
+        // Don't fail the request for this
+      }
+
+      console.log('✅ [Messages API] Direct message process completed successfully');
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          message,
+          conversationId: conversationIdToUse
+        }
+      });
     }
 
+    // Handle other message actions...
+    console.log('❌ [Messages API] Unknown action:', action);
+    return NextResponse.json({
+      success: false,
+      error: `Unknown action: ${action}`
+    });
+
   } catch (error) {
-    console.error('Error in POST /api/communications/messages:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('❌ [Messages API] POST error:', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }

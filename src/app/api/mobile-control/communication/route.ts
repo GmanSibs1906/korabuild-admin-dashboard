@@ -63,7 +63,21 @@ export async function GET(request: NextRequest) {
     const { data: messages, error: messagesError } = await supabaseAdmin
       .from('messages')
       .select(`
-        *,
+        id,
+        conversation_id,
+        sender_id,
+        message_text,
+        message_type,
+        attachment_urls,
+        reply_to_id,
+        is_edited,
+        edited_at,
+        is_pinned,
+        read_by,
+        reactions,
+        metadata,
+        created_at,
+        updated_at,
         sender:users!messages_sender_id_fkey(id, full_name, email),
         conversation:conversations!messages_conversation_id_fkey(id, conversation_name)
       `)
@@ -196,7 +210,7 @@ export async function GET(request: NextRequest) {
       return {
       id: message.id,
       conversationId: message.conversation_id,
-      senderName: message.sender?.full_name || 'Unknown Sender',
+      senderName: ((message as any).sender?.full_name || (message as any).sender?.[0]?.full_name) || 'Unknown Sender',
       messageText: message.message_text || '',
       timestamp: message.created_at,
         isRead,

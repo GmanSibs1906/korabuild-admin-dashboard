@@ -76,6 +76,7 @@ export function AdminControlCenter() {
 
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'contractors' | 'orders' | 'messages' | 'system'>('all');
   const [selectedConversation, setSelectedConversation] = useState<{
     id: string;
     name: string;
@@ -108,22 +109,52 @@ export function AdminControlCenter() {
     setNotificationToDelete(null);
   };
 
-  // Filter notifications based on active tab and search
+  // Filter notifications based on active tab, search, and filter type
   const filteredNotifications = notifications.filter(notification => {
     const matchesSearch = searchQuery === '' || 
       notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notification.message.toLowerCase().includes(searchQuery.toLowerCase());
 
-    switch (activeTab) {
-      case 'inbox':
-        return !notification.is_read && matchesSearch;
-      case 'orders':
-        return notification.notification_type === 'payment_due' && matchesSearch;
-      case 'archived':
-        return notification.is_read && matchesSearch;
-      default:
-        return matchesSearch;
-    }
+    // Apply filter type
+    const matchesFilterType = (() => {
+      switch (filterType) {
+        case 'contractors':
+          return notification.entity_type === 'contractor_assignment' ||
+                 notification.metadata?.notification_subtype === 'contractor_approved' ||
+                 notification.title.toLowerCase().includes('contractor');
+        case 'orders':
+          return notification.notification_type === 'payment_due' ||
+                 notification.entity_type === 'order' ||
+                 notification.metadata?.notification_subtype?.includes('order') ||
+                 notification.title.toLowerCase().includes('order');
+        case 'messages':
+          return notification.notification_type === 'message';
+        case 'system':
+          return notification.notification_type === 'system' &&
+                 !notification.metadata?.notification_subtype?.includes('order') &&
+                 !notification.metadata?.notification_subtype?.includes('contractor');
+        default:
+          return true;
+      }
+    })();
+
+    // Apply tab filtering
+    const matchesTab = (() => {
+      switch (activeTab) {
+        case 'inbox':
+          return !notification.is_read;
+        case 'orders':
+          return notification.notification_type === 'payment_due' ||
+                 notification.entity_type === 'order' ||
+                 notification.metadata?.notification_subtype?.includes('order');
+        case 'archived':
+          return notification.is_read;
+        default:
+          return true;
+      }
+    })();
+
+    return matchesSearch && matchesFilterType && matchesTab;
   });
 
   // Get user initials for avatar fallback
@@ -358,6 +389,47 @@ export function AdminControlCenter() {
               }
             }
           );
+        } else if (notification.metadata?.notification_subtype === 'contractor_approved' || 
+                   notification.entity_type === 'contractor_assignment') {
+          // Contractor assignment notifications
+          actions.push(
+            {
+              id: 'view-contractor',
+              label: 'View Contractor',
+              variant: 'outline',
+              icon: User,
+              action: async () => {
+                console.log('👷 [Control Center] Opening contractor view:', {
+                  notificationId: notification.id,
+                  contractorId: notification.metadata?.contractor_id,
+                  metadata: notification.metadata
+                });
+                
+                await markAsRead(notification.id);
+                router.push('/contractors');
+              }
+            },
+            {
+              id: 'view-project',
+              label: 'View Project',
+              variant: 'secondary',
+              icon: FileText,
+              action: async () => {
+                console.log('📋 [Control Center] Opening project view:', {
+                  notificationId: notification.id,
+                  projectId: notification.project_id,
+                  metadata: notification.metadata
+                });
+                
+                await markAsRead(notification.id);
+                if (notification.project_id) {
+                  router.push(`/projects/${notification.project_id}`);
+          } else {
+                  router.push('/projects');
+                }
+              }
+            }
+          );
         } else if (notification.metadata?.notification_subtype === 'order_approved' || 
                    notification.metadata?.notification_subtype === 'order_delivered' || 
                    notification.metadata?.notification_subtype === 'order_cancelled') {
@@ -436,7 +508,7 @@ export function AdminControlCenter() {
             }
           );
         }
-        break;
+          break;
 
       case 'emergency':
         actions.push(
@@ -628,139 +700,234 @@ export function AdminControlCenter() {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <Card className="shadow-lg">
-        {/* Header */}
-        <CardHeader className="pb-4">
+        {/* Enhanced Header with KoraBuild Branding */}
+        <CardHeader className="bg-gradient-to-r from-orange-500 via-orange-400 to-amber-400 text-white">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center">
-                <CardTitle className="text-xl font-semibold text-gray-900">
-                  Notifications
-                </CardTitle>
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <Bell className="w-7 h-7 text-white" />
                 {unreadCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="ml-3 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
+                  <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
                     {unreadCount > 99 ? '99+' : unreadCount}
-                  </Badge>
+                  </div>
                 )}
               </div>
-              <p className="text-sm text-gray-500 mt-1">
-                Manage all system notifications and take quick actions
-              </p>
+              <div>
+                <h2 className="text-xl font-bold text-white">Control Center</h2>
+                <p className="text-orange-100 text-sm">
+                  {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
+                </p>
+              </div>
             </div>
             
+            {/* Action Buttons with KoraBuild styling */}
             <div className="flex items-center space-x-2">
-                    <Button
-                variant="ghost"
-                      size="sm"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={toggleSound}
-                className="h-9 w-9 p-0"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
                 title={soundEnabled ? "Sound enabled" : "Sound disabled"}
               >
                 {soundEnabled ? 
-                  <Volume2 className="w-4 h-4 text-green-600" /> : 
-                  <VolumeX className="w-4 h-4 text-gray-400" />
+                  <Volume2 className="w-4 h-4" /> : 
+                  <VolumeX className="w-4 h-4" />
                 }
-                    </Button>
-                      <Button
-                variant="ghost"
-                        size="sm"
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={testRealtime}
-                className="h-9 w-9 p-0"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
                 title="Test real-time notifications"
               >
-                <Bell className="w-4 h-4 text-blue-600" />
-                      </Button>
-                      <Button 
-                variant="ghost"
+                <Bell className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="secondary"
                 size="sm"
-                onClick={testSound}
-                className="h-9 w-9 p-0"
-                title="Test notification sounds"
-              >
-                <Volume2 className="w-4 h-4 text-purple-600" />
-                      </Button>
-            <Button
-              variant="outline"
-              size="sm"
                 onClick={markAllAsRead}
                 disabled={unreadCount === 0}
-              className="flex items-center space-x-2"
-            >
-                <CheckCheck className="w-4 h-4" />
-                <span>Mark all as read</span>
-            </Button>
-        </div>
+                className="bg-white hover:bg-white/90 text-orange-600 font-medium disabled:opacity-50"
+              >
+                <CheckCheck className="w-4 h-4 mr-1" />
+                Clear All
+              </Button>
+            </div>
           </div>
           
-          {/* Search Bar */}
+          {/* Enhanced Search Bar */}
           <div className="relative mt-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-orange-200" />
+            </div>
             <Input
-              placeholder="Search notifications..."
+              placeholder="Search notifications, projects, contractors..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4"
-          />
-        </div>
+              className="pl-10 pr-4 bg-white/20 border-white/30 text-white placeholder-orange-200 focus:bg-white/30 focus:border-white/50 backdrop-blur-sm"
+            />
+          </div>
         </CardHeader>
 
-        {/* Tabs Navigation */}
-        <div className="px-6">
+        {/* Enhanced Tabs Navigation with Categories */}
+        <div className="px-6 pt-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
-              <TabsTrigger value="all" className="relative">
-                <span className="text-emerald-600 font-medium">View all</span>
-                <Badge variant="secondary" className="ml-2 bg-emerald-100 text-emerald-700">
-                  {getTabCount('all')}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="inbox">
-                Inbox
-                {getTabCount('inbox') > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {getTabCount('inbox')}
+            {/* Modern Tab Design */}
+            <div className="relative mb-6">
+              <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+                <TabsTrigger 
+                  value="all" 
+                  className="flex-1 relative data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-orange-600 rounded-lg transition-all duration-200"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                    <span className="font-medium">All</span>
+                    <Badge 
+                      variant="secondary" 
+                      className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0"
+                    >
+                      {getTabCount('all')}
+                    </Badge>
+                  </div>
+                </TabsTrigger>
+                
+                <TabsTrigger 
+                  value="inbox"
+                  className="flex-1 relative data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-orange-600 rounded-lg transition-all duration-200"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="font-medium">Priority</span>
+                    {getTabCount('inbox') > 0 && (
+                      <Badge 
+                        variant="secondary" 
+                        className="bg-blue-100 text-blue-700 text-xs px-2 py-0"
+                      >
+                        {getTabCount('inbox')}
                       </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="orders">
-                Orders
-                {getTabCount('orders') > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {getTabCount('orders')}
-                </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="archived">
-                Archived
-                {getTabCount('archived') > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {getTabCount('archived')}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
+                    )}
+                  </div>
+                </TabsTrigger>
+                
+                <TabsTrigger 
+                  value="orders"
+                  className="flex-1 relative data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-orange-600 rounded-lg transition-all duration-200"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span className="font-medium">Business</span>
+                    {getTabCount('orders') > 0 && (
+                      <Badge 
+                        variant="secondary" 
+                        className="bg-purple-100 text-purple-700 text-xs px-2 py-0"
+                      >
+                        {getTabCount('orders')}
+                      </Badge>
+                    )}
+                  </div>
+                </TabsTrigger>
+                
+                <TabsTrigger 
+                  value="archived"
+                  className="flex-1 relative data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-orange-600 rounded-lg transition-all duration-200"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <span className="font-medium">Archive</span>
+                    {getTabCount('archived') > 0 && (
+                      <Badge 
+                        variant="secondary" 
+                        className="bg-gray-100 text-gray-600 text-xs px-2 py-0"
+                      >
+                        {getTabCount('archived')}
+                      </Badge>
+                    )}
+                  </div>
+                </TabsTrigger>
+              </div>
+            </div>
 
-            {/* Notifications Content */}
+            {/* Quick Filter Pills */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button
+                variant={filterType === 'all' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('all')}
+                className={`rounded-full text-xs ${filterType === 'all' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
+              >
+                All Types
+              </Button>
+              <Button
+                variant={filterType === 'contractors' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('contractors')}
+                className={`rounded-full text-xs ${filterType === 'contractors' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
+              >
+                👷 Contractors
+              </Button>
+              <Button
+                variant={filterType === 'orders' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('orders')}
+                className={`rounded-full text-xs ${filterType === 'orders' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
+              >
+                📦 Orders
+              </Button>
+              <Button
+                variant={filterType === 'messages' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('messages')}
+                className={`rounded-full text-xs ${filterType === 'messages' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
+              >
+                💬 Messages
+              </Button>
+              <Button
+                variant={filterType === 'system' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('system')}
+                className={`rounded-full text-xs ${filterType === 'system' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
+              >
+                ⚙️ System
+              </Button>
+            </div>
+
+            {/* Notifications Content with Enhanced Design */}
             <TabsContent value={activeTab} className="space-y-0">
               <ScrollArea className="h-[600px] pr-4">
                 {notificationsLoading ? (
                   <div className="flex items-center justify-center h-40">
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
-                      <p className="text-gray-500 mt-2">Loading notifications...</p>
-          </div>
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-200 border-t-orange-500 mx-auto"></div>
+                      <p className="text-gray-600 mt-4 font-medium">Loading notifications...</p>
+                      <p className="text-gray-400 text-sm">Getting the latest updates</p>
+                    </div>
                   </div>
                 ) : filteredNotifications.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Bell className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      {searchQuery ? 'No matching notifications' : 'No notifications yet'}
+                  <div className="text-center py-16">
+                    <div className="w-24 h-24 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Bell className="w-12 h-12 text-orange-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      {searchQuery ? 'No matching notifications' : 'All clear!'}
                     </h3>
-                    <p className="text-gray-500">
-                      {searchQuery ? 'Try adjusting your search terms' : 'New notifications will appear here when they arrive'}
+                    <p className="text-gray-500 max-w-md mx-auto">
+                      {searchQuery 
+                        ? 'Try adjusting your search terms or filters' 
+                        : 'No new notifications at the moment. We\'ll notify you when something important happens.'
+                      }
                     </p>
+                    {searchQuery && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setSearchQuery('')}
+                        className="mt-4 border-orange-200 text-orange-600 hover:bg-orange-50"
+                      >
+                        Clear Search
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-1">

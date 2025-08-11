@@ -606,13 +606,64 @@ export function useRealtimeNotifications() {
                    notif.metadata?.sender_id === null)
                 );
                 
+                // NEW: Filter out admin-created notifications (but keep mobile app approvals)
+                const isAdminCreatedNotification = (
+                  // Filter out "New Contractor Added" notifications from admin
+                  (notif.title === '👷 New Contractor Added' && notif.metadata?.source !== 'mobile_app_approval') ||
+                  (notif.title === 'New Contractor Added' && notif.metadata?.source !== 'mobile_app_approval') ||
+                  
+                  // Filter out "Delivery Scheduled" notifications from admin
+                  (notif.title?.includes('Delivery Scheduled') && notif.metadata?.source !== 'mobile_app_approval') ||
+                  (notif.title?.includes('📦 Delivery Scheduled') && notif.metadata?.source !== 'mobile_app_approval') ||
+                  
+                  // Filter out "New Order Added" notifications from admin
+                  (notif.title === '📦 New Order Added' && notif.metadata?.source !== 'mobile_app_approval') ||
+                  (notif.title === 'New Order Added' && notif.metadata?.source !== 'mobile_app_approval') ||
+                  
+                  // Filter out any notification with source indicating admin creation
+                  notif.metadata?.source === 'admin_creation' ||
+                  notif.metadata?.source === 'admin_dashboard_creation' ||
+                  notif.metadata?.created_via === 'admin_dashboard'
+                );
+                
+                // KEEP mobile app approvals and user actions
+                const isMobileAppApproval = (
+                  notif.metadata?.source === 'mobile_app_approval' ||
+                  notif.metadata?.notification_subtype === 'contractor_approved' ||
+                  notif.metadata?.notification_subtype === 'order_approved' ||
+                  notif.metadata?.notification_subtype === 'user_action' ||
+                  notif.title?.includes('accepted') ||
+                  notif.title?.includes('approved')
+                );
+                
                 // Check if this notification is about an action the current admin user performed
                 const isCurrentUserAction = notif.entity_id && 
                                           (notif.metadata?.performed_by === user.id ||
                                            notif.metadata?.updated_by === user.id ||
                                            notif.metadata?.created_by_user_id === user.id);
                 
-                // Debug logging for admin filtering - enhanced to show missing sender info
+                // Debug logging for admin filtering - enhanced to show filtering reasons
+                if (isAdminCreatedNotification && !isMobileAppApproval) {
+                  console.log(`🚫 [Polling] Filtering out admin-created notification:`, {
+                    id: notif.id,
+                    title: notif.title,
+                    source: notif.metadata?.source,
+                    notification_subtype: notif.metadata?.notification_subtype,
+                    reason: 'Admin-created notification filtered out'
+                  });
+                }
+                
+                if (isMobileAppApproval) {
+                  console.log(`✅ [Polling] Keeping mobile app approval:`, {
+                    id: notif.id,
+                    title: notif.title,
+                    source: notif.metadata?.source,
+                    notification_subtype: notif.metadata?.notification_subtype,
+                    reason: 'Mobile app approval - keeping'
+                  });
+                }
+                
+                // Debug logging for admin message filtering
                 if (notif.notification_type === 'message' && isAdminSentMessage) {
                   console.log(`🚫 [Polling] Filtering out admin message:`, {
                     id: notif.id,
@@ -624,8 +675,9 @@ export function useRealtimeNotifications() {
                   });
                 }
                 
-                // Only include notifications that are NOT admin-initiated
-                return !isAdminInitiated && !isAdminSentMessage && !isCurrentUserAction;
+                // Only include notifications that are NOT admin-initiated, NOT admin-created, BUT ARE mobile app approvals
+                return !isAdminInitiated && !isAdminSentMessage && !isCurrentUserAction && 
+                       (!isAdminCreatedNotification || isMobileAppApproval);
               }) : latestNotifications;
               
               console.log(`📊 [Polling] Filtered notifications: ${filteredAllNotifications.length} (from ${latestNotifications.length} total, admin filtering: ${adminUserIds.length > 0})`);

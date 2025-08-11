@@ -36,8 +36,8 @@ import { SupplierEditModal } from '@/components/mobile-control/SupplierEditModal
 import { DeleteOrderModal } from '@/components/modals/DeleteOrderModal';
 
 export default function OrdersPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'suppliers' | 'deliveries'>('overview');
-  
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'suppliers' | 'deliveries'>('orders');
+
   // Modal states
   const [showOrderCreateModal, setShowOrderCreateModal] = useState(false);
   const [showOrderEditModal, setShowOrderEditModal] = useState(false);
@@ -399,27 +399,27 @@ export default function OrdersPage() {
         </CardHeader>
         <CardContent>
           {recentOrders.length > 0 ? (
-            <div className="space-y-4">
-              {recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-4">
-                      <div>
-                        <h4 className="font-medium text-gray-900">{order.id}</h4>
-                        <p className="text-sm text-gray-600">{order.project}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{order.items}</p>
-                        <p className="text-sm text-gray-600">from {order.supplier}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{formatCurrency(order.value)}</p>
-                        <p className="text-sm text-gray-600">Due: {order.deliveryDate}</p>
-                      </div>
+          <div className="space-y-4">
+            {recentOrders.map((order) => (
+              <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4">
+                    <div>
+                      <h4 className="font-medium text-gray-900">{order.id}</h4>
+                      <p className="text-sm text-gray-600">{order.project}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{order.items}</p>
+                      <p className="text-sm text-gray-600">from {order.supplier}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{formatCurrency(order.value)}</p>
+                      <p className="text-sm text-gray-600">Due: {order.deliveryDate}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    {getStatusBadge(order.status)}
+                </div>
+                <div className="flex items-center space-x-3">
+                  {getStatusBadge(order.status)}
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -434,12 +434,12 @@ export default function OrdersPage() {
                       }}
                     >
                       <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </div>
+                    View Details
+                  </Button>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
           ) : (
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -468,31 +468,31 @@ export default function OrdersPage() {
         </CardHeader>
         <CardContent>
           {topSuppliers.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {topSuppliers.map((supplier, index) => (
-                <div key={index} className="p-4 border rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">{supplier.name}</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Orders:</span>
-                      <span className="font-medium">{supplier.totalOrders}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Value:</span>
-                      <span className="font-medium">{formatCurrency(supplier.totalValue)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Rating:</span>
-                      <span className="font-medium">{supplier.rating}/5</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">On-time:</span>
-                      <span className="font-medium">{supplier.onTimeDelivery}%</span>
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {topSuppliers.map((supplier, index) => (
+              <div key={index} className="p-4 border rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">{supplier.name}</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Orders:</span>
+                    <span className="font-medium">{supplier.totalOrders}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Value:</span>
+                    <span className="font-medium">{formatCurrency(supplier.totalValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Rating:</span>
+                    <span className="font-medium">{supplier.rating}/5</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">On-time:</span>
+                    <span className="font-medium">{supplier.onTimeDelivery}%</span>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
           ) : (
             <div className="text-center py-8">
               <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -534,7 +534,14 @@ export default function OrdersPage() {
 
       {orders.length > 0 ? (
         <div className="space-y-4">
-          {orders.map((order) => (
+          {orders
+            .sort((a, b) => {
+              // Sort by created_at date, newest first
+              const dateA = new Date(a.created_at || a.order_date || 0).getTime();
+              const dateB = new Date(b.created_at || b.order_date || 0).getTime();
+              return dateB - dateA;
+            })
+            .map((order) => (
             <Card key={order.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -596,10 +603,10 @@ export default function OrdersPage() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-12">
-              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center py-12">
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Orders Found</h3>
               <p className="text-gray-600 mb-4">
                 {loading ? 'Loading orders...' : 'No orders have been created yet. Create your first order to get started.'}
@@ -610,10 +617,10 @@ export default function OrdersPage() {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Order
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
       )}
     </div>
   );
@@ -702,10 +709,10 @@ export default function OrdersPage() {
           })}
         </div>
       ) : (
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-12">
-              <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center py-12">
+            <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Suppliers Found</h3>
               <p className="text-gray-600 mb-4">
                 {loading ? 'Loading suppliers...' : 'No suppliers have been added yet. Add suppliers to start creating orders.'}
@@ -716,10 +723,10 @@ export default function OrdersPage() {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Supplier
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
       )}
     </div>
   );
@@ -741,9 +748,9 @@ export default function OrdersPage() {
     };
 
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Delivery Tracking</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-900">Delivery Tracking</h2>
           {/* <Button 
             onClick={() => setShowDeliveryCreateModal(true)}
             className="bg-orange-500 hover:bg-orange-600"
@@ -829,8 +836,8 @@ export default function OrdersPage() {
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
-                      </Button>
-                    </div>
+        </Button>
+      </div>
                   </div>
                   
                   {delivery.special_handling_notes && (
@@ -853,10 +860,10 @@ export default function OrdersPage() {
             ))}
           </div>
         ) : (
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center py-12">
-                <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center py-12">
+            <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Deliveries Found</h3>
                 <p className="text-gray-600 mb-4">
                   {loading ? 'Loading deliveries...' : 'No deliveries have been scheduled yet. Create orders to start tracking deliveries.'}
@@ -868,16 +875,16 @@ export default function OrdersPage() {
                   <Calendar className="h-4 w-4 mr-2" />
                   Schedule Delivery
                 </Button> */}
-              </div>
-            </CardContent>
-          </Card>
+          </div>
+        </CardContent>
+      </Card>
         )}
-      </div>
-    );
+    </div>
+  );
   };
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: TrendingUp },
+    // { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'orders', label: 'Orders', icon: Package },
     { id: 'suppliers', label: 'Suppliers', icon: User },
     { id: 'deliveries', label: 'Deliveries', icon: Truck }

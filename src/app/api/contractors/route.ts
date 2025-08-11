@@ -221,29 +221,61 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Create project contractor assignment
-        const { data: assignment, error: assignmentError } = await supabaseAdmin
-          .from('project_contractors')
-          .insert({
-            project_id,
-            contractor_id,
-            contract_type,
-            contract_value: contract_value || 0,
-            scope_of_work,
-            start_date,
-            planned_end_date,
-            payment_terms,
-            contract_status: 'active',
-            on_site_status: 'scheduled',
-            work_completion_percentage: 0,
-            ...assignmentFields
-          })
-          .select(`
-            *,
-            contractor:contractors(*),
-            project:projects(id, project_name)
-          `)
-          .single();
+        console.log('👥 Admin API: Processing contractor action: assign_to_project');
+        console.log('📋 Assignment data:', { project_id, contractor_id, scope_of_work, start_date });
+
+        // The issue is database triggers with ambiguous column references
+        // Use 'pending_approval' status to avoid triggers until they're fixed
+        let assignment;
+        let assignmentError;
+        
+        try {
+          console.log('🔧 Creating contractor assignment with pending_approval status...');
+          const { data, error } = await supabaseAdmin
+            .from('project_contractors')
+            .insert({
+              project_id,
+              contractor_id,
+              contract_type,
+              contract_value: contract_value || 0,
+              scope_of_work,
+              start_date,
+              planned_end_date,
+              payment_terms,
+              contract_status: 'pending_approval', // Use pending_approval to avoid trigger issues
+              on_site_status: 'scheduled',
+              work_completion_percentage: 0,
+              ...assignmentFields
+            })
+            .select('id, project_id, contractor_id, contract_status, scope_of_work, start_date, contract_value, planned_end_date')
+            .single();
+            
+          assignment = data;
+          assignmentError = error;
+          
+          if (error) {
+            console.log('❌ Assignment failed:', error.message);
+            
+            if (error.message.includes('ambiguous')) {
+              console.log('🚨 Database trigger issue detected - please apply SQL fix');
+              
+              return NextResponse.json(
+                { 
+                  error: 'Database trigger configuration issue',
+                  details: 'Please apply the SQL fix in CONTRACTOR_ASSIGNMENT_TRIGGER_FIX.sql via Supabase Dashboard',
+                  technicalDetails: error.message,
+                  sqlFix: 'Run CONTRACTOR_ASSIGNMENT_TRIGGER_FIX.sql in Supabase Dashboard → SQL Editor'
+                },
+                { status: 500 }
+              );
+            }
+          } else {
+            console.log('✅ Contractor assignment successful');
+          }
+        } catch (err) {
+          console.log('💥 Unexpected error during assignment:', err);
+          assignmentError = err instanceof Error ? err : new Error('Unknown error');
+        }
 
         if (assignmentError) {
           console.error('❌ Error assigning contractor to project:', assignmentError);
@@ -253,12 +285,40 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        if (!assignment) {
+          return NextResponse.json(
+            { error: 'Failed to assign contractor to project', details: 'No assignment data returned' },
+            { status: 500 }
+          );
+        }
+
+        // Fetch contractor and project details separately to avoid JOIN ambiguity
+        console.log('📋 Fetching related contractor and project data...');
+        const [contractorResult, projectResult] = await Promise.all([
+          supabaseAdmin
+            .from('contractors')
+            .select('id, contractor_name, company_name, email, phone, trade_specialization')
+            .eq('id', contractor_id)
+            .single(),
+          supabaseAdmin
+            .from('projects')
+            .select('id, project_name, project_address')
+            .eq('id', project_id)
+            .single()
+        ]);
+
+        const finalAssignment = {
+          ...assignment,
+          contractor: contractorResult.data,
+          project: projectResult.data
+        };
+
         console.log('✅ Successfully assigned contractor to project');
 
         return NextResponse.json({
           success: true,
-          data: assignment,
-          message: 'Contractor assigned to project successfully'
+          data: finalAssignment,
+          message: 'Contractor assigned to project successfully (status: pending_approval)'
         });
       }
 
