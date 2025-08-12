@@ -110,52 +110,63 @@ export function AdminControlCenter() {
   };
 
   // Filter notifications based on active tab, search, and filter type
-  const filteredNotifications = notifications.filter(notification => {
-    const matchesSearch = searchQuery === '' || 
-      notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      notification.message.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // Apply filter type
-    const matchesFilterType = (() => {
-      switch (filterType) {
-        case 'contractors':
-          return notification.entity_type === 'contractor_assignment' ||
-                 notification.metadata?.notification_subtype === 'contractor_approved' ||
-                 notification.title.toLowerCase().includes('contractor');
-        case 'orders':
-          return notification.notification_type === 'payment_due' ||
-                 notification.entity_type === 'order' ||
-                 notification.metadata?.notification_subtype?.includes('order') ||
-                 notification.title.toLowerCase().includes('order');
-        case 'messages':
-          return notification.notification_type === 'message';
-        case 'system':
-          return notification.notification_type === 'system' &&
-                 !notification.metadata?.notification_subtype?.includes('order') &&
-                 !notification.metadata?.notification_subtype?.includes('contractor');
-        default:
-          return true;
+  const filteredNotifications = notifications
+    .filter(notification => {
+      // Tab filtering
+      if (activeTab === 'priority' && (notification.priority !== 'urgent' && notification.priority !== 'normal')) {
+        return false;
       }
-    })();
-
-    // Apply tab filtering
-    const matchesTab = (() => {
-      switch (activeTab) {
-        case 'inbox':
-          return !notification.is_read;
-        case 'orders':
-          return notification.notification_type === 'payment_due' ||
-                 notification.entity_type === 'order' ||
-                 notification.metadata?.notification_subtype?.includes('order');
-        case 'archived':
-          return notification.is_read;
-        default:
-          return true;
+      
+      if (activeTab === 'business' && !['project', 'financial', 'system'].includes(notification.notification_type)) {
+        return false;
       }
-    })();
+      
+      if (activeTab === 'archive' && !notification.is_read) {
+        return false;
+      }
 
-    return matchesSearch && matchesFilterType && matchesTab;
-  });
+      // Filter type filtering
+      if (filterType && filterType !== 'all') {
+        const typeMatches = {
+          'contractors': notification.entity_type === 'contractor' || 
+                        notification.title?.toLowerCase().includes('contractor') ||
+                        notification.metadata?.notification_subtype?.includes('contractor'),
+          'orders': notification.entity_type === 'order' || 
+                   notification.title?.toLowerCase().includes('order') ||
+                   notification.metadata?.notification_subtype?.includes('order'),
+          'messages': notification.notification_type === 'message',
+          'system': notification.notification_type === 'system'
+        };
+        
+        if (!typeMatches[filterType as keyof typeof typeMatches]) {
+          return false;
+        }
+      }
+
+      // Search filtering
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          notification.title?.toLowerCase().includes(query) ||
+          notification.message?.toLowerCase().includes(query) ||
+          notification.notification_type?.toLowerCase().includes(query)
+        );
+      }
+
+      return true;
+    });
+
+  // Use the filtered unread count from useRealtimeNotifications (which now includes payment/duplicate filtering)
+  const actualUnreadCount = unreadCount;
+
+  // Log unread count changes
+  useEffect(() => {
+    console.log('📊 [AdminControlCenter] Unread count update:', {
+      originalUnreadCount: unreadCount,
+      filteredUnreadCount: actualUnreadCount,
+      difference: unreadCount - actualUnreadCount
+    });
+  }, [unreadCount, actualUnreadCount]);
 
   // Get user initials for avatar fallback
   const getUserInitials = (title: string) => {
@@ -706,16 +717,16 @@ export function AdminControlCenter() {
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <Bell className="w-7 h-7 text-white" />
-                {unreadCount > 0 && (
+                {actualUnreadCount > 0 && (
                   <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {actualUnreadCount > 99 ? '99+' : actualUnreadCount}
                     </div>
                 )}
                     </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Control Center</h2>
                 <p className="text-orange-100 text-sm">
-                  {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
+                  {actualUnreadCount > 0 ? `${actualUnreadCount} unread notifications` : 'All caught up!'}
                 </p>
                   </div>
             </div>
@@ -749,7 +760,7 @@ export function AdminControlCenter() {
                 variant="secondary"
                 size="sm"
                 onClick={markAllAsRead}
-                disabled={unreadCount === 0}
+                disabled={actualUnreadCount === 0}
                 className="bg-white hover:bg-white/90 text-orange-600 font-medium disabled:opacity-50"
               >
                 <CheckCheck className="w-4 h-4 mr-1" />

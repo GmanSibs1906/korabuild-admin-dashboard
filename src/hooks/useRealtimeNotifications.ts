@@ -36,107 +36,90 @@ export function useRealtimeNotifications() {
   }, [adminIdsLoaded, adminUserIds]);
 
   // Enhanced logging wrapper for setNotifications
-  const setNotificationsWithLogging = useCallback((updater: RealtimeNotification[] | ((prev: RealtimeNotification[]) => RealtimeNotification[])) => {
+  const setNotificationsWithLogging = useCallback((newNotifications: RealtimeNotification[] | ((prev: RealtimeNotification[]) => RealtimeNotification[])) => {
     setNotifications(prev => {
-      const newNotifications = typeof updater === 'function' ? updater(prev) : updater;
+      const updated = typeof newNotifications === 'function' ? newNotifications(prev) : newNotifications;
       
-      // Detailed logging of notification changes
-      console.log('🔄 [Notification State] State change detected:', {
-        timestamp: new Date().toISOString(),
-        previousCount: prev.length,
-        newCount: newNotifications.length,
-        change: newNotifications.length - prev.length,
-        adminIdsLoaded,
-        adminUserCount: adminUserIds.length
+      // Apply the same filtering logic as AdminControlCenter
+      const filteredNotifications = updated.filter(notification => {
+        // 🚫 FILTER 1: Remove payment notifications completely
+        if (notification.entity_type === 'payment' ||
+            notification.title?.toLowerCase().includes('payment recorded') ||
+            notification.title?.toLowerCase().includes('new payment') ||
+            notification.metadata?.notification_subtype === 'payment_recorded') {
+          console.log('🚫 [useRealtimeNotifications] Filtered out payment notification:', {
+            id: notification.id,
+            title: notification.title,
+            type: notification.notification_type,
+            entity_type: notification.entity_type
+          });
+          return false;
+        }
+
+        // 🚫 FILTER 2: Remove admin-created notifications (already handled by existing logic)
+        if (notification.metadata?.source === 'admin_creation' ||
+            notification.metadata?.created_by === 'admin') {
+          return false;
+        }
+
+        return true;
       });
 
-      // Log notification details
-      console.log('📋 [Notification List] Current notifications on screen:', 
-        newNotifications.map((n, index) => ({
-          index: index + 1,
-          id: n.id.substring(0, 8),
-          title: n.title,
-          type: n.notification_type,
-          sender_id: n.metadata?.sender_id?.substring(0, 8) || 'none',
-          is_read: n.is_read,
-          created_at: n.created_at,
-          isNew: n.isNew || false
-        }))
-      );
+      // 🔄 FILTER 3: Remove duplicate notifications
+      const deduplicatedNotifications = filteredNotifications.filter((notification, index, array) => {
+        const duplicateIndex = array.findIndex(other => {
+          // For notifications with entity_id, compare entity_id and entity_type
+          if (notification.entity_id && other.entity_id) {
+            return notification.entity_id === other.entity_id && 
+                   notification.entity_type === other.entity_type;
+          }
+          
+          // For notifications without entity_id, compare title, message, and type
+          return notification.title === other.title &&
+                 notification.message === other.message &&
+                 notification.notification_type === other.notification_type;
+        });
+        
+        // Keep only the first occurrence
+        const isDuplicate = duplicateIndex !== index;
+        if (isDuplicate) {
+          console.log('🚫 [useRealtimeNotifications] Filtered out duplicate notification:', {
+            id: notification.id,
+            title: notification.title,
+            duplicateOf: array[duplicateIndex].id
+          });
+        }
+        return !isDuplicate;
+      });
 
-      // Log admin message notifications specifically
-      const adminMessages = newNotifications.filter(n => 
-        n.notification_type === 'message' && 
-        adminUserIds.includes(n.metadata?.sender_id)
-      );
-      
-      if (adminMessages.length > 0) {
-        console.warn('⚠️ [Admin Messages] Admin-sent messages currently visible:', 
-          adminMessages.map(n => ({
-            id: n.id.substring(0, 8),
-            title: n.title,
-            sender_id: n.metadata?.sender_id?.substring(0, 8),
-            should_be_filtered: true
-          }))
-        );
-      }
+      console.log('🔧 [useRealtimeNotifications] Applied filtering:', {
+        timestamp: new Date().toISOString(),
+        originalCount: updated.length,
+        afterPaymentFilter: filteredNotifications.length,
+        afterDeduplication: deduplicatedNotifications.length,
+        removed: updated.length - deduplicatedNotifications.length
+      });
 
-      // Log messages with missing/none sender ID that could be admin-generated
-      const missingSenderMessages = newNotifications.filter(n => 
-        n.notification_type === 'message' && 
-        (!n.metadata?.sender_id || n.metadata?.sender_id === 'none' || n.metadata?.sender_id === '')
-      );
-      
-      if (missingSenderMessages.length > 0) {
-        console.warn('🚨 [Missing Sender] Messages with missing/none sender_id (likely admin-generated):', 
-          missingSenderMessages.map(n => ({
-            id: n.id.substring(0, 8),
-            title: n.title,
-            sender_id: n.metadata?.sender_id || 'undefined',
-            should_be_filtered: true,
-            metadata_source: n.metadata?.source || 'none'
-          }))
-        );
-      }
-
-      // Log message notifications from clients
-      const clientMessages = newNotifications.filter(n => 
-        n.notification_type === 'message' && 
-        !adminUserIds.includes(n.metadata?.sender_id) &&
-        n.metadata?.sender_id
-      );
-      
-      if (clientMessages.length > 0) {
-        console.log('✅ [Client Messages] Client-sent messages visible (correct):', 
-          clientMessages.map(n => ({
-            id: n.id.substring(0, 8),
-            title: n.title,
-            sender_id: n.metadata?.sender_id?.substring(0, 8),
-            should_be_visible: true
-          }))
-        );
-      }
-
-      // Update ref
-      notificationsRef.current = newNotifications;
-      
-      return newNotifications;
+      notificationsRef.current = deduplicatedNotifications;
+      return deduplicatedNotifications;
     });
-  }, [adminUserIds, adminIdsLoaded]);
+  }, []);
 
   // Enhanced logging wrapper for setUnreadCount
-  const setUnreadCountWithLogging = useCallback((updater: number | ((prev: number) => number)) => {
+  const setUnreadCountWithLogging = useCallback((newCount: number) => {
     setUnreadCount(prev => {
-      const newCount = typeof updater === 'function' ? updater(prev) : updater;
+      // Calculate the actual unread count from filtered notifications instead of using passed count
+      const actualUnreadCount = notificationsRef.current.filter(n => !n.is_read).length;
       
-      console.log('📊 [Unread Count] Count changed:', {
+      console.log('📊 [Unread Count] Count updated:', {
         timestamp: new Date().toISOString(),
-        previous: prev,
-        new: newCount,
-        change: newCount - prev
+        passedCount: newCount,
+        actualFilteredCount: actualUnreadCount,
+        totalFilteredNotifications: notificationsRef.current.length,
+        using: actualUnreadCount
       });
       
-      return newCount;
+      return actualUnreadCount;
     });
   }, []);
 
@@ -360,11 +343,8 @@ export function useRealtimeNotifications() {
         return updated;
       });
 
-      setUnreadCountWithLogging(prev => {
-        const newCount = Math.max(0, prev - 1);
-        console.log('📊 [Notifications] Updated unread count after mark as read:', { previous: prev, new: newCount });
-        return newCount;
-      });
+      // Recalculate unread count from the updated filtered notifications 
+      setUnreadCountWithLogging(0); // The function will calculate the actual count from notificationsRef.current
       
       console.log('✅ [Notifications] Notification marked as read successfully');
     } catch (error) {
@@ -446,10 +426,9 @@ export function useRealtimeNotifications() {
 
       // Update local state
       setNotificationsWithLogging(prev => prev.filter(n => n.id !== notificationId));
-      setUnreadCountWithLogging(prev => {
-        const notification = notifications.find(n => n.id === notificationId);
-        return notification && !notification.is_read ? prev - 1 : prev;
-      });
+      
+      // Recalculate unread count from the updated filtered notifications
+      setUnreadCountWithLogging(0); // The function will calculate the actual count from notificationsRef.current
 
       console.log('✅ [Real-time] Notification deleted successfully');
       return { success: true };
