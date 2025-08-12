@@ -167,7 +167,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
       if (result.error) {
         throw new Error(result.error);
       }
-
+      
       console.log('✅ [useCommunications] Communications data fetched successfully');
       
       // The API already provides sender_info and proper last_message data
@@ -215,7 +215,7 @@ export function useCommunications(options: UseCommunicationsOptions = {}): UseCo
         // Find the conversation to get its current unread_count
         const conversation = prevData.conversations.find(conv => conv.id === conversationId);
         const currentUnreadCount = conversation?.unread_count || 0;
-        
+      
         return {
           ...prevData,
           conversations: prevData.conversations.map(conv => 

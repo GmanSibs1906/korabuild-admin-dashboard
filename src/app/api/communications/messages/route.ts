@@ -277,10 +277,10 @@ export async function POST(request: NextRequest) {
           // Get recipient details for conversation name
           console.log('🔍 [Messages API] Fetching recipient details...');
           const { data: recipientUser, error: recipientError } = await supabaseAdmin
-              .from('users')
+            .from('users')
             .select('full_name, email')
             .eq('id', targetRecipientId)
-              .single();
+            .single();
 
           if (recipientError) {
             console.error('❌ [Messages API] Recipient lookup error:', recipientError);
@@ -364,7 +364,7 @@ export async function POST(request: NextRequest) {
             role
           )
         `)
-        .single();
+              .single();
 
       if (messageError) {
         console.error('❌ [Messages API] Message insert error:', {
@@ -391,7 +391,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', conversationIdToUse);
 
-      if (updateError) {
+            if (updateError) {
         console.warn('⚠️ [Messages API] Conversation update warning:', updateError);
         // Don't fail the request for this
       }
@@ -423,11 +423,11 @@ export async function POST(request: NextRequest) {
       try {
         // Get all admin user IDs to mark messages as read for all admins
         const { data: adminUsers, error: adminError } = await supabaseAdmin
-          .from('users')
+              .from('users')
           .select('id')
           .eq('role', 'admin');
 
-        if (adminError) {
+            if (adminError) {
           console.error('❌ [Messages API] Error fetching admin users:', adminError);
           return NextResponse.json({
             success: false,
@@ -551,26 +551,26 @@ export async function POST(request: NextRequest) {
 
         // Insert the message
         const { data: message, error: messageError } = await supabaseAdmin
-          .from('messages')
-          .insert({
-            conversation_id: conversationId,
-            sender_id: adminUser.id,
-            message_text: content,
-            message_type: messageType || 'text',
-            attachment_urls: [],
-            reply_to_id: null,
-            is_edited: false,
+              .from('messages')
+              .insert({
+                conversation_id: conversationId,
+                sender_id: adminUser.id,
+                message_text: content,
+                message_type: messageType || 'text',
+                attachment_urls: [],
+                reply_to_id: null,
+                is_edited: false,
             edited_at: null,
-            is_pinned: false,
+                is_pinned: false,
             read_by: [adminUser.id],
-            reactions: {},
-            metadata: {
-              source: 'admin_dashboard',
+                reactions: {},
+                metadata: {
+                  source: 'admin_dashboard',
               sent_via: 'admin_chat_interface'
-            },
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
           .select(`
             id,
             conversation_id,
@@ -588,9 +588,9 @@ export async function POST(request: NextRequest) {
             created_at,
             updated_at
           `)
-          .single();
+              .single();
 
-        if (messageError) {
+            if (messageError) {
           console.error('❌ [Messages API] Message insert error:', messageError);
           return NextResponse.json({
             success: false,
@@ -603,7 +603,7 @@ export async function POST(request: NextRequest) {
         // Update conversation last_message_at
         const { error: updateError } = await supabaseAdmin
           .from('conversations')
-          .update({
+            .update({
             last_message_at: new Date().toISOString()
           })
           .eq('id', conversationId);

@@ -494,7 +494,7 @@ export function AdminControlCenter() {
               }
             }
           );
-          } else {
+    } else {
           actions.push(
             {
               id: 'view-users',
@@ -544,7 +544,7 @@ export function AdminControlCenter() {
               
               if (notification.entity_id) {
                 router.push(`/users/${notification.entity_id}`);
-              } else {
+          } else {
                 router.push('/users');
               }
             }
@@ -709,22 +709,22 @@ export function AdminControlCenter() {
                 {unreadCount > 0 && (
                   <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
                     {unreadCount > 99 ? '99+' : unreadCount}
-                  </div>
+                    </div>
                 )}
-              </div>
+                    </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Control Center</h2>
                 <p className="text-orange-100 text-sm">
                   {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
                 </p>
-              </div>
+                  </div>
             </div>
             
             {/* Action Buttons with KoraBuild styling */}
             <div className="flex items-center space-x-2">
-              <Button
+                    <Button
                 variant="secondary"
-                size="sm"
+                      size="sm"
                 onClick={toggleSound}
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
                 title={soundEnabled ? "Sound enabled" : "Sound disabled"}
@@ -733,19 +733,19 @@ export function AdminControlCenter() {
                   <Volume2 className="w-4 h-4" /> : 
                   <VolumeX className="w-4 h-4" />
                 }
-              </Button>
-              
-              <Button
+                    </Button>
+                    
+                      <Button
                 variant="secondary"
-                size="sm"
+                        size="sm"
                 onClick={testRealtime}
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
                 title="Test real-time notifications"
               >
                 <Bell className="w-4 h-4" />
-              </Button>
-              
-              <Button
+                      </Button>
+                    
+                      <Button 
                 variant="secondary"
                 size="sm"
                 onClick={markAllAsRead}
@@ -754,15 +754,15 @@ export function AdminControlCenter() {
               >
                 <CheckCheck className="w-4 h-4 mr-1" />
                 Clear All
-              </Button>
-            </div>
-          </div>
+                    </Button>
+                  </div>
+                </div>
           
           {/* Enhanced Search Bar */}
           <div className="relative mt-4">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-orange-200" />
-            </div>
+              </div>
             <Input
               placeholder="Search notifications, projects, contractors..."
               value={searchQuery}
@@ -791,7 +791,7 @@ export function AdminControlCenter() {
                     >
                       {getTabCount('all')}
                     </Badge>
-                  </div>
+        </div>
                 </TabsTrigger>
                 
                 <TabsTrigger 
@@ -808,8 +808,8 @@ export function AdminControlCenter() {
                       >
                         {getTabCount('inbox')}
                       </Badge>
-                    )}
-                  </div>
+          )}
+        </div>
                 </TabsTrigger>
                 
                 <TabsTrigger 
@@ -820,14 +820,14 @@ export function AdminControlCenter() {
                     <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                     <span className="font-medium">Business</span>
                     {getTabCount('orders') > 0 && (
-                      <Badge 
+                <Badge 
                         variant="secondary" 
                         className="bg-purple-100 text-purple-700 text-xs px-2 py-0"
-                      >
+                >
                         {getTabCount('orders')}
-                      </Badge>
-                    )}
-                  </div>
+                </Badge>
+            )}
+          </div>
                 </TabsTrigger>
                 
                 <TabsTrigger 
@@ -838,55 +838,55 @@ export function AdminControlCenter() {
                     <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                     <span className="font-medium">Archive</span>
                     {getTabCount('archived') > 0 && (
-                      <Badge 
+                          <Badge 
                         variant="secondary" 
                         className="bg-gray-100 text-gray-600 text-xs px-2 py-0"
                       >
                         {getTabCount('archived')}
-                      </Badge>
-                    )}
-                  </div>
+                            </Badge>
+                          )}
+                        </div>
                 </TabsTrigger>
-              </div>
-            </div>
+                        </div>
+                      </div>
 
             {/* Quick Filter Pills */}
             <div className="flex flex-wrap gap-2 mb-4">
-              <Button
+                        <Button
                 variant={filterType === 'all' ? 'secondary' : 'outline'}
-                size="sm"
+                          size="sm"
                 onClick={() => setFilterType('all')}
                 className={`rounded-full text-xs ${filterType === 'all' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
-              >
+                        >
                 All Types
-              </Button>
-              <Button
+                        </Button>
+                          <Button
                 variant={filterType === 'contractors' ? 'secondary' : 'outline'}
-                size="sm"
+                            size="sm"
                 onClick={() => setFilterType('contractors')}
                 className={`rounded-full text-xs ${filterType === 'contractors' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
-              >
+                          >
                 👷 Contractors
-              </Button>
-              <Button
+                          </Button>
+                          <Button 
                 variant={filterType === 'orders' ? 'secondary' : 'outline'}
-                size="sm"
+                            size="sm"
                 onClick={() => setFilterType('orders')}
                 className={`rounded-full text-xs ${filterType === 'orders' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
-              >
+                          >
                 📦 Orders
-              </Button>
-              <Button
+                          </Button>
+                        <Button 
                 variant={filterType === 'messages' ? 'secondary' : 'outline'}
-                size="sm"
+                          size="sm"
                 onClick={() => setFilterType('messages')}
                 className={`rounded-full text-xs ${filterType === 'messages' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
-              >
+                        >
                 💬 Messages
-              </Button>
-              <Button
+                        </Button>
+                          <Button 
                 variant={filterType === 'system' ? 'secondary' : 'outline'}
-                size="sm"
+                            size="sm"
                 onClick={() => setFilterType('system')}
                 className={`rounded-full text-xs ${filterType === 'system' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-50 hover:text-orange-600'}`}
               >
@@ -921,14 +921,14 @@ export function AdminControlCenter() {
                     </p>
                     {searchQuery && (
                       <Button 
-                        variant="outline" 
+                            variant="outline"
                         onClick={() => setSearchQuery('')}
                         className="mt-4 border-orange-200 text-orange-600 hover:bg-orange-50"
-                      >
+                          >
                         Clear Search
-                      </Button>
-                    )}
-                  </div>
+                          </Button>
+                        )}
+                      </div>
                 ) : (
                   <div className="space-y-1">
                     {filteredNotifications.map((notification, index) => {
@@ -969,7 +969,7 @@ export function AdminControlCenter() {
                                     : "bg-green-500"
                                 )}></div>
                               )}
-                            </div>
+                    </div>
 
                             {/* Content */}
                             <div className="flex-1 min-w-0">
@@ -1005,7 +1005,7 @@ export function AdminControlCenter() {
                                     >
                                       {notification.notification_type.replace('_', ' ')}
                                     </Badge>
-                                  </div>
+                  </div>
                                   <p className="text-sm text-gray-600 mb-2 leading-relaxed">
                                     {notification.message}
                                   </p>
@@ -1032,8 +1032,8 @@ export function AdminControlCenter() {
                                             <IconComponent className="w-3 h-3 mr-1" />
                                             {action.label}
                         </Button>
-                                        );
-                                      })}
+                );
+              })}
                         
                                       {/* Delete Button */}
                           <Button 
@@ -1048,18 +1048,18 @@ export function AdminControlCenter() {
                                       >
                                         <Trash2 className="w-3 h-3" />
                           </Button>
-                      </div>
-                    </div>
-                  </div>
             </div>
           </div>
         </div>
           </div>
+        </div>
+          </div>
+          </div>
                       );
                     })}
-          </div>
-                )}
-                
+        </div>
+      )}
+
                 {/* View More */}
                 {filteredNotifications.length > 0 && (
                   <div className="text-center py-6 border-t border-gray-100 mt-6">
