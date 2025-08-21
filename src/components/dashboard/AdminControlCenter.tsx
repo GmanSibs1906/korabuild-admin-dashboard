@@ -203,7 +203,7 @@ export function AdminControlCenter() {
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
       case 'user_created':
         return <UserPlus className="w-4 h-4 text-emerald-500" />;
-      default:
+          default:
         return <Bell className="w-4 h-4 text-gray-500" />;
     }
   };
@@ -246,7 +246,7 @@ export function AdminControlCenter() {
                   name: conversationName,
                   projectName: projectName
                 });
-              } else {
+    } else {
                 console.log('⚠️ [Control Center] No conversation_id found, falling back to communications page');
                 window.location.href = '/communications';
               }
@@ -294,7 +294,7 @@ export function AdminControlCenter() {
             }
           }
         );
-        break;
+          break;
 
       case 'payment_due':
         actions.push(
@@ -320,14 +320,14 @@ export function AdminControlCenter() {
             action: () => {
               if (notification.entity_id) {
                 router.push(`/finances?payment=${notification.entity_id}`);
-              } else {
+          } else {
                 router.push('/finances');
-              }
+          }
               markAsRead(notification.id);
             }
           }
         );
-        break;
+          break;
 
       case 'project_update':
         actions.push(
@@ -370,7 +370,7 @@ export function AdminControlCenter() {
                   console.log('📖 [Control Center] Marking notification as read:', notification.id);
                   await markAsRead(notification.id);
                   console.log('✅ [Control Center] Notification marked as read successfully');
-                } catch (error) {
+    } catch (error) {
                   console.error('❌ [Control Center] Error marking notification as read:', error);
                 }
                 

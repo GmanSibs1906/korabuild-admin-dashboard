@@ -209,11 +209,12 @@ async function createNextPayment(projectId: string, paymentData: NextPaymentRequ
     }
 
     // Create new enhanced credit account with next payment info
+    // TEMPORARY FIX: Remove milestone_id to bypass the ambiguity error
     const { data: creditAccount, error } = await supabaseAdmin
       .from('enhanced_credit_accounts')
       .insert({
         project_id: projectId,
-        milestone_id: paymentData.milestone_id || null,
+        // milestone_id: paymentData.milestone_id || null, // DISABLED - causing ambiguity error
         payment_amount: paymentData.payment_amount || 0,
         payment_sequence: paymentData.payment_sequence || 1,
         total_payments: paymentData.total_payments || 1,
@@ -260,7 +261,7 @@ async function updateNextPayment(accountId: string, paymentData: NextPaymentRequ
     const { data: creditAccount, error } = await supabaseAdmin
       .from('enhanced_credit_accounts')
       .update({
-        milestone_id: paymentData.milestone_id,
+        // milestone_id: paymentData.milestone_id, // DISABLED - causing ambiguity error
         payment_amount: paymentData.payment_amount,
         payment_sequence: paymentData.payment_sequence,
         total_payments: paymentData.total_payments,
