@@ -20,6 +20,7 @@ export function useRealtimeNotifications() {
   const channelRef = useRef<any>(null);
   const priorityAlertIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const notificationsRef = useRef<RealtimeNotification[]>([]);
+  const currentSubscription = useRef<any>(null);
 
   // Fetch admin user IDs for filtering
   const [adminUserIds, setAdminUserIds] = useState<string[]>([]);
@@ -499,15 +500,11 @@ export function useRealtimeNotifications() {
   // Setup real-time subscription
   useEffect(() => {
     // Only proceed if admin IDs are loaded to prevent race conditions
-    if (!adminIdsLoaded) {
-      console.log('⏳ [Real-time Notifications] Waiting for admin IDs to load...');
+    if (adminUserIds.length === 0) {
+      console.log('⏳ [Real-time Notifications] Waiting for admin user IDs to load...');
       return;
     }
 
-    fetchNotifications();
-
-    // Subscribe to real-time changes with better error handling
-    console.log('🔄 [Real-time Notifications] Setting up subscription...');
     
     const setupSubscription = async () => {
       try {
@@ -535,284 +532,179 @@ export function useRealtimeNotifications() {
         
         console.log('✅ [Real-time Notifications] Database access test passed');
         
-        // TEMPORARY FIX: Use polling instead of real-time to avoid binding errors
-        console.log('🔄 [Real-time Notifications] Using polling mode to avoid binding errors...');
+        // FIXED: Use proper real-time subscriptions instead of polling
+        console.log('🔄 [Real-time Notifications] Setting up proper real-time subscription...');
         
-        // Track processed notifications to prevent duplicates
-        let processedNotificationIds = new Set<string>();
-        let lastPollTime = new Date();
+        // Create a unique channel name to avoid conflicts
+        const channelName = `notifications-${user.id}-${Date.now()}`;
         
-        // Initialize with current notifications to avoid re-processing them
-        notifications.forEach(notification => {
-          processedNotificationIds.add(notification.id);
-        });
-        
-        const pollForUpdates = async () => {
-          try {
-            const { data: latestNotifications, error: pollError } = await supabase
-              .from('notifications')
-              .select('*')
-              .order('created_at', { ascending: false })
-              .limit(50);
-              
-            if (!pollError && latestNotifications) {
-              console.log(`🔍 [Polling] Checking ${latestNotifications.length} notifications for updates...`);
-              
-              // Only apply admin filtering if admin user IDs are loaded to prevent flickering
-              const filteredAllNotifications = (adminUserIds.length > 0) ? latestNotifications.filter(notif => {
-                // Filter out notifications created by the admin themselves
-                const isAdminInitiated = notif.metadata?.created_by === 'admin' || 
-                                       notif.metadata?.sender_id === user.id ||
-                                       notif.metadata?.admin_action === true ||
-                                       notif.metadata?.initiated_by === user.id ||
-                                       notif.metadata?.source === 'admin_dashboard';
-                
-                // Enhanced: Filter out message notifications for messages sent by ANY admin user
-                // Also filter messages with missing/none sender_id that could be admin-generated
-                const isAdminSentMessage = notif.notification_type === 'message' && (
-                  notif.metadata?.sender_id === user.id || 
-                  notif.metadata?.from_admin === true ||
-                  notif.metadata?.source === 'admin_panel' ||
-                  notif.metadata?.source === 'admin_dashboard' ||
-                  // Check if sender is any admin user
-                  adminUserIds.includes(notif.metadata?.sender_id) ||
-                  // NEW: Filter messages with missing/none/empty sender_id that could be admin-generated
-                  (!notif.metadata?.sender_id || 
-                   notif.metadata?.sender_id === 'none' || 
-                   notif.metadata?.sender_id === '' ||
-                   notif.metadata?.sender_id === null)
-                );
-                
-                // NEW: Filter out admin-created notifications (but keep mobile app approvals)
-                const isAdminCreatedNotification = (
-                  // Filter out "New Contractor Added" notifications from admin
-                  (notif.title === '👷 New Contractor Added' && notif.metadata?.source !== 'mobile_app_approval') ||
-                  (notif.title === 'New Contractor Added' && notif.metadata?.source !== 'mobile_app_approval') ||
-                  
-                  // Filter out "Delivery Scheduled" notifications from admin
-                  (notif.title?.includes('Delivery Scheduled') && notif.metadata?.source !== 'mobile_app_approval') ||
-                  (notif.title?.includes('📦 Delivery Scheduled') && notif.metadata?.source !== 'mobile_app_approval') ||
-                  
-                  // Filter out "New Order Added" notifications from admin
-                  (notif.title === '📦 New Order Added' && notif.metadata?.source !== 'mobile_app_approval') ||
-                  (notif.title === 'New Order Added' && notif.metadata?.source !== 'mobile_app_approval') ||
-                  
-                  // Filter out any notification with source indicating admin creation
-                  notif.metadata?.source === 'admin_creation' ||
-                  notif.metadata?.source === 'admin_dashboard_creation' ||
-                  notif.metadata?.created_via === 'admin_dashboard'
-                );
-                
-                // KEEP mobile app approvals and user actions
-                const isMobileAppApproval = (
-                  notif.metadata?.source === 'mobile_app_approval' ||
-                  notif.metadata?.notification_subtype === 'contractor_approved' ||
-                  notif.metadata?.notification_subtype === 'order_approved' ||
-                  notif.metadata?.notification_subtype === 'user_action' ||
-                  notif.title?.includes('accepted') ||
-                  notif.title?.includes('approved')
-                );
-                
-                // Check if this notification is about an action the current admin user performed
-                const isCurrentUserAction = notif.entity_id && 
-                                          (notif.metadata?.performed_by === user.id ||
-                                           notif.metadata?.updated_by === user.id ||
-                                           notif.metadata?.created_by_user_id === user.id);
-                
-                // Debug logging for admin filtering - enhanced to show filtering reasons
-                if (isAdminCreatedNotification && !isMobileAppApproval) {
-                  console.log(`🚫 [Polling] Filtering out admin-created notification:`, {
-                    id: notif.id,
-                    title: notif.title,
-                    source: notif.metadata?.source,
-                    notification_subtype: notif.metadata?.notification_subtype,
-                    reason: 'Admin-created notification filtered out'
-                  });
-                }
-                
-                if (isMobileAppApproval) {
-                  console.log(`✅ [Polling] Keeping mobile app approval:`, {
-                    id: notif.id,
-                    title: notif.title,
-                    source: notif.metadata?.source,
-                    notification_subtype: notif.metadata?.notification_subtype,
-                    reason: 'Mobile app approval - keeping'
-                  });
-                }
-                
-                // Debug logging for admin message filtering
-                if (notif.notification_type === 'message' && isAdminSentMessage) {
-                  console.log(`🚫 [Polling] Filtering out admin message:`, {
-                    id: notif.id,
-                    title: notif.title,
-                    sender_id: notif.metadata?.sender_id,
-                    is_admin_sender: adminUserIds.includes(notif.metadata?.sender_id),
-                    is_missing_sender: !notif.metadata?.sender_id || notif.metadata?.sender_id === 'none',
-                    admin_user_ids: adminUserIds
-                  });
-                }
-                
-                // Only include notifications that are NOT admin-initiated, NOT admin-created, BUT ARE mobile app approvals
-                return !isAdminInitiated && !isAdminSentMessage && !isCurrentUserAction && 
-                       (!isAdminCreatedNotification || isMobileAppApproval);
-              }) : latestNotifications;
-              
-              console.log(`📊 [Polling] Filtered notifications: ${filteredAllNotifications.length} (from ${latestNotifications.length} total, admin filtering: ${adminUserIds.length > 0})`);
-              
-              // Find truly new notifications from the filtered list
-              const newNotifications = filteredAllNotifications.filter(notif => {
-                const isNewNotification = !processedNotificationIds.has(notif.id);
-                const isForCurrentUser = notif.user_id === user.id || !notif.user_id;
-                const createdAfterLastPoll = new Date(notif.created_at) > lastPollTime;
-                
-                return isNewNotification && isForCurrentUser && createdAfterLastPoll;
-              });
-              
-              console.log(`📊 [Polling] Found ${newNotifications.length} new legitimate notifications since last poll`);
-              
-              // Process new notifications for toast/sound
-              for (const newNotification of newNotifications) {
-                console.log('📨 [Polling] Processing new notification:', {
-                  id: newNotification.id,
-                  title: newNotification.title,
-                  type: newNotification.notification_type,
-                  created_at: newNotification.created_at,
-                  is_read: newNotification.is_read
-                });
-                
-                // Add to processed set immediately to prevent reprocessing
-                processedNotificationIds.add(newNotification.id);
-                
-                // Only show toast and play sound for unread notifications
-                if (!newNotification.is_read) {
-                  const typedNotification: RealtimeNotification = {
-                    ...newNotification,
-                    isNew: true
-                  };
-                  
-                  try {
-                    console.log('🍞 [Polling] Showing toast for new unread notification');
-                    showToastNotification(typedNotification);
-                    
-                    console.log('🔊 [Polling] Playing sound for new unread notification');
-                    await playNotificationSound(typedNotification.notification_type, typedNotification);
-                    
-                    console.log('✅ [Polling] New notification processed successfully');
-                  } catch (error) {
-                    console.error('❌ [Polling] Error processing notification:', error);
-                  }
-                } else {
-                  console.log('📖 [Polling] Notification already read, skipping toast/sound');
-                }
-              }
-              
-              // Update state with filtered notifications only
-              setNotificationsWithLogging(filteredAllNotifications);
-              notificationsRef.current = filteredAllNotifications;
-              
-              const unreadCount = filteredAllNotifications.filter(n => !n.is_read).length;
-              setUnreadCountWithLogging(unreadCount);
-              
-              // Update last poll time
-              lastPollTime = new Date();
-              
-              console.log(`📊 [Polling] State updated: ${filteredAllNotifications.length} total, ${unreadCount} unread (admin notifications excluded)`);
-              
-            } else if (pollError) {
-              console.error('❌ [Real-time Notifications] Polling failed:', pollError);
-            }
-          } catch (pollError) {
-            console.error('❌ [Real-time Notifications] Polling exception:', pollError);
-          }
-        };
-        
-        // Poll every 15 seconds for new notifications (reduced frequency for better performance)
-        const pollInterval = setInterval(pollForUpdates, 15000);
-        
-        // Store the interval for cleanup
-        channelRef.current = { 
-          interval: pollInterval,
-          // Store cleanup function to reset processed notifications
-          cleanup: () => {
-            processedNotificationIds.clear();
-          }
-        };
-        
-        console.log('✅ [Real-time Notifications] Polling mode active (5 second intervals)');
-        
-        /*
-        // DISABLED: Real-time subscription causing binding errors
-        // TODO: Re-enable once Supabase real-time binding issues are resolved
-        
-        const channel = supabase
-          .channel(`notifications_realtime_${user.id}`)
+        const subscription = supabase
+          .channel(channelName)
           .on(
             'postgres_changes',
             {
-              event: '*',
+              event: 'INSERT',
               schema: 'public',
               table: 'notifications'
             },
             async (payload) => {
-              // Real-time callback code...
+              try {
+                console.log('🔔 [Real-time] New notification received:', payload.new);
+                
+                const newNotification = payload.new as RealtimeNotification;
+                
+                // Apply the same filtering logic as before
+                const isAdminInitiated = newNotification.metadata?.created_by === 'admin' || 
+                                       newNotification.metadata?.sender_id === user.id ||
+                                       newNotification.metadata?.admin_action === true ||
+                                       newNotification.metadata?.initiated_by === user.id ||
+                                       newNotification.metadata?.source === 'admin_dashboard';
+                
+                const isAdminSentMessage = newNotification.notification_type === 'message' && (
+                  newNotification.metadata?.sender_id === user.id || 
+                  newNotification.metadata?.from_admin === true ||
+                  newNotification.metadata?.source === 'admin_panel' ||
+                  newNotification.metadata?.source === 'admin_dashboard' ||
+                  adminUserIds.includes(newNotification.metadata?.sender_id) ||
+                  (!newNotification.metadata?.sender_id || 
+                   newNotification.metadata?.sender_id === 'none' ||
+                   newNotification.metadata?.sender_id === '')
+                );
+                
+                // Skip if this is an admin-initiated action or admin-sent message
+                if (isAdminInitiated || isAdminSentMessage) {
+                  console.log('🚫 [Real-time] Filtering out admin-initiated notification:', {
+                    id: newNotification.id,
+                    type: newNotification.notification_type,
+                    isAdminInitiated,
+                    isAdminSentMessage
+                  });
+                  return;
+                }
+                
+                // Skip payment notifications as requested
+                if (newNotification.notification_type === 'payment_due') {
+                  console.log('🚫 [Real-time] Filtering out payment notification:', newNotification.id);
+                  return;
+                }
+                
+                // Add the new notification to the state
+                setNotifications(prev => {
+                  // Check for duplicates
+                  const exists = prev.some(n => n.id === newNotification.id);
+                  if (exists) {
+                    console.log('🔄 [Real-time] Notification already exists, skipping:', newNotification.id);
+                    return prev;
+                  }
+                  
+                  console.log('✅ [Real-time] Adding new notification:', {
+                    id: newNotification.id,
+                    title: newNotification.title,
+                    type: newNotification.notification_type
+                  });
+                  
+                  return [newNotification, ...prev];
+                });
+                
+              } catch (error) {
+                console.error('❌ [Real-time] Error processing notification:', error);
+              }
             }
           )
-          .subscribe((status, error) => {
-            // Subscription status handling...
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public', 
+              table: 'notifications'
+            },
+            async (payload) => {
+              try {
+                console.log('🔄 [Real-time] Notification updated:', payload.new);
+                
+                const updatedNotification = payload.new as RealtimeNotification;
+                
+                setNotifications(prev => 
+                  prev.map(n => 
+                    n.id === updatedNotification.id ? updatedNotification : n
+                  )
+                );
+                
+              } catch (error) {
+                console.error('❌ [Real-time] Error processing notification update:', error);
+              }
+            }
+          )
+          .subscribe((status) => {
+            console.log('🔗 [Real-time] Subscription status:', status);
+            
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ [Real-time] Successfully subscribed to notifications');
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('❌ [Real-time] Channel error - will retry');
+            } else if (status === 'TIMED_OUT') {
+              console.error('⏰ [Real-time] Subscription timed out - will retry');
+            } else if (status === 'CLOSED') {
+              console.warn('🔒 [Real-time] Subscription closed');
+            }
           });
-
-        channelRef.current = channel;
-        */
+        
+        // Store subscription for cleanup
+        currentSubscription.current = subscription;
+        
+        console.log('🎯 [Real-time] Real-time subscription setup complete');
         
       } catch (error) {
-        console.error('❌ [Real-time Notifications] Setup failed:', error);
-        console.log('💡 [Real-time Notifications] Falling back to basic polling...');
+        console.error('❌ [Real-time Notifications] Setup error:', error);
         
-        // Basic fallback: Poll for notifications every 30 seconds
+        // Fallback: If real-time fails, use a minimal polling approach
+        console.log('🔄 [Real-time] Real-time failed, using fallback polling...');
+        
         const fallbackInterval = setInterval(async () => {
           try {
             const { data: latestNotifications, error: pollError } = await supabase
               .from('notifications')
               .select('*')
               .order('created_at', { ascending: false })
-              .limit(50);
+              .limit(10)
+              .gte('created_at', new Date(Date.now() - 60000).toISOString()); // Only last minute
               
-            if (!pollError && latestNotifications) {
-              setNotificationsWithLogging(latestNotifications);
-              notificationsRef.current = latestNotifications;
-              const unreadCount = latestNotifications.filter(n => !n.is_read).length;
-              setUnreadCountWithLogging(unreadCount);
+            if (!pollError && latestNotifications && latestNotifications.length > 0) {
+              console.log(`🔍 [Fallback] Found ${latestNotifications.length} recent notifications`);
+              
+              setNotifications(prev => {
+                const newNotifications = latestNotifications.filter(notif => 
+                  !prev.some(existing => existing.id === notif.id)
+                );
+                
+                if (newNotifications.length > 0) {
+                  console.log(`✅ [Fallback] Adding ${newNotifications.length} new notifications`);
+                  return [...newNotifications, ...prev];
+                }
+                
+                return prev;
+              });
             }
-          } catch (fallbackError) {
-            console.error('❌ [Real-time Notifications] Fallback polling failed:', fallbackError);
+          } catch (pollError) {
+            console.error('❌ [Fallback] Polling error:', pollError);
           }
-        }, 30000);
+        }, 10000); // Poll every 10 seconds as fallback
         
-        channelRef.current = { interval: fallbackInterval };
+        currentSubscription.current = { unsubscribe: () => clearInterval(fallbackInterval) };
       }
     };
     
     setupSubscription();
-
-    // Cleanup subscription on unmount
+    
+    // Cleanup function
     return () => {
-      if (channelRef.current) {
-        console.log('🧹 [Real-time] Cleaning up notification subscription');
-        
-        if (channelRef.current.interval) {
-          // Cleanup polling interval
-          clearInterval(channelRef.current.interval);
-          console.log('✅ [Real-time] Polling interval cleared');
-        } else {
-          // Cleanup Supabase channel (when real-time is re-enabled)
-          supabase.removeChannel(channelRef.current);
-          console.log('✅ [Real-time] Supabase channel removed');
-        }
-        
-        channelRef.current = null;
+      if (currentSubscription.current) {
+        console.log('🧹 [Real-time Notifications] Cleaning up subscription...');
+        currentSubscription.current.unsubscribe();
+        currentSubscription.current = null;
       }
     };
-  }, [fetchNotifications, showToastNotification, playNotificationSound, adminIdsLoaded]);
+  }, [adminUserIds]); // Re-run when admin IDs are loaded
 
   // Toggle sound on/off
   const toggleSound = useCallback(() => {

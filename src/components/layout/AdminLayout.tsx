@@ -35,7 +35,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { getInitials } from '@/lib/utils';
-import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
+import { useNetlifyRealtime } from '@/hooks/useNetlifyRealtime';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -159,7 +159,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAdminAuth();
-  const { unreadCount, notifications } = useRealtimeNotifications();
+  const { unreadCount, notifications } = useNetlifyRealtime();
 
   // Check if there are priority notifications
   const hasPriorityNotifications = notifications.some(n => 
