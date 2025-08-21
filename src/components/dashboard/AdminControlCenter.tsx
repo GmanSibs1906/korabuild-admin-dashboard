@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useNetlifyRealtime } from '@/hooks/useNetlifyRealtime';
+import { useNetlifyRealtimeDebug } from '@/hooks/useNetlifyRealtimeDebug';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -72,7 +72,8 @@ export function AdminControlCenter() {
     toggleSound,
     testRealtime,
     testSound,
-  } = useNetlifyRealtime();
+    debugInfo,
+  } = useNetlifyRealtimeDebug();
 
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
